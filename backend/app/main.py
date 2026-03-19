@@ -9,6 +9,9 @@ from app.middleware.guard.permission import PermissionGuard
 from app.routes import (
     loggin_router,
     user_router,
+    grade_router,
+    grade_level_router,
+    academic_year_router,
     class_router,
     subject_router,
     course_router,
@@ -19,7 +22,6 @@ from app.routes import (
     result_router,
     enrollment_router,
     attendance_router,
-    grade_router,
     submission_router,
 )
 from app.routes.profiles import profiles_router
@@ -62,6 +64,9 @@ router = APIRouter(prefix="/api/v1")
 router.include_router(router=loggin_router)
 router.include_router(router=user_router)
 router.include_router(router=profiles_router)
+router.include_router(router=grade_router)  
+router.include_router(router=grade_level_router)
+router.include_router(router=academic_year_router)
 router.include_router(router=class_router)
 router.include_router(router=course_router)
 router.include_router(router=subject_router)
@@ -72,7 +77,6 @@ router.include_router(router=exam_router)
 router.include_router(router=result_router)
 router.include_router(router=enrollment_router)
 router.include_router(router=attendance_router)
-router.include_router(router=grade_router)  
 router.include_router(router=submission_router)
 
 

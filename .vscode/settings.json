@@ -1,0 +1,18 @@
+{
+  "python.defaultInterpreterPath": "/Users/mac/Documents/School ITC/Year3/wdim/lms-fastapi/.venv/bin/python",
+  "python.linting.enabled": true,
+  "python.linting.pylintEnabled": false,
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.python",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    }
+  },
+  "python.analysis.typeCheckingMode": "off",
+  "python.analysis.extraPaths": [
+    "/Users/mac/Documents/School ITC/Year3/wdim/lms-fastapi/backend"
+  ],
+  "python.analysis.stubPath": "/Users/mac/Documents/School ITC/Year3/wdim/lms-fastapi/.venv/lib/python3.11/site-packages",
+  "python.analysis.pythonPath": "/Users/mac/Documents/School ITC/Year3/wdim/lms-fastapi/.venv/bin/python"
+}

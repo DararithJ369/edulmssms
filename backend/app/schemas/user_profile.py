@@ -55,21 +55,21 @@ class ParentProfileUpdate(BaseModel):
     emergency_phone: Optional[str] = None
 
 
-# ── Teacher extension ─────────────────────────────────────────────────────────
+# ── Instructor extension ────────────────────────────────────────────────────────
 
-class TeacherProfileCreate(BaseModel):
+class InstructorProfileCreate(BaseModel):
     department: Optional[str] = None
     position: Optional[str] = None
     office: Optional[str] = None
 
 
-class TeacherProfileUpdate(BaseModel):
+class InstructorProfileUpdate(BaseModel):
     department: Optional[str] = None
     position: Optional[str] = None
     office: Optional[str] = None
 
 
-class TeacherProfileNested(BaseModel):
+class InstructorProfileNested(BaseModel):
     id: int
     department: Optional[str] = None
     position: Optional[str] = None
@@ -109,9 +109,9 @@ class StudentProfileResponse(UserProfileResponse):
     student_profile: Optional[StudentProfileNested] = None
 
 
-class TeacherProfileResponse(UserProfileResponse):
-    """Full teacher profile — base profile + teacher extension."""
-    teacher_profile: Optional[TeacherProfileNested] = None
+class InstructorProfileResponse(UserProfileResponse):
+    """Full instructor profile — base profile + instructor extension."""
+    instructor_profile: Optional[InstructorProfileNested] = None
     
 
 # Parent profile response includes linked students

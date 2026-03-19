@@ -19,12 +19,12 @@ def get_class(class_id: int, db: Session = Depends(get_db)):
     return ClassService.get_class_by_id(db, class_id)
 
 
-@class_router.post("", response_model=ClassResponse, dependencies=[Depends(PermissionGuard.admin_or_teacher)])
+@class_router.post("", response_model=ClassResponse, dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def create_class(payload: ClassCreate, db: Session = Depends(get_db)):
     return ClassService.create_class(db, payload)
 
 
-@class_router.put("/{class_id}", response_model=ClassResponse, dependencies=[Depends(PermissionGuard.admin_or_teacher)])
+@class_router.put("/{class_id}", response_model=ClassResponse, dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def update_class(class_id: int, payload: ClassUpdate, db: Session = Depends(get_db)):
     return ClassService.update_class(db, class_id, payload)
 
@@ -42,13 +42,13 @@ def get_class_students(class_id: int, db: Session = Depends(get_db)):
 
 
 @class_router.post("/{class_id}/students/{student_id}", response_model=ClassResponse,
-                   dependencies=[Depends(PermissionGuard.admin_or_teacher)])
+                   dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def add_student(class_id: int, student_id: str, db: Session = Depends(get_db)):
     return ClassService.add_student(db, class_id, student_id)
 
 
 @class_router.delete("/{class_id}/students/{student_id}",
-                     dependencies=[Depends(PermissionGuard.admin_or_teacher)])
+                     dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def remove_student(class_id: int, student_id: str, db: Session = Depends(get_db)):
     return ClassService.remove_student(db, class_id, student_id)
 
@@ -61,6 +61,6 @@ def get_class_sessions(class_id: int, db: Session = Depends(get_db)):
 
 
 @class_router.post("/{class_id}/sessions", response_model=ClassSessionResponse,
-                   dependencies=[Depends(PermissionGuard.admin_or_teacher)])
+                   dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def create_session(class_id: int, payload: ClassSessionCreate, db: Session = Depends(get_db)):
     return ClassService.create_session(db, class_id, payload)

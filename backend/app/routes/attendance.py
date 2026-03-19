@@ -13,7 +13,7 @@ attendance_router = APIRouter(tags=["Attendance"])
 
 @attendance_router.post(
     "/classes/{class_id}/sessions/{session_id}/attendance",
-    dependencies=[Depends(PermissionGuard.admin_or_teacher)],
+    dependencies=[Depends(PermissionGuard.admin_or_instructor)],
 )
 def mark_attendance(
     class_id: int,
@@ -26,7 +26,7 @@ def mark_attendance(
 
 @attendance_router.get(
     "/classes/{class_id}/sessions/{session_id}/attendance",
-    dependencies=[Depends(PermissionGuard.admin_or_teacher)],
+    dependencies=[Depends(PermissionGuard.admin_or_instructor)],
 )
 def get_session_attendance(session_id: int, db: Session = Depends(get_db)):
     return AttendanceService.get_session_attendance(db, session_id)
@@ -46,7 +46,7 @@ def get_student_attendance(
 @attendance_router.put(
     "/attendance/{attendance_id}",
     response_model=AttendanceResponse,
-    dependencies=[Depends(PermissionGuard.admin_or_teacher)],
+    dependencies=[Depends(PermissionGuard.admin_or_instructor)],
 )
 def update_attendance(
     attendance_id: int,

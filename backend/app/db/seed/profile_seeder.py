@@ -1,5 +1,7 @@
 from sqlalchemy import inspect
 from sqlalchemy.orm import Session
+from sqlalchemy.engine import Engine
+
 from app.db.seed.base import BaseSeeder
 from app.models.user_profile import UserProfile
 from app.utils.colors import Colors
@@ -10,7 +12,11 @@ class ProfileSeeder(BaseSeeder):
         super().__init__(db, UserProfile)
 
     def seed_profile(self, user_id: str, full_name: str, class_id: int | None = None):
-        inspector = inspect(self.db.bind)
+        bind = self.db.bind
+        if not isinstance(bind, Engine):
+            Colors.warning("Database bind is not an Engine, skipping profile seeding")
+            return None
+        inspector = inspect(bind)
         if "user_profiles" not in set(inspector.get_table_names()):
             Colors.warning("Table 'user_profiles' does not exist, skipping profile seeding")
             return None

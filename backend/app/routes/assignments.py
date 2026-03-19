@@ -22,7 +22,7 @@ def get_assignment(assignment_id: int, db: Session = Depends(get_db)):
     return AssignmentService.get_assignment_by_id(db, assignment_id)
 
 
-@assignment_router.post("", response_model=AssignmentResponse, dependencies=[Depends(PermissionGuard.admin_or_teacher)])
+@assignment_router.post("", response_model=AssignmentResponse, dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def create_assignment(
     course_id: int = Form(...),
     title: str = Form(...),
@@ -47,7 +47,7 @@ def create_assignment(
     )
 
 
-@assignment_router.put("/{assignment_id}", response_model=AssignmentResponse, dependencies=[Depends(PermissionGuard.admin_or_teacher)])
+@assignment_router.put("/{assignment_id}", response_model=AssignmentResponse, dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def update_assignment(
     assignment_id: int,
     title: Optional[str] = Form(None),
@@ -72,14 +72,14 @@ def update_assignment(
     )
 
 
-@assignment_router.delete("/{assignment_id}", dependencies=[Depends(PermissionGuard.admin_or_teacher)])
+@assignment_router.delete("/{assignment_id}", dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def delete_assignment(assignment_id: int, db: Session = Depends(get_db)):
     return AssignmentService.delete_assignment(db, assignment_id)
 
 
 # ── Submissions ───────────────────────────────────────────────────────────────
 
-@assignment_router.get("/{assignment_id}/submissions", dependencies=[Depends(PermissionGuard.admin_or_teacher)])
+@assignment_router.get("/{assignment_id}/submissions", dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def get_assignment_submissions(assignment_id: int, db: Session = Depends(get_db)):
     return AssignmentService.get_submissions(db, assignment_id)
 

@@ -12,6 +12,8 @@ from .enrollments import enrollment_router
 from .attendance import attendance_router
 from .grades import grade_router
 from .submissions import submission_router
+from .grade_level import grade_level_router
+from .academic_year import academic_year_router
 
 all_routers = [
     loggin_router,
@@ -28,4 +30,7 @@ all_routers = [
     attendance_router,
     grade_router,
     submission_router,
+    grade_level_router,
+    academic_year_router,
+    
 ]

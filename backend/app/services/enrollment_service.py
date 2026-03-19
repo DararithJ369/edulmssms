@@ -1,7 +1,11 @@
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
-from app.models.course import Enrollment
+from app.models.enrollment import Enrollment
+from app.models.student_profile import StudentProfile
+from app.models.course import Course
+from app.models.academic_year import AcademicYear
+from app.models.term import Term
 from app.schemas.enrollment import EnrollmentCreate, EnrollmentUpdate, EnrollmentResponse
 
 
@@ -31,11 +35,34 @@ class EnrollmentService:
 
     @staticmethod
     def create_enrollment(db: Session, enrollment_in: EnrollmentCreate) -> EnrollmentResponse:
+        # Validate all FKs
+        if not db.query(StudentProfile).filter(StudentProfile.id == enrollment_in.student_profile_id).first():
+            raise HTTPException(status_code=404, detail="Student profile not found")
+
+        if not db.query(Course).filter(Course.id == enrollment_in.course_id).first():
+            raise HTTPException(status_code=404, detail="Course not found")
+
+        if not db.query(AcademicYear).filter(AcademicYear.id == enrollment_in.academic_year_id).first():
+            raise HTTPException(status_code=404, detail="Academic year not found")
+
+        if enrollment_in.term_id:
+            term = db.query(Term).filter(Term.id == enrollment_in.term_id).first()
+            if not term:
+                raise HTTPException(status_code=404, detail="Term not found")
+            if term.academic_year_id != enrollment_in.academic_year_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Term does not belong to the specified academic year",
+                )
+
+        # No duplicate active enrollment for same student + course + year + term
         existing = (
             db.query(Enrollment)
             .filter(
-                Enrollment.student_id == enrollment_in.student_id,
+                Enrollment.student_profile_id == enrollment_in.student_profile_id,
                 Enrollment.course_id == enrollment_in.course_id,
+                Enrollment.academic_year_id == enrollment_in.academic_year_id,
+                Enrollment.term_id == enrollment_in.term_id,
             )
             .first()
         )
@@ -43,6 +70,7 @@ class EnrollmentService:
             if existing.is_active:
                 raise HTTPException(status_code=400, detail="Student already enrolled")
             existing.is_active = True
+            existing.dropped_date = None
             db.commit()
             db.refresh(existing)
             return EnrollmentResponse.model_validate(existing)

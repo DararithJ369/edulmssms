@@ -1,7 +1,8 @@
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
-from app.models.course import Course, Lesson, Enrollment
+from app.models.course import Course, Lesson
+from app.models.enrollment import Enrollment
 from app.models.user import User
 from app.schemas.course import CourseCreate, CourseUpdate, CourseResponse
 from app.schemas.lesson import LessonResponse

@@ -100,7 +100,7 @@ class UserProfile(UserProfileBase):
     model_config = {"from_attributes": True}
         
         
-class TeacherProfile(UserProfileBase):
+class InstructorProfile(UserProfileBase):
     department: Optional[str] = None
     position: Optional[str] = None
     office: Optional[str] = None

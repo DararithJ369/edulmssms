@@ -17,7 +17,7 @@ class Course(Base):
     max_students = Column(Integer)
     difficulty = Column(String, default="beginner")
     instructor_name = Column(String)
-    teacher_id = Column(String, ForeignKey("users.id"))
+    instructor_id = Column(String, ForeignKey("users.id"))
     subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=True)
 
     thumbnail = Column(String)
@@ -34,13 +34,14 @@ class Course(Base):
     
     # Relationships
     subject = relationship("Subject", back_populates="courses")
-    # Teacher relationship: Course.teacher_id → User.id
-    teacher = relationship(
+    # Instructor relationship: Course.instructor_id → User.id
+    instructor = relationship(
         "User",
-        foreign_keys=[teacher_id],
+        foreign_keys=[instructor_id],
         lazy="selectin",
         overlaps="courses",
     )
+    enrollments = relationship("Enrollment", back_populates="course", lazy="selectin")
 
 # ---------------- Module ----------------
 class Module(Base):
@@ -68,13 +69,3 @@ class Lesson(Base):
     order = Column(Integer, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-# ---------------- Enrollment ----------------
-class Enrollment(Base):
-    __tablename__ = "enrollments"
-
-    id = Column(Integer, primary_key=True, index=True)
-    course_id = Column(Integer, ForeignKey("courses.id"), nullable=False)
-    student_id = Column(String, ForeignKey("users.id"), nullable=False)
-    enrollment_date = Column(DateTime(timezone=True), server_default=func.now())
-    progress = Column(Float, default=0.0)
-    status = Column(String, default="Active")  # Active, Completed, Dropped

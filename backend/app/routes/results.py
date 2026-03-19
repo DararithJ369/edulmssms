@@ -9,7 +9,7 @@ from app.schemas.result import ResultCreate, ResultUpdate, ResultResponse
 result_router = APIRouter(prefix="/results", tags=["Results"])
 
 
-@result_router.get("", dependencies=[Depends(PermissionGuard.admin_or_teacher)])
+@result_router.get("", dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def get_all_results(page: int = 1, limit: int = 10, db: Session = Depends(get_db)):
     return ResultService.get_results(db, page, limit)
 
@@ -19,12 +19,12 @@ def get_result(result_id: int, db: Session = Depends(get_db)):
     return ResultService.get_result_by_id(db, result_id)
 
 
-@result_router.post("", response_model=ResultResponse, dependencies=[Depends(PermissionGuard.admin_or_teacher)])
+@result_router.post("", response_model=ResultResponse, dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def create_result(payload: ResultCreate, db: Session = Depends(get_db)):
     return ResultService.create_result(db, payload)
 
 
-@result_router.put("/{result_id}", response_model=ResultResponse, dependencies=[Depends(PermissionGuard.admin_or_teacher)])
+@result_router.put("/{result_id}", response_model=ResultResponse, dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def update_result(
     result_id: int,
     score: Optional[float] = Form(None),

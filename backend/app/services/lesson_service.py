@@ -16,7 +16,7 @@ class LessonService:
         total = db.query(func.count(Lesson.id)).scalar()
         lessons = (
             db.query(Lesson)
-            .order_by(Lesson.course_id.asc(), Lesson.order.asc())
+            .order_by(Lesson.module_id.asc(), Lesson.order.asc())
             .offset((page - 1) * limit)
             .limit(limit)
             .all()
@@ -86,7 +86,7 @@ class LessonService:
             raise HTTPException(status_code=404, detail="Lesson not found")
         material = LessonMaterial(lesson_id=lesson_id, **material_in.model_dump())
         if file:
-            material.file_url = get_image(file)
+            material.file_url = get_image(file)  # type: ignore
         db.add(material)
         db.commit()
         db.refresh(material)

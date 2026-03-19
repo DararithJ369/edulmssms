@@ -19,11 +19,12 @@ class PermissionGuard:
         token: HTTPAuthorizationCredentials = Depends(security)
     ):
         try: 
+            secret_key = os.getenv("SECRET_KEY", "")
+            jwt_algorithm = os.getenv("JWT_ALGORITHM", "HS256")
             payload = JWTService.verify_token(
                 token.credentials, 
-                secret_key=os.getenv("SECRET_KEY"), 
-                algorithms=os.getenv("JWT_ALGORITHM")
-                .split(",")
+                secret_key=secret_key, 
+                algorithms=jwt_algorithm.split(",")
             )
             user_id = payload.get("sub")
             if user_id is None:
@@ -41,7 +42,7 @@ class PermissionGuard:
         return current_user
     
     @staticmethod
-    def admin_or_teacher(current_user=Depends(get_current_user)):
-        if current_user.role.name.lower() not in ["admin", "teacher"]:
-            raise HTTPException(status_code=403, detail="Admin or Teacher privileges required")
+    def admin_or_instructor(current_user=Depends(get_current_user)):
+        if current_user.role.name.lower() not in ["admin", "instructor"]:
+            raise HTTPException(status_code=403, detail="Admin or Instructor privileges required")
         return current_user

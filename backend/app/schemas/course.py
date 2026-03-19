@@ -5,17 +5,17 @@ from datetime import datetime
 class CourseBase(BaseModel):
     course_name: str
     course_code: str
-    description: str
-    category: str
-    duration: int # in weeks
-    price: float
-    max_students: Optional[int]
+    description: Optional[str] = None
+    category: Optional[str] = None
+    duration: Optional[int] = None  # in weeks
+    price: Optional[float] = None
+    max_students: Optional[int] = None
     difficulty: Optional[str] = "beginner"
-    instructor_name: str
+    instructor_name: Optional[str] = None
     
 
 class CourseCreate(CourseBase):
-    teacher_id: str
+    instructor_id: str
     
     
 class CourseUpdate(BaseModel):
@@ -32,7 +32,8 @@ class CourseUpdate(BaseModel):
     
 class CourseResponse(CourseBase):
     id: int
-    teacher_id: str
+    instructor_id: str
+    subject_id: Optional[int] = None
     thumbnail: Optional[str] = None
     enrollment_status: str = "open" # open, closed, waitlist
     student_enrolled: int = 0    
@@ -42,13 +43,14 @@ class CourseResponse(CourseBase):
     certificate_title: Optional[str] = None
     certificate_description: Optional[str] = None
     created_at: datetime
+    updated_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
     
 
 class Course(CourseBase):
     id: int
-    teacher_id: str
+    instructor_id: str
     thumbnail: Optional[str] = None
     enrollment_status: str = "open" # open, closed, waitlist
     student_enrolled: int = 0    

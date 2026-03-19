@@ -9,7 +9,7 @@ from app.schemas.enrollment import EnrollmentCreate, EnrollmentUpdate, Enrollmen
 enrollment_router = APIRouter(prefix="/enrollments", tags=["Enrollments"])
 
 
-@enrollment_router.get("", dependencies=[Depends(PermissionGuard.admin_or_teacher)])
+@enrollment_router.get("", dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def get_all_enrollments(page: int = 1, limit: int = 10, db: Session = Depends(get_db)):
     return EnrollmentService.get_enrollments(db, page, limit)
 
@@ -19,7 +19,7 @@ def get_enrollment(enrollment_id: int, db: Session = Depends(get_db)):
     return EnrollmentService.get_enrollment_by_id(db, enrollment_id)
 
 
-@enrollment_router.post("", response_model=EnrollmentResponse, dependencies=[Depends(PermissionGuard.admin_or_teacher)])
+@enrollment_router.post("", response_model=EnrollmentResponse, dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def create_enrollment(
     student_id: str = Form(...),
     course_id: int = Form(...),
@@ -31,7 +31,7 @@ def create_enrollment(
     )
 
 
-@enrollment_router.put("/{enrollment_id}", response_model=EnrollmentResponse, dependencies=[Depends(PermissionGuard.admin_or_teacher)])
+@enrollment_router.put("/{enrollment_id}", response_model=EnrollmentResponse, dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def update_enrollment(
     enrollment_id: int,
     is_active: Optional[bool] = Form(None),

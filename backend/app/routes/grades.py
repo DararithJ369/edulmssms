@@ -11,12 +11,12 @@ grade_router = APIRouter(tags=["Grades"])
 
 # ── General grades CRUD ───────────────────────────────────────────────────────
 
-@grade_router.get("/grades", dependencies=[Depends(PermissionGuard.admin_or_teacher)])
+@grade_router.get("/grades", dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def get_all_grades(page: int = 1, limit: int = 10, db: Session = Depends(get_db)):
     return GradeService.get_grades(db, page, limit)
 
 
-@grade_router.post("/grades", response_model=GradeResponse, dependencies=[Depends(PermissionGuard.admin_or_teacher)])
+@grade_router.post("/grades", response_model=GradeResponse, dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def add_or_update_grade(
     student_id: str = Form(...),
     score: float = Form(...),
@@ -39,7 +39,7 @@ def add_or_update_grade(
     )
 
 
-@grade_router.put("/grades/{grade_id}", response_model=GradeResponse, dependencies=[Depends(PermissionGuard.admin_or_teacher)])
+@grade_router.put("/grades/{grade_id}", response_model=GradeResponse, dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def update_grade(
     grade_id: int,
     score: Optional[float] = Form(None),

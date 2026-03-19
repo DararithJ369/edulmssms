@@ -4,7 +4,7 @@ from typing import Optional
 
 
 class SubjectBase(BaseModel):
-    teacher_id: str
+    instructor_id: str
     name: str
     code: Optional[str] = None
     description: Optional[str] = None
@@ -18,7 +18,7 @@ class SubjectCreate(SubjectBase):
 
 
 class SubjectUpdate(BaseModel):
-    teacher_id: Optional[str] = None
+    instructor_id: Optional[str] = None
     name: Optional[str] = None
     code: Optional[str] = None
     description: Optional[str] = None

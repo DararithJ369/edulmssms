@@ -33,7 +33,7 @@ def get_student_profile(
 @student_router.post(
     "/{user_id}/profile",
     response_model=StudentProfileResponse,
-    dependencies=[Depends(PermissionGuard.admin_or_teacher)],
+    dependencies=[Depends(PermissionGuard.admin_or_instructor)],
 )
 def create_student_profile(
     user_id: str,
@@ -55,7 +55,7 @@ def create_student_profile(
 @student_router.put(
     "/{user_id}/profile",
     response_model=StudentProfileResponse,
-    dependencies=[Depends(PermissionGuard.admin_or_teacher)],
+    dependencies=[Depends(PermissionGuard.admin_or_instructor)],
 )
 def update_student_profile(
     user_id: str,

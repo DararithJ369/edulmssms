@@ -9,7 +9,7 @@ class Subject(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
-    teacher_id = Column(String, ForeignKey("users.id"), nullable=False)
+    instructor_id = Column(String, ForeignKey("users.id"), nullable=False)
 
     name = Column(String, nullable=False, unique=True)
     code = Column(String, nullable=True)  # e.g. MTH101
@@ -23,5 +23,5 @@ class Subject(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
-    teacher = relationship("User", back_populates="subjects", lazy="selectin")
+    instructor = relationship("User", back_populates="subjects", lazy="selectin")
     courses = relationship("Course", back_populates="subject", lazy="selectin")

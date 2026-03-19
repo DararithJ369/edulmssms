@@ -8,7 +8,7 @@ class QuizBase(BaseModel):
     title: str
     description: Optional[str] = None
     due_date: datetime
-    teacher_id: str
+    instructor_id: str
 
 class QuizCreate(QuizBase):
     pass

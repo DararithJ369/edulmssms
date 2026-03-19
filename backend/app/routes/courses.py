@@ -19,12 +19,12 @@ def get_course(course_id: int, db: Session = Depends(get_db)):
     return CourseService.get_course_by_id(db, course_id)
 
 
-@course_router.post("", response_model=CourseResponse, dependencies=[Depends(PermissionGuard.admin_or_teacher)])
+@course_router.post("", response_model=CourseResponse, dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def create_course(payload: CourseCreate, db: Session = Depends(get_db)):
     return CourseService.create_course(db, payload)
 
 
-@course_router.put("/{course_id}", response_model=CourseResponse, dependencies=[Depends(PermissionGuard.admin_or_teacher)])
+@course_router.put("/{course_id}", response_model=CourseResponse, dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def update_course(course_id: int, payload: CourseUpdate, db: Session = Depends(get_db)):
     return CourseService.update_course(db, course_id, payload)
 
@@ -43,12 +43,12 @@ def get_course_lessons(course_id: int, db: Session = Depends(get_db)):
 
 # ── Enrollments ───────────────────────────────────────────────────────────────
 
-@course_router.post("/{course_id}/enroll", dependencies=[Depends(PermissionGuard.admin_or_teacher)])
+@course_router.post("/{course_id}/enroll", dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def enroll_student(course_id: int, payload: EnrollmentCreate, db: Session = Depends(get_db)):
     return CourseService.enroll_student(db, course_id, payload)
 
 
-@course_router.delete("/{course_id}/enroll/{student_id}", dependencies=[Depends(PermissionGuard.admin_or_teacher)])
+@course_router.delete("/{course_id}/enroll/{student_id}", dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def unenroll_student(course_id: int, student_id: str, db: Session = Depends(get_db)):
     return CourseService.unenroll_student(db, course_id, student_id)
 

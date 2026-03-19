@@ -11,7 +11,7 @@ class Certificate(Base):
     title = Column(String, nullable=False)
     description = Column(Text)
 
-    course_id = Column(String, ForeignKey("courses.id"))
+    course_id = Column(Integer, ForeignKey("courses.id"))
 
     template = Column(String)
     

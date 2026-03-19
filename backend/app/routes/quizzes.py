@@ -20,17 +20,17 @@ def get_quiz(quiz_id: int, db: Session = Depends(get_db)):
     return QuizService.get_quiz_by_id(db, quiz_id)
 
 
-@quiz_router.post("", response_model=QuizResponse, dependencies=[Depends(PermissionGuard.admin_or_teacher)])
+@quiz_router.post("", response_model=QuizResponse, dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def create_quiz(payload: QuizCreate, db: Session = Depends(get_db)):
     return QuizService.create_quiz(db, payload)
 
 
-@quiz_router.put("/{quiz_id}", response_model=QuizResponse, dependencies=[Depends(PermissionGuard.admin_or_teacher)])
+@quiz_router.put("/{quiz_id}", response_model=QuizResponse, dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def update_quiz(quiz_id: int, payload: QuizUpdate, db: Session = Depends(get_db)):
     return QuizService.update_quiz(db, quiz_id, payload)
 
 
-@quiz_router.delete("/{quiz_id}", dependencies=[Depends(PermissionGuard.admin_or_teacher)])
+@quiz_router.delete("/{quiz_id}", dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def delete_quiz(quiz_id: int, db: Session = Depends(get_db)):
     return QuizService.delete_quiz(db, quiz_id)
 
@@ -47,6 +47,6 @@ def submit_quiz(
     return QuizService.submit_quiz(db, quiz_id, current_user.id, payload)
 
 
-@quiz_router.get("/{quiz_id}/results", dependencies=[Depends(PermissionGuard.admin_or_teacher)])
+@quiz_router.get("/{quiz_id}/results", dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def get_quiz_results(quiz_id: int, db: Session = Depends(get_db)):
     return QuizService.get_quiz_results(db, quiz_id)

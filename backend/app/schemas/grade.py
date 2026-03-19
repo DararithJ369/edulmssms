@@ -21,14 +21,8 @@ class GradeUpdate(BaseModel):
 
 class GradeResponse(GradeBase):
     id: int
-    student_id: int
-    assignment_id: Optional[int] = None
-    exam_id: Optional[int] = None
-    score: float
-    letter_grade: str
-    feedback: Optional[str] = None
     created_at: datetime
-
+    
     model_config = {"from_attributes": True}
     
 

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException, UploadFile
 from app.models.user_profile import UserProfile
 from app.models.student_profile import StudentProfile
-from app.models.teacher_profile import TeacherProfile
+from app.models.instructor_profile import InstructorProfile
 from app.models.user import User
 from app.schemas.user_profile import (
     UserProfileBase,
@@ -12,9 +12,9 @@ from app.schemas.user_profile import (
     StudentProfileCreate,
     StudentProfileUpdate,
     StudentProfileResponse,
-    TeacherProfileCreate,
-    TeacherProfileUpdate,
-    TeacherProfileResponse,
+    InstructorProfileCreate,
+    InstructorProfileUpdate,
+    InstructorProfileResponse,
 )
 from app.utils.get_image import get_image
 
@@ -91,7 +91,7 @@ class UserProfileService:
             setattr(profile, field, value)
 
         if image:
-            profile.image = get_image(image)
+            profile.image = get_image(image)  # type: ignore[attr-defined]
 
         db.commit()
         db.refresh(profile)
@@ -111,7 +111,7 @@ class UserProfileService:
         profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
         if not profile:
             raise HTTPException(status_code=404, detail="Profile not found")
-        profile.class_id = class_id
+        profile.class_id = class_id  # type: ignore[attr-defined]
         db.commit()
         db.refresh(profile)
         return UserProfileResponse.model_validate(profile)
@@ -184,7 +184,7 @@ class StudentProfileService:
 
 # ── Teacher extension ─────────────────────────────────────────────────────────
 
-class TeacherProfileService:
+class InstructorProfileService:
 
     @staticmethod
     def _get_base(db: Session, user_id: str) -> UserProfile:
@@ -197,51 +197,50 @@ class TeacherProfileService:
         return profile
 
     @staticmethod
-    def get_teacher_profile(db: Session, user_id: str) -> TeacherProfileResponse:
-        profile = TeacherProfileService._get_base(db, user_id)
-        return TeacherProfileResponse.model_validate(profile)
+    def get_instructor_profile(db: Session, user_id: str) -> InstructorProfileResponse:
+        profile = InstructorProfileService._get_base(db, user_id)
+        return InstructorProfileResponse.model_validate(profile)
 
     @staticmethod
-    def create_teacher_profile(
-        db: Session, user_id: str, teacher_in: TeacherProfileCreate
-    ) -> TeacherProfileResponse:
-        profile = TeacherProfileService._get_base(db, user_id)
+    def create_instructor_profile(
+        db: Session, user_id: str, instructor_in: InstructorProfileCreate
+    ) -> InstructorProfileResponse:
+        profile = InstructorProfileService._get_base(db, user_id)
 
-        if profile.teacher_profile:
-            raise HTTPException(status_code=400, detail="Teacher profile already exists")
+        if profile.instructor_profile:
+            raise HTTPException(status_code=400, detail="Instructor profile already exists")
 
-        teacher = TeacherProfile(
+        instructor = InstructorProfile(
             profile_id=profile.id,
-            department=teacher_in.department,
-            position=teacher_in.position,
-            office=teacher_in.office,
+            department=instructor_in.department,
+            position=instructor_in.position,
+            office=instructor_in.office,
         )
-        db.add(teacher)
+        db.add(instructor)
         db.commit()
         db.refresh(profile)
-        return TeacherProfileResponse.model_validate(profile)
+        return InstructorProfileResponse.model_validate(profile)
 
     @staticmethod
-    def update_teacher_profile(
-        db: Session, user_id: str, teacher_in: TeacherProfileUpdate
-    ) -> TeacherProfileResponse:
-        profile = TeacherProfileService._get_base(db, user_id)
+    def update_instructor_profile(
+        db: Session, user_id: str, instructor_in: InstructorProfileUpdate
+    ) -> InstructorProfileResponse:
+        profile = InstructorProfileService._get_base(db, user_id)
 
-        if not profile.teacher_profile:
-            raise HTTPException(status_code=404, detail="Teacher profile not found")
-
-        for field, value in teacher_in.model_dump(exclude_unset=True).items():
-            setattr(profile.teacher_profile, field, value)
+        if not profile.instructor_profile:
+            raise HTTPException(status_code=404, detail="Instructor profile not found")
+        for field, value in instructor_in.model_dump(exclude_unset=True).items():
+            setattr(profile.instructor_profile, field, value)
 
         db.commit()
         db.refresh(profile)
-        return TeacherProfileResponse.model_validate(profile)
-
+        return InstructorProfileResponse.model_validate(profile)
+    
     @staticmethod
-    def delete_teacher_profile(db: Session, user_id: str) -> dict:
-        profile = TeacherProfileService._get_base(db, user_id)
-        if not profile.teacher_profile:
-            raise HTTPException(status_code=404, detail="Teacher profile not found")
-        db.delete(profile.teacher_profile)
+    def delete_instructor_profile(db: Session, user_id: str) -> dict:
+        profile = InstructorProfileService._get_base(db, user_id)
+        if not profile.instructor_profile:
+            raise HTTPException(status_code=404, detail="Instructor profile not found")
+        db.delete(profile.instructor_profile)
         db.commit()
-        return {"detail": "Teacher profile deleted successfully"}
+        return {"detail": "Instructor profile deleted successfully"}

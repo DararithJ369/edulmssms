@@ -81,7 +81,7 @@ def delete_user_profile(user_id: str, db: Session = Depends(get_db)):
 @profile_router.patch(
     "/{user_id}/class",
     response_model=UserProfileResponse,
-    dependencies=[Depends(PermissionGuard.admin_or_teacher)],
+    dependencies=[Depends(PermissionGuard.admin_or_instructor)],
 )
 def assign_class(
     user_id: str,

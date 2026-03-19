@@ -17,12 +17,23 @@ class StudentProfile(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationship back to parent UserProfile
-    profile = relationship("UserProfile", back_populates="student_profile", lazy="selectin")
+    profile = relationship(
+        "UserProfile", 
+        back_populates="student_profile", 
+        lazy="selectin"
+    )
     
     # Relationship to parent profiles (via association table parent_student)
     parents = relationship(
         "ParentProfile",
         secondary="parent_student",
         back_populates="students",
+        lazy="selectin",
+    )
+    
+    # Relationship to enrollments
+    enrollments = relationship(
+        "Enrollment",
+        back_populates="student_profile",
         lazy="selectin",
     )

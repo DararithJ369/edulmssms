@@ -20,8 +20,8 @@ class User(Base):
     role_id = Column(Integer, ForeignKey("roles.id"), nullable=False)
     role = relationship("Role", back_populates="users")
     profile = relationship("UserProfile", back_populates="user", uselist=False, lazy="selectin")
-    subjects = relationship("Subject", back_populates="teacher", lazy="selectin")
-    courses = relationship("Course", foreign_keys="Course.teacher_id", lazy="selectin", overlaps="teacher")
+    subjects = relationship("Subject", back_populates="instructor", lazy="select")
+    courses = relationship("Course", foreign_keys="Course.instructor_id", lazy="select", overlaps="instructor")
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

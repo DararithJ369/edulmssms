@@ -40,8 +40,8 @@ class UserProfile(Base):
         cascade="all, delete-orphan",
         lazy="selectin",
     )
-    teacher_profile = relationship(
-        "TeacherProfile",
+    instructor_profile = relationship(
+        "InstructorProfile",
         back_populates="profile",
         uselist=False,          # one-to-one
         cascade="all, delete-orphan",

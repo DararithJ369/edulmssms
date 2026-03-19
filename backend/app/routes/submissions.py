@@ -9,7 +9,7 @@ from app.schemas.submission import SubmissionUpdate, SubmissionResponse
 submission_router = APIRouter(prefix="/submissions", tags=["Submissions"])
 
 
-@submission_router.get("", dependencies=[Depends(PermissionGuard.admin_or_teacher)])
+@submission_router.get("", dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def get_all_submissions(page: int = 1, limit: int = 10, db: Session = Depends(get_db)):
     return SubmissionService.get_submissions(db, page, limit)
 

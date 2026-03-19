@@ -26,36 +26,37 @@ class UserSeeder(BaseSeeder):
         }
 
         admin = self.create_one(lambda: admin_data, skip_if_exists=False)
-        Colors.success(
-            f"Admin user created with email: {admin.email} and password: admin123"
-        )
+        if admin:
+            Colors.success(
+                f"Admin user created with email: {admin.email} and password: admin123"  # type: ignore
+            )
 
         return admin
 
 
-    def seed_teacher(self, role_id: int):
-        teacher = self.db.query(User).filter_by(email="teacher@example.com").first()
+    def seed_instructor(self, role_id: int):
+        instructor = self.db.query(User).filter_by(email="instructor@example.com").first()
 
-        if teacher:
-            return teacher
-
-        teacher_data = {
-            "username": "teacher",
-            "email": "teacher@example.com",
-            "hashed_password": hash_password("teacher123"),
+        if instructor:
+            return instructor
+        instructor_data = {
+            "username": "instructor",
+            "email": "instructor@example.com",
+            "hashed_password": hash_password("instructor123"),
             "role_id": role_id,
             "is_active": True,
             "is_superuser": False,
             "image": None
         }
 
-        teacher = self.create_one(lambda: teacher_data, skip_if_exists=False)
+        instructor = self.create_one(lambda: instructor_data, skip_if_exists=False)
 
-        Colors.success(
-            f"Teacher user created with email: {teacher.email} and password: teacher123"
-        )
+        if instructor:
+            Colors.success(
+                f"Instructor user created with email: {instructor.email} and password: instructor123"  # type: ignore
+            )
 
-        return teacher
+        return instructor
 
     def seed_students(self, role_id: int, count: int = 5):
         students = []
