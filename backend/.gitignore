@@ -12,3 +12,5 @@ wheels/
 .vscode/
 
 lms-fastapi.code-workspace
+
+.env
