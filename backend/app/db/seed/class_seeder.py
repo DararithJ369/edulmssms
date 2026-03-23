@@ -39,8 +39,8 @@ class ClassSeeder(BaseSeeder):
                 Colors.success(f"Grade with id {grade_id} not found, skipping class seeding")
                 return None
 
-        # Construct class name as "{grade_name} {section}"
-        class_name = f"{grade.name} {section}"
+        # Construct class name as "{grade_name} {section}" (e.g., "Year 1 A")
+        class_name = f"{grade.name} Section {section}"
 
         if self.exists(name=class_name, academic_year=academic_year):
             Colors.success(f"Class '{class_name}' already exists, skipping")
@@ -60,7 +60,7 @@ class ClassSeeder(BaseSeeder):
             "supervisor_id": supervisor_id,
             "academic_year": academic_year,
             "section": section,
-            "capacity": 30,
+            "capacity": 40,
             "is_active": True,
         }
 

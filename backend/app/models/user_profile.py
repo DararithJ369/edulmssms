@@ -16,6 +16,25 @@ class UserProfile(Base):
     image      = Column(String, nullable=True)   # profile picture path
     phone      = Column(String, nullable=True)
     address    = Column(String, nullable=True)
+    
+    # Additional demographic fields
+    date_of_birth = Column(String, nullable=True)  # ISO format: YYYY-MM-DD
+    gender     = Column(String, nullable=True)     # M, F, Other, Prefer not to say
+    national_id = Column(String, nullable=True)    # Passport, ID card, etc.
+    nationality = Column(String, nullable=True)    # Country/Nationality
+    
+    # Social/professional links
+    website    = Column(String, nullable=True)     # Portfolio, personal website
+    linkedin   = Column(String, nullable=True)     # LinkedIn profile URL
+    
+    # Emergency contact information
+    emergency_contact_name = Column(String, nullable=True)
+    emergency_contact_phone = Column(String, nullable=True)
+    emergency_contact_relationship = Column(String, nullable=True)  # Father, Mother, Guardian, etc.
+    
+    # Health information
+    blood_type = Column(String, nullable=True)  # O+, A-, etc.
+    medical_conditions = Column(String, nullable=True)  # Allergies, conditions, medications
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

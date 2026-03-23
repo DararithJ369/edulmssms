@@ -40,12 +40,13 @@ def create_instructor_profile(
     department: Optional[str] = Form(None),
     position: Optional[str] = Form(None),
     office: Optional[str] = Form(None),
+    hire_date: Optional[str] = Form(None),
     db: Session = Depends(get_db),
 ):
     return InstructorProfileService.create_instructor_profile(
         db,
         user_id,
-        InstructorProfileCreate(department=department, position=position, office=office),
+        InstructorProfileCreate(department=department, position=position, office=office, hire_date=hire_date),
     )
 
 
@@ -59,12 +60,13 @@ def update_instructor_profile(
     department: Optional[str] = Form(None),
     position: Optional[str] = Form(None),
     office: Optional[str] = Form(None),
+    hire_date: Optional[str] = Form(None),
     db: Session = Depends(get_db),
 ):
     return InstructorProfileService.update_instructor_profile(
         db,
         user_id,
-        InstructorProfileUpdate(department=department, position=position, office=office),
+        InstructorProfileUpdate(department=department, position=position, office=office, hire_date=hire_date),
     )
 
 

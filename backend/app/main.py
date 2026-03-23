@@ -23,6 +23,7 @@ from app.routes import (
     enrollment_router,
     attendance_router,
     submission_router,
+    dashboard_router,
 )
 from app.routes.profiles import profiles_router
 
@@ -64,6 +65,7 @@ router = APIRouter(prefix="/api/v1")
 router.include_router(router=loggin_router)
 router.include_router(router=user_router)
 router.include_router(router=profiles_router)
+router.include_router(router=dashboard_router)
 router.include_router(router=grade_router)  
 router.include_router(router=grade_level_router)
 router.include_router(router=academic_year_router)
@@ -81,8 +83,13 @@ router.include_router(router=submission_router)
 
 
 # Serve static files from the "uploads" directory
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
-app.mount("/public", StaticFiles(directory="app/public"), name="public" )
+from pathlib import Path
+backend_root = Path(__file__).parent.parent
+uploads_path = str(backend_root / "uploads")
+public_path = str(Path(__file__).parent / "public")
+
+app.mount("/uploads", StaticFiles(directory=uploads_path), name="uploads")
+app.mount("/public", StaticFiles(directory=public_path), name="public")
 
 app.include_router(router)
 @app.get("/", response_class=HTMLResponse)

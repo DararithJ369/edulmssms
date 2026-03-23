@@ -14,6 +14,7 @@ from .grades import grade_router
 from .submissions import submission_router
 from .grade_level import grade_level_router
 from .academic_year import academic_year_router
+from .dashboard import dashboard_router
 
 all_routers = [
     loggin_router,

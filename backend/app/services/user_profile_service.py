@@ -5,6 +5,7 @@ from fastapi import HTTPException, UploadFile
 from app.models.user_profile import UserProfile
 from app.models.student_profile import StudentProfile
 from app.models.instructor_profile import InstructorProfile
+from app.models.parent_profile import ParentProfile
 from app.models.user import User
 from app.schemas.user_profile import (
     UserProfileBase,
@@ -15,6 +16,7 @@ from app.schemas.user_profile import (
     InstructorProfileCreate,
     InstructorProfileUpdate,
     InstructorProfileResponse,
+    ParentFullResponse,
 )
 from app.utils.get_image import get_image
 
@@ -39,11 +41,27 @@ class UserProfileService:
         }
 
     @staticmethod
-    def get_profile_by_user_id(db: Session, user_id: str) -> UserProfileResponse:
+    def get_profile_by_user_id(db: Session, user_id: str):
         profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
         if not profile:
             raise HTTPException(status_code=404, detail="Profile not found")
-        return UserProfileResponse.model_validate(profile)
+        
+        # Get the user to check their role
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Return role-specific response based on user role
+        # SQLAlchemy will auto-load the appropriate relationship due to lazy="selectin"
+        if user.role.name.lower() == "instructor":
+            return InstructorProfileResponse.model_validate(profile)
+        elif user.role.name.lower() == "student":
+            return StudentProfileResponse.model_validate(profile)
+        elif user.role.name.lower() == "parent":
+            return ParentFullResponse.model_validate(profile)
+        else:
+            # Default response for admin, etc.
+            return UserProfileResponse.model_validate(profile)
 
     @staticmethod
     def create_profile(
@@ -51,6 +69,18 @@ class UserProfileService:
         user_id: str,
         profile_in: UserProfileBase,
         image: Optional[UploadFile] = None,
+        department: Optional[str] = None,
+        position: Optional[str] = None,
+        office: Optional[str] = None,
+        student_id: Optional[str] = None,
+        enrolment_date: Optional[str] = None,
+        grade_level_id: Optional[int] = None,
+        previous_school: Optional[str] = None,
+        scholarship_status: Optional[str] = None,
+        special_needs: Optional[str] = None,
+        occupation: Optional[str] = None,
+        relationship: Optional[str] = None,
+        emergency_phone: Optional[str] = None,
     ) -> UserProfileResponse:
         if not db.query(User).filter(User.id == user_id).first():
             raise HTTPException(status_code=404, detail="User not found")
@@ -67,6 +97,41 @@ class UserProfileService:
             image=get_image(image) if image else profile_in.pfp,
         )
         db.add(profile)
+        db.flush()
+        
+        # Handle instructor profile creation
+        if department or position or office:
+            instructor = InstructorProfile(
+                profile_id=profile.id,
+                department=department,
+                position=position,
+                office=office,
+            )
+            db.add(instructor)
+        
+        # Handle student profile creation
+        if any([student_id, enrolment_date, previous_school, scholarship_status, special_needs, grade_level_id]):
+            student = StudentProfile(
+                profile_id=profile.id,
+                student_id=student_id,
+                enrolment_date=enrolment_date,
+                grade_level_id=grade_level_id,
+                previous_school=previous_school,
+                scholarship_status=scholarship_status,
+                special_needs=special_needs,
+            )
+            db.add(student)
+        
+        # Handle parent profile creation
+        if occupation or relationship or emergency_phone:
+            parent = ParentProfile(
+                profile_id=profile.id,
+                occupation=occupation,
+                relationship=relationship,
+                emergency_phone=emergency_phone,
+            )
+            db.add(parent)
+        
         db.commit()
         db.refresh(profile)
         return UserProfileResponse.model_validate(profile)
@@ -77,6 +142,19 @@ class UserProfileService:
         user_id: str,
         profile_in: UserProfileBase,
         image: Optional[UploadFile] = None,
+        delete_image: bool = False,
+        department: Optional[str] = None,
+        position: Optional[str] = None,
+        office: Optional[str] = None,
+        student_id: Optional[str] = None,
+        enrolment_date: Optional[str] = None,
+        grade_level_id: Optional[int] = None,
+        previous_school: Optional[str] = None,
+        scholarship_status: Optional[str] = None,
+        special_needs: Optional[str] = None,
+        occupation: Optional[str] = None,
+        relationship: Optional[str] = None,
+        emergency_phone: Optional[str] = None,
     ) -> UserProfileResponse:
         profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
         if not profile:
@@ -90,12 +168,85 @@ class UserProfileService:
         for field, value in update_data.items():
             setattr(profile, field, value)
 
-        if image:
+        if delete_image:
+            profile.image = None  # type: ignore[attr-defined]
+        elif image:
             profile.image = get_image(image)  # type: ignore[attr-defined]
+
+        # Handle instructor profile update
+        if any([department, position, office]):
+            if profile.instructor_profile:
+                if department:
+                    profile.instructor_profile.department = department
+                if position:
+                    profile.instructor_profile.position = position
+                if office:
+                    profile.instructor_profile.office = office
+            else:
+                instructor = InstructorProfile(
+                    profile_id=profile.id,
+                    department=department,
+                    position=position,
+                    office=office,
+                )
+                db.add(instructor)
+        
+        # Handle student profile update
+        if any([student_id, enrolment_date, previous_school, scholarship_status, special_needs, grade_level_id]):
+            if profile.student_profile:
+                if student_id:
+                    profile.student_profile.student_id = student_id
+                if enrolment_date:
+                    profile.student_profile.enrolment_date = enrolment_date
+                if grade_level_id:
+                    profile.student_profile.grade_level_id = grade_level_id
+                if previous_school:
+                    profile.student_profile.previous_school = previous_school
+                if scholarship_status:
+                    profile.student_profile.scholarship_status = scholarship_status
+                if special_needs:
+                    profile.student_profile.special_needs = special_needs
+            else:
+                student = StudentProfile(
+                    profile_id=profile.id,
+                    student_id=student_id,
+                    enrolment_date=enrolment_date,
+                    grade_level_id=grade_level_id,
+                    previous_school=previous_school,
+                    scholarship_status=scholarship_status,
+                    special_needs=special_needs,
+                )
+                db.add(student)
+        
+        # Handle parent profile update
+        if any([occupation, relationship, emergency_phone]):
+            if profile.parent_profile:
+                if occupation:
+                    profile.parent_profile.occupation = occupation
+                if relationship:
+                    profile.parent_profile.relationship = relationship
+                if emergency_phone:
+                    profile.parent_profile.emergency_phone = emergency_phone
+            else:
+                parent = ParentProfile(
+                    profile_id=profile.id,
+                    occupation=occupation,
+                    relationship=relationship,
+                    emergency_phone=emergency_phone,
+                )
+                db.add(parent)
 
         db.commit()
         db.refresh(profile)
-        return UserProfileResponse.model_validate(profile)
+        
+        # Return role-specific response
+        user = db.query(User).filter(User.id == user_id).first()
+        if user.role.name.lower() == "instructor":
+            return InstructorProfileResponse.model_validate(profile)
+        elif user.role.name.lower() == "student":
+            return StudentProfileResponse.model_validate(profile)
+        else:
+            return UserProfileResponse.model_validate(profile)
 
     @staticmethod
     def delete_profile(db: Session, user_id: str) -> dict:

@@ -89,7 +89,7 @@ def ensure_default_grade(db):
         return grade
 
     grade = grade_model(
-        name="Grade 10",
+        name="10",
         level=10,
         description="Default grade created by seeder"
     )
@@ -137,17 +137,20 @@ def main():
             instructor_role = roles.get("instructor")
             student_role = roles.get("student")
 
-            admin = user_seeder.seed_admin(admin_role.id) if admin_role else None  # type: ignore
-            instructor = user_seeder.seed_instructor(instructor_role.id) if instructor_role else None  # type: ignore
-            students = user_seeder.seed_students(student_role.id, count=20) if student_role else []  # type: ignore
+            admin = user_seeder.seed_admin(admin_role.id) if admin_role else None
+            instructor = user_seeder.seed_instructor(instructor_role.id) if instructor_role else None
+            students = user_seeder.seed_students(student_role.id, count=20) if student_role else []
+            parent_role = roles.get("parent")
+            parents = user_seeder.seed_parents(parent_role.id, count=5) if parent_role else []  
 
             # Extract IDs immediately before any further operations
-            admin_id: str = admin.id if admin else None  # type: ignore[attr-defined]
-            instructor_id: str = instructor.id if instructor else None  # type: ignore[attr-defined]
-            student_ids_list: list[str] = [s.id for s in students]  # type: ignore[attr-defined]
+            admin_id: str = admin.id if admin else None  
+            instructor_id: str = instructor.id if instructor else None
+            student_ids_list: list[str] = [s.id for s in students]
+            parent_ids_list: list[str] = [p.id for p in parents]  
 
             class1 = class_seeder.seed_class(section="A")
-            class_id: int | None = class1.id if class1 else None  # type: ignore[attr-defined]
+            class_id: int | None = class1.id if class1 else None
 
             if admin:
                 profile_seeder.seed_profile(admin_id, "System Admin")
@@ -170,9 +173,31 @@ def main():
                     class_id
                 )
 
+            # Seed parent profiles
+            parent_names = [
+                "John Johnson", "Mary Smith", "David Williams", 
+                "Jennifer Brown", "Robert Jones"
+            ]
+
+            for i, parent_id in enumerate(parent_ids_list):
+                parent_name = parent_names[i] if i < len(parent_names) else f"Parent {i+1}"
+                profile_seeder.seed_profile(parent_id, parent_name)
+            
+            db.commit()
+
+            # Seed academic years FIRST (needed for enrollments)
+            academic_year_seeder = AcademicYearSeeder(db)
+            academic_years = academic_year_seeder.seed_academic_years()
+            academic_year_id = academic_years[0].id if academic_years else 1
+
+            # Seed grade levels BEFORE creating student profiles
+            grade_level_seeder = GradeLevelSeeder(db)
+            grade_levels = grade_level_seeder.seed_grade_levels()
+
             # Get student profile IDs for enrollment
             from app.models.student_profile import StudentProfile
             from app.models.user_profile import UserProfile
+            from app.models.parent_profile import ParentProfile
             from datetime import datetime
             
             # Get user profiles for students and create student profiles if they don't exist
@@ -180,36 +205,82 @@ def main():
                 UserProfile.user_id.in_(student_ids_list)
             ).all()
             
-            for up in student_user_profiles:
+            departments = ["Computer Science", "Engineering", "Business", "Science", "Arts"]
+            
+            # Get grade levels (Year 1-4)
+            from app.models.grade_level import GradeLevel
+            grade_levels_query = db.query(GradeLevel).filter(GradeLevel.name.in_(["Year 1", "Year 2", "Year 3", "Year 4"])).all()
+            grade_levels = grade_levels_query
+            
+            for idx, up in enumerate(student_user_profiles, start=1):
                 existing_sp = db.query(StudentProfile).filter_by(profile_id=up.id).first()
                 if not existing_sp:
+                    # Distribute students across departments and year levels
+                    department = departments[(idx - 1) % len(departments)]
+                    grade_level = grade_levels[(idx - 1) % len(grade_levels)] if grade_levels else None
+                    
                     sp = StudentProfile(
                         profile_id=up.id,
-                        student_id=f"STU{up.id:05d}",
+                        student_id=f"e2026{idx:04d}",
+                        department=department,
+                        grade_level_id=grade_level.id if grade_level else None,
                         enrolment_date=datetime.now().date()
                     )
                     db.add(sp)
             
             db.commit()
             
+            # Get parent user profiles and create parent profiles if they don't exist
+            parent_user_profiles = db.query(UserProfile).filter(
+                UserProfile.user_id.in_(parent_ids_list)
+            ).all()
+            
+            parent_occupations = [
+                "Software Engineer", "Teacher", "Doctor", "Business Manager", "Accountant"
+            ]
+            parent_relationships = ["Father", "Mother", "Guardian", "Father", "Mother"]
+            
+            for idx, up in enumerate(parent_user_profiles):
+                existing_pp = db.query(ParentProfile).filter_by(profile_id=up.id).first()
+                if not existing_pp:
+                    pp = ParentProfile(
+                        profile_id=up.id,
+                        occupation=parent_occupations[idx] if idx < len(parent_occupations) else "Professional",
+                        parent_relationship=parent_relationships[idx] if idx < len(parent_relationships) else "Parent",
+                        emergency_phone="0123456789"
+                    )
+                    db.add(pp)
+            
+            db.commit()
+            
+            # Link parents to students (each parent gets linked to 2-3 students)
             student_profiles = db.query(StudentProfile).all()
-            student_profile_ids = [sp.id for sp in student_profiles]  # type: ignore[attr-defined]
-
-            # Seed academic years
-            academic_year_seeder = AcademicYearSeeder(db)
-            academic_years = academic_year_seeder.seed_academic_years()
-            academic_year_id = academic_years[0].id if academic_years else 1  # type: ignore[attr-defined]
-
-            # Seed grade levels
-            grade_level_seeder = GradeLevelSeeder(db)
-            grade_levels = grade_level_seeder.seed_grade_levels()
+            parent_profiles = db.query(ParentProfile).all()
+            
+            if student_profiles and parent_profiles:
+                students_per_parent = len(student_profiles) // len(parent_profiles)
+                for idx, parent_profile in enumerate(parent_profiles):
+                    # Calculate which students this parent should have
+                    start_idx = idx * students_per_parent
+                    end_idx = start_idx + students_per_parent
+                    if idx == len(parent_profiles) - 1:  # Last parent gets remaining students
+                        end_idx = len(student_profiles)
+                    
+                    for student_profile in student_profiles[start_idx:end_idx]:
+                        if student_profile not in parent_profile.students:
+                            parent_profile.students.append(student_profile)
+            
+            db.commit()
+            
+            student_profiles = db.query(StudentProfile).all()
+            student_profile_ids = [sp.id for sp in student_profiles]
 
             # Seed subjects
             subject_seeder = SubjectSeeder(db)
             subjects = subject_seeder.seed_subjects(instructor_id)
 
             # Extract subject IDs immediately
-            subject_ids = [s.id for s in subjects] if subjects else []  # type: ignore[attr-defined]
+            subject_ids = [s.id for s in subjects] if subjects else []
 
             # Seed courses
             course_seeder = CourseSeeder(db)
@@ -217,7 +288,7 @@ def main():
             courses = course_seeder.seed_courses(instructor_id, subject_id)
 
             # Extract course IDs immediately
-            course_ids = [c.id for c in courses] if courses else []  # type: ignore[attr-defined]
+            course_ids = [c.id for c in courses] if courses else []
 
             # Seed modules
             module_seeder = ModuleSeeder(db)
@@ -225,7 +296,7 @@ def main():
             modules = module_seeder.seed_modules(course_id)
 
             # Extract module IDs immediately
-            module_ids = [m.id for m in modules] if modules else []  # type: ignore[attr-defined]
+            module_ids = [m.id for m in modules] if modules else []
 
             # Seed lessons
             lesson_seeder = LessonSeeder(db)
@@ -233,14 +304,14 @@ def main():
             lessons = lesson_seeder.seed_lessons(module_id)
 
             # Extract lesson IDs immediately
-            lesson_ids = [l.id for l in lessons] if lessons else []  # type: ignore[attr-defined]
+            lesson_ids = [l.id for l in lessons] if lessons else []
 
             # Seed assignments
             assignment_seeder = AssignmentSeeder(db)
             assignments = assignment_seeder.seed_assignments(course_id, instructor_id)
 
             # Extract assignment IDs immediately
-            assignment_ids = [a.id for a in assignments] if assignments else []  # type: ignore[attr-defined]
+            assignment_ids = [a.id for a in assignments] if assignments else []
 
             # Seed enrollments
             if course_ids and student_profile_ids:
