@@ -71,3 +71,9 @@
 2026-03-21 19:52:15 | INFO | User admin@example.com logged in from IP 127.0.0.1 with device info: {'ip': '127.0.0.1', 'is_mobile': 'False', 'is_tablet': 'False', 'is_pc': 'True', 'browser': 'Chrome 145.0.0', 'browser_version': '145.0.0', 'os': 'Mac OS X 10.15.7', 'os_version': '10.15.7', 'device': 'Mac'}
 2026-03-23 13:51:04 | INFO | User admin@example.com logged out
 2026-03-23 13:51:19 | INFO | User admin@example.com logged in from IP 127.0.0.1 with device info: {'ip': '127.0.0.1', 'is_mobile': 'False', 'is_tablet': 'False', 'is_pc': 'True', 'browser': 'Chrome 145.0.0', 'browser_version': '145.0.0', 'os': 'Mac OS X 10.15.7', 'os_version': '10.15.7', 'device': 'Mac'}
+2026-03-23 14:51:16 | INFO | User admin@example.com logged out
+2026-03-24 12:55:46 | INFO | User admin@example.com logged in from IP 127.0.0.1 with device info: {'ip': '127.0.0.1', 'is_mobile': 'False', 'is_tablet': 'False', 'is_pc': 'True', 'browser': 'Chrome 145.0.0', 'browser_version': '145.0.0', 'os': 'Mac OS X 10.15.7', 'os_version': '10.15.7', 'device': 'Mac'}
+2026-03-24 12:58:40 | INFO | User admin@example.com logged out
+2026-03-24 12:59:03 | INFO | User admin@example.com logged in from IP 127.0.0.1 with device info: {'ip': '127.0.0.1', 'is_mobile': 'False', 'is_tablet': 'False', 'is_pc': 'True', 'browser': 'Chrome 145.0.0', 'browser_version': '145.0.0', 'os': 'Mac OS X 10.15.7', 'os_version': '10.15.7', 'device': 'Mac'}
+2026-03-24 13:00:18 | INFO | User admin@example.com logged out
+2026-03-24 13:00:48 | INFO | User admin@example.com logged in from IP 127.0.0.1 with device info: {'ip': '127.0.0.1', 'is_mobile': 'False', 'is_tablet': 'False', 'is_pc': 'True', 'browser': 'Chrome 145.0.0', 'browser_version': '145.0.0', 'os': 'Mac OS X 10.15.7', 'os_version': '10.15.7', 'device': 'Mac'}
