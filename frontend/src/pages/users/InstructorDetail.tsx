@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useProfileData } from "@/hooks/useProfileData";
-import { InstructorProfileView } from "@/components/profiles/InstructorProfileView";
+import { MemoizedInstructorProfileView } from "@/components/profiles/InstructorProfileView";
 import { ProfileEditForm } from "@/components/profiles/ProfileEditForm";
 import { ArrowLeft, Pencil, X } from "lucide-react";
 
@@ -83,7 +83,7 @@ export function InstructorDetail() {
             }}
           />
         ) : (
-          <InstructorProfileView
+          <MemoizedInstructorProfileView
             fullName={profile?.full_name}
             phone={profile?.phone}
             address={profile?.address}

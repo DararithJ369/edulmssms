@@ -13,8 +13,8 @@ assignment_router = APIRouter(prefix="/assignments", tags=["Assignments"])
 
 
 @assignment_router.get("")
-def get_all_assignments(page: int = 1, limit: int = 10, db: Session = Depends(get_db)):
-    return AssignmentService.get_assignments(db, page, limit)
+def get_all_assignments(page: int = 1, limit: int = 10, search: str = "", db: Session = Depends(get_db)):
+    return AssignmentService.get_assignments(db, page, limit, search)
 
 
 @assignment_router.get("/{assignment_id}", response_model=AssignmentResponse)

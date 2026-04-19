@@ -20,3 +20,4 @@ class GradeLevel(Base):
     # Relationships
     enrollments = relationship("Enrollment", back_populates="grade_level", lazy="selectin")
     student_profiles = relationship("StudentProfile", back_populates="grade_level", lazy="selectin")
+    curriculums = relationship("Curriculum", back_populates="grade_level")

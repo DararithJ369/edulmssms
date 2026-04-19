@@ -1,4 +1,4 @@
-from .login import loggin_router
+from .auth import auth_router
 from .users import user_router
 from .classes import class_router
 from .subjects import subject_router
@@ -15,9 +15,14 @@ from .submissions import submission_router
 from .grade_level import grade_level_router
 from .academic_year import academic_year_router
 from .dashboard import dashboard_router
+from .finance import finance_router
+from .roles import role_router
+from .permissions import permission_router
+from .role_permissions import role_permissions_router
+from .courses_management import router as courses_management_router
 
 all_routers = [
-    loggin_router,
+    auth_router,
     user_router,
     class_router,
     subject_router,
@@ -33,5 +38,10 @@ all_routers = [
     submission_router,
     grade_level_router,
     academic_year_router,
+    courses_management_router,
+    finance_router,
+    role_router,
+    permission_router,
+    role_permissions_router,
     
 ]

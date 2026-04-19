@@ -4,9 +4,39 @@ import Stats from "@/components/home/Stats";
 import Programs from "@/components/home/Programs";
 import Footer from "@/components/home/Footer";
 import { useNavigate } from "react-router";
+import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
 
 const Home = () => {
   const navigate = useNavigate();
+  const [testimonial, setTestimonial] = useState({
+    quote: "The multidisciplinary approach at Edunexus prepared me for a career that didn't even exist when I started my degree.",
+    author: "Sarah Chen",
+    title: "Lead AI Researcher at TechCore • Class of '22",
+    image: "https://picsum.photos/seed/edunexus-student/100/100",
+  });
+
+  useEffect(() => {
+    const fetchTestimonial = async () => {
+      try {
+        // Fetch random instructor for testimonial
+        const response = await api.get(`/users?role=instructor&limit=1`);
+        const instructor = response.data?.data?.[0];
+        if (instructor) {
+          setTestimonial({
+            quote: "Our mission is to shape the future of technology and innovation through world-class education.",
+            author: instructor.name || "Expert Instructor",
+            title: "Educator at Edunexus",
+            image: "https://picsum.photos/seed/" + instructor.id + "/100/100",
+          });
+        }
+      } catch (error) {
+        console.error("Failed to fetch testimonial:", error);
+      }
+    };
+
+    fetchTestimonial();
+  }, []);
   return (
     <div>
       <Navbar />
@@ -50,20 +80,19 @@ const Home = () => {
               <div className="w-16 h-1 bg-[#3ecf8e] rounded-full"></div>
             </div>
             <h3 className="text-3xl md:text-5xl font-bold text-gray-900 dark:text-white mb-10 leading-tight">
-              "The multidisciplinary approach at Edunexus prepared me for a
-              career that didn't even exist when I started my degree."
+              "{testimonial.quote}"
             </h3>
             <div className="flex flex-col items-center">
               <img
-                src="https://picsum.photos/seed/edunexus-student/100/100"
-                alt="Student"
+                src={testimonial.image}
+                alt={testimonial.author}
                 className="w-20 h-20 rounded-full border-4 border-[#3ecf8e] mb-4 object-cover"
               />
               <p className="text-xl font-bold text-gray-900 dark:text-white">
-                Sarah Chen
+                {testimonial.author}
               </p>
               <p className="text-[#3ecf8e] font-medium">
-                Lead AI Researcher at TechCore • Class of '22
+                {testimonial.title}
               </p>
             </div>
           </div>

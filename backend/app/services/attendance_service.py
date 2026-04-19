@@ -81,3 +81,38 @@ class AttendanceService:
         db.commit()
         db.refresh(record)
         return AttendanceResponse.model_validate(record)
+
+    @staticmethod
+    def get_all_attendance(
+        db: Session, page: int = 1, limit: int = 10, search: str = ""
+    ) -> dict:
+        query = db.query(Attendance)
+        
+        if search:
+            query = query.join(User, Attendance.student_id == User.id).filter(
+                (User.first_name.ilike(f"%{search}%")) |
+                (User.last_name.ilike(f"%{search}%")) |
+                (Attendance.status.ilike(f"%{search}%"))
+            )
+        
+        total = query.with_entities(func.count(Attendance.id)).scalar()
+        records = (
+            query.order_by(Attendance.created_at.desc())
+            .offset((page - 1) * limit)
+            .limit(limit)
+            .all()
+        )
+        
+        return {
+            "data": [AttendanceResponse.model_validate(r) for r in records],
+            "meta": {"page": page, "total": total, "limit": limit},
+        }
+
+    @staticmethod
+    def delete_attendance(db: Session, attendance_id: int) -> dict:
+        record = db.query(Attendance).filter(Attendance.id == attendance_id).first()
+        if not record:
+            raise HTTPException(status_code=404, detail="Attendance record not found")
+        db.delete(record)
+        db.commit()
+        return {"message": "Attendance record deleted successfully"}

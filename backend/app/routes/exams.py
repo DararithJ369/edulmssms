@@ -11,9 +11,40 @@ from app.schemas.exam import ExamCreate, ExamUpdate, ExamResponse, ExamSubmitPay
 exam_router = APIRouter(prefix="/exams", tags=["Exams"])
 
 
+# ── Static sub-paths — MUST be before /{exam_id} ─────────────────────────────
+
+
+@exam_router.put(
+    "/results/{result_id}/grade",
+    dependencies=[Depends(PermissionGuard.admin_or_instructor)]
+)
+def grade_exam_result(
+    result_id: int,
+    score: float = Form(...),
+    notes: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+):
+    return ExamService.grade_result(db, result_id, score, notes or "")
+
+
+# ── Collection ────────────────────────────────────────────────────────────────
+
+
 @exam_router.get("")
 def get_all_exams(page: int = 1, limit: int = 10, db: Session = Depends(get_db)):
     return ExamService.get_exams(db, page, limit)
+
+
+@exam_router.post(
+    "", 
+    response_model=ExamResponse, 
+    dependencies=[Depends(PermissionGuard.admin_or_instructor)]
+)
+def create_exam(payload: ExamCreate, db: Session = Depends(get_db)):
+    return ExamService.create_exam(db, payload)
+
+
+# ── Dynamic /{exam_id} — MUST be last ────────────────────────────────────────
 
 
 @exam_router.get("/{exam_id}", response_model=ExamResponse)
@@ -21,12 +52,11 @@ def get_exam(exam_id: int, db: Session = Depends(get_db)):
     return ExamService.get_exam_by_id(db, exam_id)
 
 
-@exam_router.post("", response_model=ExamResponse, dependencies=[Depends(PermissionGuard.admin_or_instructor)])
-def create_exam(payload: ExamCreate, db: Session = Depends(get_db)):
-    return ExamService.create_exam(db, payload)
-
-
-@exam_router.put("/{exam_id}", response_model=ExamResponse, dependencies=[Depends(PermissionGuard.admin_or_instructor)])
+@exam_router.put(
+    "/{exam_id}", 
+    response_model=ExamResponse, 
+    dependencies=[Depends(PermissionGuard.admin_or_instructor)]
+)
 def update_exam(exam_id: int, payload: ExamUpdate, db: Session = Depends(get_db)):
     return ExamService.update_exam(db, exam_id, payload)
 
@@ -35,8 +65,6 @@ def update_exam(exam_id: int, payload: ExamUpdate, db: Session = Depends(get_db)
 def delete_exam(exam_id: int, db: Session = Depends(get_db)):
     return ExamService.delete_exam(db, exam_id)
 
-
-# ── Submit & results ──────────────────────────────────────────────────────────
 
 @exam_router.post("/{exam_id}/submit")
 def submit_exam(
@@ -51,13 +79,3 @@ def submit_exam(
 @exam_router.get("/{exam_id}/results", dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def get_exam_results(exam_id: int, db: Session = Depends(get_db)):
     return ExamService.get_exam_results(db, exam_id)
-
-
-@exam_router.put("/results/{result_id}/grade", dependencies=[Depends(PermissionGuard.admin_or_instructor)])
-def grade_exam_result(
-    result_id: int,
-    score: float = Form(...),
-    notes: Optional[str] = Form(None),
-    db: Session = Depends(get_db),
-):
-    return ExamService.grade_result(db, result_id, score, notes or "")

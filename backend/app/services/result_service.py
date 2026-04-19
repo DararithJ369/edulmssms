@@ -2,17 +2,34 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from app.models.result import Result
+from app.models.user import User
 from app.schemas.result import ResultCreate, ResultUpdate, ResultResponse
 
 
 class ResultService:
 
     @staticmethod
-    def get_results(db: Session, page: int = 1, limit: int = 10) -> dict:
-        total = db.query(func.count(Result.id)).scalar()
+    def get_results(db: Session, page: int = 1, limit: int = 10, search: str = "", result_type: str = "") -> dict:
+        query = db.query(Result)
+        
+        if search:
+            query = query.join(User, Result.student_id == User.id).filter(
+                (User.first_name.ilike(f"%{search}%")) |
+                (User.last_name.ilike(f"%{search}%")) |
+                (Result.grade.ilike(f"%{search}%"))
+            )
+        
+        if result_type and result_type != "all":
+            if result_type == "exam":
+                query = query.filter(Result.exam_id.isnot(None))
+            elif result_type == "quiz":
+                query = query.filter(Result.quiz_id.isnot(None))
+            elif result_type == "assignment":
+                query = query.filter(Result.assignment_id.isnot(None))
+        
+        total = query.with_entities(func.count(Result.id)).scalar()
         results = (
-            db.query(Result)
-            .order_by(Result.created_at.desc())
+            query.order_by(Result.graded_at.desc())
             .offset((page - 1) * limit)
             .limit(limit)
             .all()

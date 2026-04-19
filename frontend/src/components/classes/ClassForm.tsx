@@ -49,10 +49,14 @@ const ClassForm = ({ open, onOpenChange, initialData, onSuccess }: Props) => {
             api.get("/users?role=teacher"),
             api.get("/academic-years"),
           ]);
-          setTeachers(teachersRes.data.users);
-          setYears(yearsRes.data.years);
+          const teachersData = teachersRes.data?.data || teachersRes.data?.users || [];
+          const yearsData = yearsRes.data?.data || yearsRes.data?.years || [];
+          setTeachers(Array.isArray(teachersData) ? teachersData : []);
+          setYears(Array.isArray(yearsData) ? yearsData : []);
         } catch (error) {
           toast.error("Failed to load options");
+          setTeachers([]);
+          setYears([]);
         } finally {
           setLoadingOptions(false);
         }
@@ -67,12 +71,13 @@ const ClassForm = ({ open, onOpenChange, initialData, onSuccess }: Props) => {
       try {
         setLoadingSubjects(true);
         const { data } = await api.get("/subjects");
-        setSubjects(data.subjects);
-        setLoadingSubjects(false);
+        const subjectsData = data?.data || data?.subjects || [];
+        setSubjects(Array.isArray(subjectsData) ? subjectsData : []);
       } catch (error) {
         toast.error("Failed to load subjects");
+        setSubjects([]);
       } finally {
-        setLoadingOptions(false);
+        setLoadingSubjects(false);
       }
     };
     fetchSubjects();
@@ -98,7 +103,7 @@ const ClassForm = ({ open, onOpenChange, initialData, onSuccess }: Props) => {
         capacity: initialData.capacity,
         academicYear: initialData.academicYear?._id || "",
         classTeacher: initialData.classTeacher?._id || "",
-        subjectIds: initialData.subjects.map((s) => s._id),
+        subjectIds: initialData.subjects?.map((s) => s._id) || [],
       });
     } else {
       form.reset({
@@ -138,15 +143,15 @@ const ClassForm = ({ open, onOpenChange, initialData, onSuccess }: Props) => {
 
   const pending = form.formState.isSubmitting;
 
-  const yearOptions = years.map((year) => ({
+  const yearOptions = (years || []).map((year) => ({
     label: year.name,
     value: year._id,
   }));
-  const subjectOptions = subjects.map((subject) => ({
+  const subjectOptions = (subjects || []).map((subject) => ({
     label: subject.name,
     value: subject._id,
   }));
-  const teachersOptions = teachers.map((teacher) => ({
+  const teachersOptions = (teachers || []).map((teacher) => ({
     label: teacher.name,
     value: teacher._id,
   }));

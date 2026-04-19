@@ -7,6 +7,22 @@ from app.schemas.subject import SubjectCreate, SubjectUpdate, SubjectResponse
 
 
 class SubjectService:
+    
+    @staticmethod
+    def setup_form(db: Session) -> dict:
+        teachers = db.query(User).filter(User.role.has(name="teacher"), User.is_active == True).all()
+        teacher_options = [{"value": t.id, "label": f"{t.username} ({t.email})"} for t in teachers]
+        return {
+            "fields": {
+                "teacher_id": {"type": "select", "options": teacher_options, "required": True},
+                "name": {"type": "string", "required": True},
+                "code": {"type": "string", "required": False, "hint": "e.g. MTH101"},
+                "description": {"type": "text", "required": False},
+                "credits": {"type": "number", "required": False, "default": 3},
+                "hours_per_week": {"type": "number", "required": False},
+                "is_active": {"type": "boolean", "required": False},
+            }
+        }
 
     @staticmethod
     def get_subjects(db: Session, page: int = 1, limit: int = 10) -> dict:

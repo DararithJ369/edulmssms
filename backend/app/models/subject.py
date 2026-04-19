@@ -25,3 +25,4 @@ class Subject(Base):
     # Relationships
     instructor = relationship("User", back_populates="subjects", lazy="selectin")
     courses = relationship("Course", back_populates="subject", lazy="selectin")
+    curriculums = relationship("Curriculum", back_populates="subject")

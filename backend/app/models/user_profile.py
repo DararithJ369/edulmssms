@@ -12,10 +12,10 @@ class UserProfile(Base):
     class_id   = Column(Integer, ForeignKey("classes.id"), nullable=True)
 
     full_name  = Column(String, nullable=True)
-    bio        = Column(String, nullable=True)
     image      = Column(String, nullable=True)   # profile picture path
     phone      = Column(String, nullable=True)
     address    = Column(String, nullable=True)
+    bio        = Column(String, nullable=True)
     
     # Additional demographic fields
     date_of_birth = Column(String, nullable=True)  # ISO format: YYYY-MM-DD

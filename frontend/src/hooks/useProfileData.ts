@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -47,6 +47,7 @@ export function useProfileData(initialUserId?: string | number): UseProfileDataR
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | number | undefined>(initialUserId);
+  const hasInitialized = useRef(false);
 
   const fetchProfile = useCallback(async (userId: string | number) => {
     try {
@@ -55,9 +56,6 @@ export function useProfileData(initialUserId?: string | number): UseProfileDataR
       setCurrentUserId(userId);
 
       const { data } = await api.get(`/profiles/${userId}`);
-      // console.log("✅ useProfileData - Full API Response:", JSON.stringify(data, null, 2));
-      // console.log("✅ useProfileData - pfp field:", data.pfp);
-      // console.log("✅ useProfileData - image field:", data.image);
       setProfileData(data);
     } catch (err: any) {
       const message =
@@ -76,9 +74,10 @@ export function useProfileData(initialUserId?: string | number): UseProfileDataR
     }
   }, [currentUserId, fetchProfile]);
 
-  // Auto-fetch if initialUserId is provided and valid
+  // Auto-fetch if initialUserId is provided and valid - ONLY ONCE on mount
   useEffect(() => {
-    if (initialUserId && initialUserId !== 0 && initialUserId !== "") {
+    if (initialUserId && initialUserId !== 0 && initialUserId !== "" && !hasInitialized.current) {
+      hasInitialized.current = true;
       fetchProfile(initialUserId);
     }
   }, [initialUserId, fetchProfile]);

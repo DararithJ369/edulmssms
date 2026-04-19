@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ProfileAvatar } from "./ProfileAvatar";
 import { useNavigate } from "react-router";
 import { Eye } from "lucide-react";
+import { memo } from "react";
 
 interface ParentProfile {
   id: number;
@@ -274,3 +275,5 @@ export function ParentProfileView({
     </div>
   );
 }
+
+export const MemoizedParentProfileView = memo(ParentProfileView);

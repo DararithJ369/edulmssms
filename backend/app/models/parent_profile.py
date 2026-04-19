@@ -6,7 +6,7 @@ from app.db.base import Base
 
 # Association table — one parent can have multiple students, one student can
 # have multiple parents (e.g. mother + father)
-parent_student = Table(
+parent_student = Table( 
     "parent_student",
     Base.metadata,
     Column("parent_profile_id", Integer, ForeignKey("parent_profiles.id"), primary_key=True),

@@ -9,11 +9,18 @@ from app.schemas.grade import GradeCreate, GradeUpdate, GradeResponse
 class GradeService:
 
     @staticmethod
-    def get_grades(db: Session, page: int = 1, limit: int = 10) -> dict:
-        total = db.query(func.count(Grade.id)).scalar()
+    def get_grades(db: Session, page: int = 1, limit: int = 10, search: str = "") -> dict:
+        query = db.query(Grade)
+        
+        if search:
+            query = query.filter(
+                (Grade.name.ilike(f"%{search}%")) |
+                (Grade.description.ilike(f"%{search}%"))
+            )
+        
+        total = query.with_entities(func.count(Grade.id)).scalar()
         grades = (
-            db.query(Grade)
-            .order_by(Grade.created_at.desc())
+            query.order_by(Grade.created_at.desc())
             .offset((page - 1) * limit)
             .limit(limit)
             .all()

@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { useState } from "react";
 import { Plus, FileText, Clock, Users, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/AuthProvider";
+import { useExams } from "@/hooks/useExams";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,28 +20,9 @@ import ExamGenerator from "@/components/lms/ExamGenerator";
 const Exams = () => {
   const { user } = useAuth();
   const isTeacher = user?.role === "instructor" || user?.role === "admin";
-  const [exams, setExams] = useState<exam[]>([]);
+  const { exams, loading, error } = useExams();
   const [isGenOpen, setIsGenOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-
-  // fetch exams
-  const fetchExams = async () => {
-    try {
-      setLoading(true);
-      const { data } = await api.get("/exams");
-      setExams(data);
-      setLoading(false);
-    } catch (error) {
-      toast.error("failed to load exams");
-      console.log(error);
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchExams();
-  }, []);
 
   if (loading) {
     return (

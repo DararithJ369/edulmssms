@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useProfileData } from "@/hooks/useProfileData";
-import { StudentProfileView } from "@/components/profiles/StudentProfileView";
+import { MemoizedStudentProfileView } from "@/components/profiles/StudentProfileView";
 import { ProfileEditForm } from "@/components/profiles/ProfileEditForm";
 import { ArrowLeft, Pencil, X } from "lucide-react";
 
@@ -106,7 +106,7 @@ export function StudentDetail() {
             }}
           />
         ) : (
-          <StudentProfileView
+          <MemoizedStudentProfileView
             fullName={profile?.full_name}
             phone={profile?.phone}
             address={profile?.address}

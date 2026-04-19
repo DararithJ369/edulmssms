@@ -161,16 +161,18 @@ const UniversalUserForm = ({ type, initialData, onSuccess, role }: Props) => {
         ...data,
       };
       if (isLogin) {
-        const { data: user } = await api.post("/users/login", {
+        const { data: user } = await api.post("/login", {
           email: data.email,
           password: data.password,
         });
         // Save token to localStorage
         localStorage.setItem("token", user.access_token);
-        //   todo: set user context
         console.log(user);
         toast.success("Logged in successfully");
-        window.location.href = "/dashboard";
+        // Wait a moment for auth context to refresh, then redirect
+        setTimeout(() => {
+          window.location.href = "/dashboard";
+        }, 500);
       } else if (type === "create") {
         await api.post("/users/register", payload);
         toast.success("Account created successfully!");

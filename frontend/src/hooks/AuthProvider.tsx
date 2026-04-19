@@ -33,13 +33,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       try {
         setLoading(true);
-        const { data } = await api.get("/users/profile");
+        const { data } = await api.get("/users/me");
         console.log("Auth user data:", data);
+        // The backend returns the user object directly, not wrapped in a user property
+        const userData = data.user || data;
         // Ensure role is a string
-        if (data.user && typeof data.user.role === 'object') {
-          data.user.role = data.user.role.name || data.user.role;
+        if (userData && typeof userData.role === 'object') {
+          userData.role = userData.role.name || userData.role;
         }
-        setUser(data.user);
+        setUser(userData);
       } catch (error) {
         console.log("Auth check failed:", error);
         setLoading(false);

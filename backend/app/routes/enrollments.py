@@ -1,10 +1,15 @@
 from typing import Optional
-from fastapi import APIRouter, Depends, Form
+from datetime import date
+from fastapi import APIRouter, Depends, Form, HTTPException
 from sqlalchemy.orm import Session
 from app.middleware.guard.permission import PermissionGuard
 from app.config.session import get_db
 from app.services.enrollment_service import EnrollmentService
-from app.schemas.enrollment import EnrollmentCreate, EnrollmentUpdate, EnrollmentResponse
+from app.schemas.enrollment import EnrollmentCreate, EnrollmentUpdate, EnrollmentResponse, EnrollmentCheckoutRequest
+from app.models.academic_year import AcademicYear
+from app.models.term import Term
+from app.models.course import Course
+from datetime import datetime
 
 enrollment_router = APIRouter(prefix="/enrollments", tags=["Enrollments"])
 
@@ -45,3 +50,72 @@ def update_enrollment(
 @enrollment_router.delete("/{enrollment_id}", dependencies=[Depends(PermissionGuard.admin_only)])
 def delete_enrollment(enrollment_id: int, db: Session = Depends(get_db)):
     return EnrollmentService.delete_enrollment(db, enrollment_id)
+
+
+# Student checkout enrollment (token-based)
+@enrollment_router.post("/checkout", response_model=EnrollmentResponse)
+def checkout_enrollment(
+    payload: EnrollmentCheckoutRequest,
+    current_user=Depends(PermissionGuard.get_current_user),
+    db: Session = Depends(get_db),
+):
+    if current_user.role.name.lower() != "student":
+        raise HTTPException(status_code=403, detail="Student role required")
+
+    if not current_user.profile or not current_user.profile.student_profile:
+        raise HTTPException(status_code=404, detail="Student profile not found")
+
+    course = db.query(Course).filter(Course.id == payload.course_id).first()
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    if course.enrollment_status != "open":
+        raise HTTPException(status_code=400, detail="Course enrollment is closed")
+
+    academic_year = (
+        db.query(AcademicYear)
+        .filter(AcademicYear.is_current == True, AcademicYear.is_active == True)
+        .first()
+    )
+    if not academic_year:
+        raise HTTPException(status_code=400, detail="No current academic year configured")
+
+    term_id = payload.term_id
+    if term_id:
+        term = db.query(Term).filter(Term.id == term_id).first()
+        if not term or term.academic_year_id != academic_year.id:
+            raise HTTPException(status_code=400, detail="Invalid term for current academic year")
+    else:
+        current_term = (
+            db.query(Term)
+            .filter(
+                Term.academic_year_id == academic_year.id,
+                Term.is_current == True,
+                Term.is_active == True,
+            )
+            .first()
+        )
+        term_id = current_term.id if current_term else None
+
+    amount_paid = payload.amount_paid or 0
+    if amount_paid > 0 and not payload.payment_id:
+        raise HTTPException(status_code=400, detail="Payment ID required for paid enrollment")
+
+    payment_status = "completed" if amount_paid == 0 or payload.payment_id else "pending"
+
+    enrollment_in = EnrollmentCreate(
+        student_profile_id=current_user.profile.student_profile.id,
+        course_id=payload.course_id,
+        academic_year_id=academic_year.id,
+        term_id=term_id,
+        grade_level_id=current_user.profile.student_profile.grade_level_id,
+        enrolled_date=date.today(),
+        is_active=True,
+        payment_status=payment_status,
+        payment_id=payload.payment_id,
+        amount_paid=amount_paid,
+    )
+
+    enrollment = EnrollmentService.create_enrollment(db, enrollment_in)
+    return enrollment
+

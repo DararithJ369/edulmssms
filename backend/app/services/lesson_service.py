@@ -2,7 +2,7 @@ from typing import Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, UploadFile
-from app.models.lesson import Lesson 
+from app.models.course import Lesson
 from app.models.lesson_material import LessonMaterial
 from app.schemas.lesson import LessonCreate, LessonUpdate, LessonResponse
 from app.schemas.lesson_material import LessonMaterialCreate, LessonMaterialResponse

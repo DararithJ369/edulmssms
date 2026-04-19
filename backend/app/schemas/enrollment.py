@@ -46,6 +46,16 @@ class EnrollmentCreate(BaseModel):
     grade_level_id:     Optional[int]  = None
     enrolled_date:      Optional[date] = None
     is_active:          bool           = True
+    payment_status:     Optional[str]  = None
+    payment_id:         Optional[str]  = None
+    amount_paid:        Optional[float] = None
+
+
+class EnrollmentCheckoutRequest(BaseModel):
+    course_id:    int
+    payment_id:   Optional[str]  = None
+    amount_paid:  Optional[float] = 0
+    term_id:      Optional[int]  = None
 
 
 class EnrollmentUpdate(BaseModel):
@@ -54,6 +64,9 @@ class EnrollmentUpdate(BaseModel):
     is_active:      Optional[bool] = None
     enrolled_date:  Optional[date] = None
     dropped_date:   Optional[date] = None
+    payment_status: Optional[str]  = None
+    payment_id:     Optional[str]  = None
+    amount_paid:    Optional[float] = None
 
 
 class EnrollmentResponse(BaseModel):
@@ -71,6 +84,9 @@ class EnrollmentResponse(BaseModel):
     is_active:          bool
     enrolled_date:      Optional[date]                 = None
     dropped_date:       Optional[date]                 = None
+    payment_status:     Optional[str]                  = None
+    payment_id:         Optional[str]                  = None
+    amount_paid:        Optional[float]                = None
     created_at:         Optional[datetime]             = None
     updated_at:         Optional[datetime]             = None
 

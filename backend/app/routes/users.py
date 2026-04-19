@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from app.middleware.guard.permission import PermissionGuard
 from app.config.session import get_db
 from app.services.user_service import UserService
-from app.schemas.user import UserCreate, UserUpdate, UserResponse, LoginRequest, Token
+from app.schemas.user import User, UserCreate, UserUpdate, UserResponse, LoginRequest, Token
 from app.middleware.jwt_service import JWTService
 from app.config.logger import security_logger
 from app.utils.device_tracker import DeviceTracker
@@ -23,33 +23,42 @@ user_router = APIRouter(
     tags=["Users"],
 )
 
+# ── Static paths (must come before /{user_id}) ────────────────────────────────
 
-@user_router.post("/login", response_model=Token)
-def login(request: Request, data: LoginRequest, db: Session = Depends(get_db)):
-    try:
-        user = UserService.login(db, data)
-        info = DeviceTracker.get_device_info(request)
-        client_ip = DeviceTracker.get_client_ip(request)
-        security_logger.info(f"User {user.email} logged in from IP {client_ip} with device info: {info}")
-    except ValueError:
-        raise HTTPException(status_code=401, detail="Invalid email or password")
-    
-    token_data = {"sub": str(user.id), "role": user.role_id}
-    access_token = JWTService.create_access_token(
-        data=token_data,
-        secret_key=SECRET_KEY,
-        algorithm=ALGORITHM,
-        expires_delta=timedelta(minutes=int(ACCESS_TOKEN_EXPIRE_MINUTES)),
-    )
-    
-    return {"access_token": access_token, "token_type": "bearer", "info": info}
+@user_router.get("/setup-form", dependencies=[Depends(PermissionGuard.admin_only)])
+def setup_user_form(db: Session = Depends(get_db)):
+    return UserService.setup_form(db)
 
 
-@user_router.post("/logout")
-def logout(current_user = Depends(PermissionGuard.get_current_user)):
-    """Logout endpoint - clears user session"""
-    security_logger.info(f"User {current_user.email} logged out")
-    return {"message": "Logged out successfully"}
+@user_router.get("/me", response_model=UserResponse)
+def get_me(current_user: User = Depends(PermissionGuard.get_current_user)):
+    """Return the currently authenticated user's own profile."""
+    return current_user
+
+
+
+@user_router.get("/students", response_model=dict)
+def get_students(db: Session = Depends(get_db), page: int = 1, limit: int = 10):
+    """Get all users with student role - Updated"""
+    return UserService.get_users_by_role(db, role_name="student", page=page, limit=limit)
+
+
+@user_router.get("/instructors", response_model=dict)
+def get_instructors(db: Session = Depends(get_db), page: int = 1, limit: int = 10):
+    """Get all users with instructor role"""
+    return UserService.get_users_by_role(db, role_name="instructor", page=page, limit=limit)
+
+
+@user_router.get("/parents", response_model=dict)
+def get_parents(db: Session = Depends(get_db), page: int = 1, limit: int = 10):
+    """Get all users with parent role"""   
+    return UserService.get_users_by_role(db, role_name="parent", page=page, limit=limit)
+
+
+@user_router.get("/admins", response_model=dict, dependencies=[Depends(PermissionGuard.admin_only)])
+def get_admin(db: Session = Depends(get_db), page: int = 1, limit: int = 10):
+    """Get all users with admin role"""
+    return UserService.get_users_by_role(db, role_name="admin", page=page, limit=limit)
 
 
 @user_router.post("", response_model=UserResponse, dependencies=[Depends(PermissionGuard.admin_only)])
@@ -69,92 +78,7 @@ def create_user(
     ), image)
 
 
-@user_router.get("/setup-form", dependencies=[Depends(PermissionGuard.admin_only)])
-def setup_user_form(db: Session = Depends(get_db)):
-    return UserService.setup_form(db)
-
-
-@user_router.get("/profile", response_model=dict)
-def get_user_profile(current_user = Depends(PermissionGuard.get_current_user)):
-    """Get current logged-in user's profile"""
-    return {
-        "user": {
-            "_id": current_user.id,
-            "name": current_user.username,  # Frontend expects 'name' field
-            "email": current_user.email,
-            "role": current_user.role.name.lower() if current_user.role else "student",
-        },
-        "id": current_user.id,
-        "email": current_user.email,
-        "username": current_user.username
-    }
-
-
-@user_router.get("/students", response_model=dict)
-def get_students(db: Session = Depends(get_db), page: int = 1, limit: int = 10):
-    """Get all users with student role - Updated"""
-    from sqlalchemy import func
-    from app.models.user import User
-    from app.models.role import Role
-    
-    total = db.query(func.count(User.id)).join(Role).filter(Role.name.ilike("student")).scalar()
-    users = db.query(User).join(Role).filter(Role.name.ilike("student")).offset((page - 1) * limit).limit(limit).all()
-    
-    return {
-        "data": [UserResponse.model_validate(u) for u in users],
-        "meta": {"page": page, "total": total, "limit": limit}
-    }
-
-
-@user_router.get("/instructors", response_model=dict)
-def get_instructors(db: Session = Depends(get_db), page: int = 1, limit: int = 10):
-    """Get all users with instructor role"""
-    from sqlalchemy import func
-    from app.models.user import User
-    from app.models.role import Role
-    
-    total = db.query(func.count(User.id)).join(Role).filter(Role.name.ilike("instructor")).scalar()
-    users = db.query(User).join(Role).filter(Role.name.ilike("instructor")).offset((page - 1) * limit).limit(limit).all()
-    
-    return {
-        "data": [UserResponse.model_validate(u) for u in users],
-        "meta": {"page": page, "total": total, "limit": limit}
-    }
-
-
-@user_router.get("/parents", response_model=dict)
-def get_parents(db: Session = Depends(get_db), page: int = 1, limit: int = 10):
-    """Get all users with parent role"""
-    from sqlalchemy import func
-    from app.models.user import User
-    from app.models.role import Role
-    
-    total = db.query(func.count(User.id)).join(Role).filter(Role.name.ilike("parent")).scalar()
-    users = db.query(User).join(Role).filter(Role.name.ilike("parent")).offset((page - 1) * limit).limit(limit).all()
-    
-    return {
-        "data": [UserResponse.model_validate(u) for u in users],
-        "meta": {"page": page, "total": total, "limit": limit}
-    }
-
-
-@user_router.get("/admins", response_model=dict)
-def get_admins(db: Session = Depends(get_db), page: int = 1, limit: int = 10):
-    """Get all users with admin role"""
-    from sqlalchemy import func
-    from app.models.user import User
-    from app.models.role import Role
-    
-    total = db.query(func.count(User.id)).join(Role).filter(Role.name.ilike("admin")).scalar()
-    users = db.query(User).join(Role).filter(Role.name.ilike("admin")).offset((page - 1) * limit).limit(limit).all()
-    
-    return {
-        "data": [UserResponse.model_validate(u) for u in users],
-        "meta": {"page": page, "total": total, "limit": limit}
-    }
-
-
-@user_router.get("", response_model=dict)
+@user_router.get("", response_model=dict, dependencies=[Depends(PermissionGuard.admin_only)])
 def get_all_users(db: Session = Depends(get_db), page: int = 1, limit: int = 10):
     return UserService.get_users(db, page, limit)
 
@@ -189,7 +113,7 @@ def update_user(
         raise HTTPException(status_code=400, detail=str(e))
     
     
-@user_router.delete("/{user_id}")
+@user_router.delete("/{user_id}", dependencies=[Depends(PermissionGuard.admin_only)])
 def delete_user(user_id: str, db: Session = Depends(get_db)):
     try:
         UserService.delete_user(db, user_id)

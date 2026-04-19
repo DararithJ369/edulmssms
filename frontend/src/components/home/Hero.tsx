@@ -1,6 +1,40 @@
-import { ArrowRight, ChevronRight, Play } from "lucide-react";
+import { ArrowRight, ChevronRight, Play, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
+import { API } from "@/lib/endpoints";
 
 const Hero = () => {
+  const [heroStats, setHeroStats] = useState({
+    activeStudents: 12000,
+    hireRate: 98,
+    techRanking: "#1",
+    upcomingEvent: "Quantum Computing Workshop",
+    eventDate: "April 15th",
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchHeroStats = async () => {
+      try {
+        setLoading(true);
+        // Fetch users for student count
+        const usersResponse = await api.get(`${API.USERS.GET_ALL}?limit=1000`);
+        const users = usersResponse.data?.data || [];
+        const studentCount = users.filter((u: any) => u.role === "student").length;
+
+        setHeroStats((prev) => ({
+          ...prev,
+          activeStudents: studentCount || 12000,
+        }));
+      } catch (error) {
+        console.error("Failed to fetch hero stats:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchHeroStats();
+  }, []);
   return (
     <section
       id="home"
@@ -45,21 +79,21 @@ const Hero = () => {
             <div className="flex items-center space-x-6 pt-4 border-t border-gray-200 dark:border-gray-800">
               <div>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  12k+
+                  {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : `${(heroStats.activeStudents / 1000).toFixed(1)}k+`}
                 </p>
                 <p className="text-sm text-gray-500">Active Students</p>
               </div>
               <div className="w-px h-8 bg-gray-200 dark:bg-gray-800"></div>
               <div>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  98%
+                  {heroStats.hireRate}%
                 </p>
                 <p className="text-sm text-gray-500">Graduate Hire Rate</p>
               </div>
               <div className="w-px h-8 bg-gray-200 dark:bg-gray-800"></div>
               <div>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  #1
+                  {heroStats.techRanking}
                 </p>
                 <p className="text-sm text-gray-500">Tech Innovation</p>
               </div>
@@ -79,10 +113,10 @@ const Hero = () => {
                   Upcoming Event
                 </p>
                 <p className="text-lg font-bold text-gray-900 dark:text-white">
-                  Quantum Computing Workshop
+                  {heroStats.upcomingEvent}
                 </p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Join us on April 15th for an exclusive look into the future.
+                  Join us on {heroStats.eventDate} for an exclusive look into the future.
                 </p>
               </div>
             </div>

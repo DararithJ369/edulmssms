@@ -1,7 +1,7 @@
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
-from app.models.course import Course, Lesson
+from app.models.course import Course, Lesson, Module
 from app.models.enrollment import Enrollment
 from app.models.user import User
 from app.schemas.course import CourseCreate, CourseUpdate, CourseResponse
@@ -13,11 +13,32 @@ from app.schemas.user import UserResponse
 class CourseService:
 
     @staticmethod
-    def get_courses(db: Session, page: int = 1, limit: int = 10) -> dict:
-        total = db.query(func.count(Course.id)).scalar()
+    def get_courses(
+        db: Session,
+        page: int = 1,
+        limit: int = 10,
+        search: str | None = None,
+        category: str | None = None,
+        published: bool | None = None,
+    ) -> dict:
+        query = db.query(Course)
+
+        if search:
+            query = query.filter(
+                (Course.course_name.ilike(f"%{search}%"))
+                | (Course.course_code.ilike(f"%{search}%"))
+                | (Course.description.ilike(f"%{search}%"))
+            )
+
+        if category:
+            query = query.filter(Course.category == category)
+
+        if published is not None:
+            query = query.filter(Course.is_published == published)
+
+        total = query.with_entities(func.count(Course.id)).scalar()
         courses = (
-            db.query(Course)
-            .order_by(Course.created_at.desc())
+            query.order_by(Course.created_at.desc())
             .offset((page - 1) * limit)
             .limit(limit)
             .all()
@@ -70,7 +91,8 @@ class CourseService:
             raise HTTPException(status_code=404, detail="Course not found")
         lessons = (
             db.query(Lesson)
-            .filter(Lesson.course_id == course_id)
+            .join(Module, Lesson.module_id == Module.id)
+            .filter(Module.course_id == course_id)
             .order_by(Lesson.order.asc())
             .all()
         )

@@ -28,6 +28,7 @@ class Course(Base):
     certificate_offered = Column(Boolean, default=False)
     certificate_title = Column(String)
     certificate_description = Column(String)
+    is_published = Column(Boolean, default=False)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -42,6 +43,7 @@ class Course(Base):
         overlaps="courses",
     )
     enrollments = relationship("Enrollment", back_populates="course", lazy="selectin")
+    modules = relationship("Module", back_populates="course", lazy="selectin", cascade="all, delete-orphan")
 
 # ---------------- Module ----------------
 class Module(Base):
@@ -53,6 +55,10 @@ class Module(Base):
     description = Column(Text)
     order = Column(Integer, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    course = relationship("Course", back_populates="modules")
+    lessons = relationship("Lesson", back_populates="module", lazy="selectin", cascade="all, delete-orphan")
 
 # ---------------- Lesson ----------------
 class Lesson(Base):
@@ -62,10 +68,14 @@ class Lesson(Base):
     module_id = Column(Integer, ForeignKey("modules.id"), nullable=False)
     title = Column(String, nullable=False)
     description = Column(Text)
-    duration = Column(String, nullable=False)  # e.g., "10min"
-    material_type = Column(String)  # video, article, quiz
+    content = Column(Text)
+    duration = Column(String, nullable=False, default="0min")  # e.g., "10min"
+    material_type = Column(String, default="article")  # video, article, quiz
     material_url = Column(String)
     material_file = Column(String)
     order = Column(Integer, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    module = relationship("Module", back_populates="lessons")
 

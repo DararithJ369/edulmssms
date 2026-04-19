@@ -227,7 +227,7 @@ const AcademicYearForm = ({
             <Button
               type="submit"
               disabled={form.formState.isSubmitting}
-              className="w-full"
+              className="w-full bg-[#72e3ad] hover:bg-[#5bd39a] text-[#0b3d2c]"
             >
               {form.formState.isSubmitting ? "Saving..." : "Save Changes"}
             </Button>

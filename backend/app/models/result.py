@@ -12,6 +12,7 @@ class Result(Base):
 
     assignment_id = Column(Integer, ForeignKey("assignments.id"), nullable=True)
     exam_id = Column(Integer, ForeignKey("exams.id"), nullable=True)
+    quiz_id = Column(Integer, ForeignKey("quizzes.id"), nullable=True)
 
     graded_by = Column(String, ForeignKey("users.id"), nullable=False)
 

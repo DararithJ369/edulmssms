@@ -12,11 +12,18 @@ from app.utils.get_image import get_image
 class AssignmentService:
 
     @staticmethod
-    def get_assignments(db: Session, page: int = 1, limit: int = 10) -> dict:
-        total = db.query(func.count(Assignment.id)).scalar()
+    def get_assignments(db: Session, page: int = 1, limit: int = 10, search: str = "") -> dict:
+        query = db.query(Assignment)
+        
+        if search:
+            query = query.filter(
+                (Assignment.title.ilike(f"%{search}%")) |
+                (Assignment.description.ilike(f"%{search}%"))
+            )
+        
+        total = query.with_entities(func.count(Assignment.id)).scalar()
         assignments = (
-            db.query(Assignment)
-            .order_by(Assignment.created_at.desc())
+            query.order_by(Assignment.created_at.desc())
             .offset((page - 1) * limit)
             .limit(limit)
             .all()

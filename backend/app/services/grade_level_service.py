@@ -6,6 +6,18 @@ from app.schemas.grade_level import GradeLevelCreate, GradeLevelUpdate, GradeLev
 
 
 class GradeLevelService:
+    
+    @staticmethod
+    def setup_form(db: Session) -> dict:
+        return {
+            "fields": {
+                "name":        {"type": "string",  "required": True, "hint": "e.g. Grade 1, Year 10"},
+                "code":        {"type": "string",  "required": False, "hint": "e.g. G1, Y10"},
+                "description": {"type": "text",    "required": False},
+                "order":       {"type": "number",  "required": True, "hint": "Sort order (1, 2, 3...)"},
+                "is_active":   {"type": "boolean", "required": False},
+            }
+        }
 
     @staticmethod
     def get_grade_levels(db: Session, page: int = 1, limit: int = 10) -> dict:

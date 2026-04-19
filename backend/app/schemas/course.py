@@ -12,6 +12,7 @@ class CourseBase(BaseModel):
     max_students: Optional[int] = None
     difficulty: Optional[str] = "beginner"
     instructor_name: Optional[str] = None
+    is_published: Optional[bool] = None
     
 
 class CourseCreate(CourseBase):
@@ -28,6 +29,7 @@ class CourseUpdate(BaseModel):
     max_students: Optional[int] = None
     difficulty: Optional[str] = None
     instructor_name: Optional[str] = None
+    is_published: Optional[bool] = None
     
     
 class CourseResponse(CourseBase):
@@ -42,6 +44,7 @@ class CourseResponse(CourseBase):
     certificate_offered: bool = False
     certificate_title: Optional[str] = None
     certificate_description: Optional[str] = None
+    is_published: bool = False
     created_at: datetime
     updated_at: Optional[datetime] = None
 

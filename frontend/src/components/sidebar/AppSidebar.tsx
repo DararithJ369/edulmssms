@@ -6,7 +6,6 @@ import {
   GraduationCap,
   Users,
   LayoutDashboard,
-  Banknote,
   type LucideIcon,
   LogOut,
   HelpCircle,
@@ -80,22 +79,47 @@ export const sidebardata = {
         {
           title: "Classes",
           url: "/classes",
-          roles: ["admin", "instructor"],
+          roles: ["admin"],
         },
         {
           title: "Subjects",
           url: "/subjects",
-          roles: ["admin", "instructor"],
+          roles: ["admin"],
         },
         {
           title: "Timetable",
           url: "/timetable",
-          // Everyone needs to see the schedule
+          roles: ["admin"],
+        },
+        {
+          title: "Grades",
+          url: "/academics/grades",
+          roles: ["admin", "instructor", "student"],
+        },
+        {
+          title: "Assignments",
+          url: "/academics/assignments",
+          roles: ["admin", "instructor", "student"],
+        },
+        {
+          title: "Quizzes",
+          url: "/academics/quizzes",
+          roles: ["admin", "instructor", "student"],
+        },
+        {
+          title: "Results",
+          url: "/academics/results",
+          roles: ["admin", "instructor", "student"],
         },
         {
           title: "Attendance",
-          url: "/attendance",
+          url: "/academics/attendance",
           // Parents want to see if their kid was present
+        },
+        {
+          title: "Enrollments",
+          url: "/academics/enrollments",
+          roles: ["admin", "instructor"],
         },
       ],
     },
@@ -105,9 +129,9 @@ export const sidebardata = {
       icon: GraduationCap,
       roles: ["instructor", "student", "admin"], // Parents usually don't need deep LMS access
       items: [
-        { title: "Assignments", url: "/lms/assignments" },
+        { title: "Courses", url: "/lms/courses" },
+        { title: "Submissions", url: "/lms/submissions", roles: ["admin", "instructor"] },
         { title: "Exams", url: "/lms/exams" },
-        { title: "Study Materials", url: "/lms/materials" },
       ],
     },
     {
@@ -135,24 +159,14 @@ export const sidebardata = {
       ],
     },
     {
-      title: "Finance",
-      url: "#",
-      icon: Banknote,
-      roles: ["admin"],
-      items: [
-        { title: "Fee Collection", url: "/finance/fees" },
-        { title: "Expenses", url: "/finance/expenses" },
-        { title: "Salary", url: "/finance/salary" },
-      ],
-    },
-    {
       title: "System",
       url: "#",
       icon: Settings2,
       roles: ["admin"],
       items: [
-        { title: "School Settings", url: "/settings/general" }, // Added to match router
+        { title: "School Settings", url: "/settings/general" },
         { title: "Academic Years", url: "/settings/academic-years" },
+        { title: "Grade Levels", url: "/settings/grade-levels" },
         { title: "Roles & Permissions", url: "/settings/roles" },
       ],
     },
@@ -171,10 +185,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   //   avatar: "",
   // };
 
-  const userRole = (user?.role || "student") as UserRole;
+  const userRole = (
+    typeof user?.role === "string" 
+      ? user.role 
+      : (user?.role as any)?.name || "student"
+  ) as UserRole;
 
   const filteredNav = useMemo(() => {
-    return sidebardata.navMain
+    // First, filter by role
+    let nav = sidebardata.navMain
       .filter((item) => !item.roles || item.roles.includes(userRole))
       .map((item) => {
         const isChildActive = item.items?.some((sub) => pathname === sub.url || pathname.startsWith(sub.url + "/"));
@@ -192,6 +211,63 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             })),
         };
       });
+
+    // Admins see everything - no context-aware filtering
+    if (userRole === "admin") {
+      return nav;
+    }
+
+    // Now apply context-aware filtering for non-admins
+    // If user is in a specific section, only show relevant items
+    const inLMS = pathname.includes("/lms");
+    const inAcademics = pathname.includes("/academics");
+    const inUsers = pathname.includes("/users");
+    const inFinance = pathname.includes("/finance");
+    const inSettings = pathname.includes("/settings");
+
+    nav = nav.map((item) => {
+      // Always show dashboard
+      if (item.title === "Dashboard") {
+        return item;
+      }
+
+      // If in LMS section, only show LMS items
+      if (inLMS && item.title === "Learning (LMS)") {
+        return item;
+      }
+      // If in Academics section, only show Academics items
+      if (inAcademics && item.title === "Academics") {
+        return item;
+      }
+      // If in Users/People section, only show People items
+      if (inUsers && item.title === "People") {
+        return item;
+      }
+      // If in Finance section, only show Finance items
+      if (inFinance && item.title === "Finance") {
+        return item;
+      }
+      // If in Settings/System section, only show System items
+      if (inSettings && item.title === "System") {
+        return item;
+      }
+
+      // Hide other sections when in a specific context
+      if (item.items && item.items.length > 0 && (inLMS || inAcademics || inUsers || inFinance || inSettings)) {
+        return { ...item, items: [] };
+      }
+
+      return item;
+    });
+
+    // Filter out sections with no items (except Dashboard)
+    nav = nav.filter((item) => {
+      if (item.title === "Dashboard") return true;
+      if (!item.items || item.items.length === 0) return false;
+      return true;
+    });
+
+    return nav;
   }, [pathname, userRole]);
 
   const logout = async () => {

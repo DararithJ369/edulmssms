@@ -21,8 +21,8 @@ class LessonSeeder(BaseSeeder):
             Colors.warning("Database bind is not an Engine, skipping lesson seeding")
             return []
         inspector = inspect(bind)
-        if "lesson" not in set(inspector.get_table_names()):
-            Colors.warning("Lesson table does not exist, skipping")
+        if "lessons" not in set(inspector.get_table_names()):
+            Colors.warning("Lessons table does not exist, skipping")
             return []
 
         data_list = [

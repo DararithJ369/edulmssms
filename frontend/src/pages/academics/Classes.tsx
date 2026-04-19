@@ -1,24 +1,21 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 
-import { api } from "@/lib/api";
+import { useClasses } from "@/hooks/useClasses";
 
 import { Button } from "@/components/ui/button";
-import type { Class, pagination } from "@/types";
+import type { Class } from "@/types";
 import Search from "@/components/global/Search";
 import CustomAlert from "@/components/global/CustomAlert";
 import ClassTable from "@/components/classes/ClassTable";
 import ClassForm from "@/components/classes/ClassForm";
 
 const Classes = () => {
-  // it's the same as users/academics-year components
-  const [classes, setClasses] = useState<Class[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Use optimized hook with automatic pagination and search handling
+  const { classes, meta, loading, error, deleteClass, setPage } = useClasses();
+
   const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [pageNum, setPageNum] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   // Dialog States
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingClass, setEditingClass] = useState<Class | null>(null);
@@ -26,48 +23,6 @@ const Classes = () => {
   // Delete Alert States
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearch(search);
-      setPageNum(1); // Reset to page 1 on new search
-    }, 500);
-    return () => clearTimeout(handler);
-  }, [search]);
-
-  // 2. Fetch Classes
-  const fetchClasses = async () => {
-    try {
-      setLoading(true);
-
-      // Construct Query Params
-      const params = new URLSearchParams();
-      params.append("page", pageNum.toString());
-      params.append("limit", "10");
-      if (debouncedSearch) params.append("search", debouncedSearch);
-
-      const { data } = (await api.get(`/classes?${params.toString()}`)) as {
-        data: { classes: Class[]; pagination: pagination };
-      };
-
-      // Handle response structure { classes: [], pagination: {} }
-      if (data.classes) {
-        setClasses(data.classes);
-        setTotalPages(data.pagination.pages);
-      } else {
-        setClasses([]);
-      }
-    } catch (error) {
-      toast.error("Failed to load classes");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Trigger fetch when Page or Search changes
-  useEffect(() => {
-    fetchClasses();
-  }, [pageNum, debouncedSearch]);
 
   const handleCreate = () => {
     setEditingClass(null);
@@ -87,11 +42,10 @@ const Classes = () => {
   const confirmDelete = async () => {
     if (!deleteId) return;
     try {
-      await api.delete(`/classes/delete/${deleteId}`);
-      toast.success("Class deleted successfully");
-      fetchClasses(); // to refresh the list
-    } catch (error: any) {
-      toast.error("Failed to delete class");
+      const success = await deleteClass(parseInt(deleteId));
+      if (success) {
+        toast.success("Class deleted successfully");
+      }
     } finally {
       setIsDeleteOpen(false);
       setDeleteId(null);
@@ -120,16 +74,19 @@ const Classes = () => {
         loading={loading}
         onEdit={handleEdit}
         onDelete={handleDeleteClick}
-        page={pageNum}
-        setPage={setPageNum}
-        totalPages={totalPages}
+        page={meta.page}
+        setPage={setPage}
+        totalPages={Math.ceil(meta.total / meta.limit)}
       />
       {/* form */}
       <ClassForm
         open={isFormOpen}
         onOpenChange={setIsFormOpen}
         initialData={editingClass}
-        onSuccess={fetchClasses}
+        onSuccess={() => {
+          setEditingClass(null);
+          // Data will auto-refetch due to hook
+        }}
       />
       {/* alert */}
       <CustomAlert

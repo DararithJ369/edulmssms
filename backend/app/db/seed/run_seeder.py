@@ -45,7 +45,6 @@ def ensure_seed_tables(db):
         "app.models.grade",
         "app.models.subject",
         "app.models.course",
-        "app.models.lesson",
         "app.models.lesson_material",
         "app.models.assignment",
         "app.models.enrollment",

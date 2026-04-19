@@ -1,5 +1,5 @@
 from typing import Optional
-from fastapi import APIRouter, Depends, Form
+from fastapi import APIRouter, Depends, Form, HTTPException
 from sqlalchemy.orm import Session
 from app.middleware.guard.permission import PermissionGuard
 from app.config.session import get_db
@@ -12,8 +12,8 @@ grade_router = APIRouter(tags=["Grades"])
 # ── General grades CRUD ───────────────────────────────────────────────────────
 
 @grade_router.get("/grades", dependencies=[Depends(PermissionGuard.admin_or_instructor)])
-def get_all_grades(page: int = 1, limit: int = 10, db: Session = Depends(get_db)):
-    return GradeService.get_grades(db, page, limit)
+def get_all_grades(page: int = 1, limit: int = 10, search: str = "", db: Session = Depends(get_db)):
+    return GradeService.get_grades(db, page, limit, search)
 
 
 @grade_router.post("/grades", response_model=GradeResponse, dependencies=[Depends(PermissionGuard.admin_or_instructor)])
@@ -60,5 +60,11 @@ def delete_grade(grade_id: int, db: Session = Depends(get_db)):
 # ── Grades per student ────────────────────────────────────────────────────────
 
 @grade_router.get("/students/{student_id}/grades")
-def get_student_grades(student_id: int, db: Session = Depends(get_db)):
+def get_student_grades(
+    student_id: int,
+    current_user=Depends(PermissionGuard.get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not PermissionGuard.can_view_student(db, current_user, str(student_id)):
+        raise HTTPException(status_code=403, detail="Not authorized to view student grades")
     return GradeService.get_student_grades(db, student_id)

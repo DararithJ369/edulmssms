@@ -113,7 +113,7 @@ const AcademicYear = () => {
         </div>
         <div className="flex gap-3">
           <Search search={search} setSearch={setSearch} title="Academic Year" />
-          <Button onClick={handleCreate}>
+          <Button onClick={handleCreate} className="bg-[#72e3ad] hover:bg-[#5bd39a] text-[#0b3d2c]">
             <Plus className="mr-2 h-4 w-4" /> Add New Year
           </Button>
         </div>

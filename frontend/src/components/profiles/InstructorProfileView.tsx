@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { ProfileAvatar } from "./ProfileAvatar";
+import { memo } from "react";
 
 interface InstructorProfile {
   id: number;
@@ -236,3 +237,5 @@ export function InstructorProfileView({
     </div>
   );
 }
+
+export const MemoizedInstructorProfileView = memo(InstructorProfileView);

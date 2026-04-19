@@ -10,11 +10,19 @@ from app.schemas.result import ResultResponse
 class QuizService:
 
     @staticmethod
-    def get_quizzes(db: Session, page: int = 1, limit: int = 10) -> dict:
-        total = db.query(func.count(Quiz.id)).scalar()
+    def get_quizzes(db: Session, page: int = 1, limit: int = 10, search: str = "") -> dict:
+        query = db.query(Quiz)
+        
+        if search:
+            query = query.filter(
+                (Quiz.title.ilike(f"%{search}%")) |
+                (Quiz.description.ilike(f"%{search}%")) |
+                (Quiz.module_name.ilike(f"%{search}%"))
+            )
+        
+        total = query.with_entities(func.count(Quiz.id)).scalar()
         quizzes = (
-            db.query(Quiz)
-            .order_by(Quiz.created_at.desc())
+            query.order_by(Quiz.created_at.desc())
             .offset((page - 1) * limit)
             .limit(limit)
             .all()

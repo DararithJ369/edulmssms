@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from app.middleware.guard.permission import PermissionGuard
 from app.config.session import get_db
@@ -10,8 +10,15 @@ course_router = APIRouter(prefix="/courses", tags=["Courses"])
 
 
 @course_router.get("")
-def get_all_courses(page: int = 1, limit: int = 10, db: Session = Depends(get_db)):
-    return CourseService.get_courses(db, page, limit)
+def get_all_courses(
+    page: int = 1,
+    limit: int = 10,
+    search: str | None = None,
+    category: str | None = None,
+    published: bool | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    return CourseService.get_courses(db, page, limit, search, category, published)
 
 
 @course_router.get("/{course_id}", response_model=CourseResponse)

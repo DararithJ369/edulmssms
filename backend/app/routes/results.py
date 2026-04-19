@@ -10,8 +10,8 @@ result_router = APIRouter(prefix="/results", tags=["Results"])
 
 
 @result_router.get("", dependencies=[Depends(PermissionGuard.admin_or_instructor)])
-def get_all_results(page: int = 1, limit: int = 10, db: Session = Depends(get_db)):
-    return ResultService.get_results(db, page, limit)
+def get_all_results(page: int = 1, limit: int = 10, search: str = "", type: str = "", db: Session = Depends(get_db)):
+    return ResultService.get_results(db, page, limit, search, type)
 
 
 @result_router.get("/{result_id}", response_model=ResultResponse)

@@ -1,39 +1,81 @@
-import { Cpu, Brain, Database, Palette, ShieldCheck } from "lucide-react";
-
-const programs = [
-  {
-    title: "Computer Science",
-    icon: Cpu,
-    desc: "Master the foundations of software engineering and scalable systems.",
-    tags: ["AI", "Systems", "Mobile"],
-  },
-  {
-    title: "Neural Engineering",
-    icon: Brain,
-    desc: "The intersection of neuroscience and computational modeling.",
-    tags: ["Biotech", "BCI", "Research"],
-  },
-  {
-    title: "Data Architecture",
-    icon: Database,
-    desc: "Design complex data systems for global enterprises.",
-    tags: ["Big Data", "Cloud", "SQL"],
-  },
-  {
-    title: "Digital Arts",
-    icon: Palette,
-    desc: "Bridge the gap between technology and creative expression.",
-    tags: ["UI/UX", "3D", "VFX"],
-  },
-  {
-    title: "Cyber Security",
-    icon: ShieldCheck,
-    desc: "Protect the digital frontier with advanced offensive/defensive tactics.",
-    tags: ["Ethical Hacking", "Crypto"],
-  },
-];
+import { useEffect, useState } from "react";
+import { Cpu, Brain, Database, Palette, ShieldCheck, Loader2 } from "lucide-react";
+import { api } from "@/lib/api";
+import { API } from "@/lib/endpoints";
 
 const Programs = () => {
+  const [programs, setPrograms] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fallback default programs
+  const defaultPrograms = [
+    {
+      title: "Computer Science",
+      icon: Cpu,
+      desc: "Master the foundations of software engineering and scalable systems.",
+      tags: ["AI", "Systems", "Mobile"],
+      enrollment: 2400,
+    },
+    {
+      title: "Neural Engineering",
+      icon: Brain,
+      desc: "The intersection of neuroscience and computational modeling.",
+      tags: ["Biotech", "BCI", "Research"],
+      enrollment: 580,
+    },
+    {
+      title: "Data Architecture",
+      icon: Database,
+      desc: "Design complex data systems for global enterprises.",
+      tags: ["Big Data", "Cloud", "SQL"],
+      enrollment: 1250,
+    },
+    {
+      title: "Digital Arts",
+      icon: Palette,
+      desc: "Bridge the gap between technology and creative expression.",
+      tags: ["UI/UX", "3D", "VFX"],
+      enrollment: 890,
+    },
+    {
+      title: "Cyber Security",
+      icon: ShieldCheck,
+      desc: "Protect the digital frontier with advanced offensive/defensive tactics.",
+      tags: ["Ethical Hacking", "Crypto"],
+      enrollment: 1150,
+    },
+  ];
+
+  useEffect(() => {
+    const fetchPrograms = async () => {
+      try {
+        setLoading(true);
+        const response = await api.get(`${API.COURSES.GET_ALL}?limit=50`);
+        const courses = response.data?.data || [];
+
+        if (courses.length > 0) {
+          // Transform courses into program format
+          const transformedPrograms = courses.slice(0, 5).map((course: any, idx: number) => ({
+            title: course.course_name || course.title || "Program",
+            icon: [Cpu, Brain, Database, Palette, ShieldCheck][idx % 5],
+            desc: course.description || "Explore this innovative program.",
+            tags: (course.category || "").split(",").map((t: string) => t.trim()).filter(Boolean) || ["Core", "Advanced"],
+            enrollment: course.student_enrolled || 0,
+          }));
+          setPrograms(transformedPrograms);
+        } else {
+          setPrograms(defaultPrograms);
+        }
+      } catch (error) {
+        console.error("Failed to fetch programs:", error);
+        setPrograms(defaultPrograms);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPrograms();
+  }, []);
   return (
     <section id="programs" className="py-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -53,7 +95,12 @@ const Programs = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {programs.map((program, idx) => (
+          {loading ? (
+            <div className="col-span-full flex justify-center py-16">
+              <Loader2 className="w-8 h-8 text-[#3ecf8e] animate-spin" />
+            </div>
+          ) : (
+            programs.map((program, idx) => (
             <div
               key={idx}
               className="group relative bg-gray-50 dark:bg-[#1c1c1c] border border-gray-200 dark:border-gray-800 p-8 rounded-2xl hover:border-[#3ecf8e]/50 transition-all duration-300 shadow-sm hover:shadow-xl"
@@ -91,7 +138,8 @@ const Programs = () => {
                 Learn More <Cpu className="ml-2 w-4 h-4" />
               </button>
             </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
     </section>

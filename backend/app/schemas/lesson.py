@@ -6,7 +6,7 @@ from datetime import datetime
 class LessonBase(BaseModel):
     title: str
     content: Optional[str] = None
-    duration: Optional[int] = None  # Duration in minutes
+    duration: Optional[str] = None  # Duration as string (e.g., "45min")
     material_type: Optional[str] = None  # video, text, quiz, etc.
     material_url: Optional[str] = None
     material_file: Optional[str] = None  # file path or URL to the material
@@ -20,7 +20,7 @@ class LessonCreate(LessonBase):
 class LessonUpdate(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
-    duration: Optional[int] = None
+    duration: Optional[str] = None
     material_type: Optional[str] = None
     material_url: Optional[str] = None
     material_file: Optional[str] = None

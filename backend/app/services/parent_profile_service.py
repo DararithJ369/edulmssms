@@ -34,6 +34,17 @@ class ParentProfileService:
         return profile.parent_profile
 
     # ── CRUD ──────────────────────────────────────────────────────────────────
+    
+    @staticmethod
+    def setup_form(db: Session) -> dict:
+        """Return field info for frontend form generation."""
+        return {
+            "fields": {
+                "relationship":    {"type": "string", "required": False, "hint": "e.g. Father, Mother, Guardian"},
+                "occupation":      {"type": "string", "required": False},
+                "emergency_phone": {"type": "string", "required": False},
+            }
+        }
 
     @staticmethod
     def get_parent_profiles(db: Session, page: int = 1, limit: int = 10) -> dict:

@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from app.config import get_db, settings
 from app.middleware.guard.permission import PermissionGuard
 from app.routes import (
-    loggin_router,
+    auth_router,
     user_router,
     grade_router,
     grade_level_router,
@@ -24,11 +24,16 @@ from app.routes import (
     attendance_router,
     submission_router,
     dashboard_router,
+    courses_management_router,
+    finance_router,
+    role_router,
+    permission_router,
+    role_permissions_router,
 )
 from app.routes.profiles import profiles_router
 
 
-public_routes = [loggin_router]
+public_routes = [auth_router]
 
 from app.config.session import engine
 from app.config.base import Base
@@ -62,7 +67,7 @@ print("Admin-only routes will be protected with PermissionGuard")
 # so we don't apply global protection here.
 
 router = APIRouter(prefix="/api/v1")
-router.include_router(router=loggin_router)
+router.include_router(router=auth_router)
 router.include_router(router=user_router)
 router.include_router(router=profiles_router)
 router.include_router(router=dashboard_router)
@@ -71,6 +76,7 @@ router.include_router(router=grade_level_router)
 router.include_router(router=academic_year_router)
 router.include_router(router=class_router)
 router.include_router(router=course_router)
+router.include_router(router=courses_management_router)
 router.include_router(router=subject_router)
 router.include_router(router=lesson_router)
 router.include_router(router=assignment_router)
@@ -80,6 +86,10 @@ router.include_router(router=result_router)
 router.include_router(router=enrollment_router)
 router.include_router(router=attendance_router)
 router.include_router(router=submission_router)
+router.include_router(router=finance_router)
+router.include_router(router=role_router)
+router.include_router(router=permission_router)
+router.include_router(router=role_permissions_router)
 
 
 # Serve static files from the "uploads" directory

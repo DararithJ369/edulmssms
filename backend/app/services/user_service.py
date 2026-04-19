@@ -116,6 +116,35 @@ class UserService:
         
     
     @staticmethod
+    def get_users_by_role(db: Session, role_name: str, page: int, limit: int):
+        total = (
+            db.query(func.count(User.id))
+            .join(Role)
+            .filter(func.lower(Role.name) == func.lower(role_name))
+            .scalar()
+        )
+        
+        users = (
+            db.query(User)
+            .join(Role)
+            .filter(func.lower(Role.name) == func.lower(role_name))
+            .order_by(User.created_at.desc())
+            .offset((page - 1) * limit)
+            .limit(limit)
+            .all()
+        )
+        
+        return {
+            "data": [UserResponse.model_validate(user) for user in users],
+            "meta": {
+                "page": page,
+                "total": total,
+                "limit": limit,
+            }
+        }
+        
+    
+    @staticmethod
     def update_user(db: Session, user_id: str, user_in: UserUpdate, image: Optional[UploadFile] = None) -> UserResponse:
         user = db.query(User).filter(User.id == user_id).first()
         if not user:

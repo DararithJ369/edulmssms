@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, Date, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, Date, DateTime, ForeignKey, Float
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.base import Base
@@ -24,6 +24,11 @@ class Enrollment(Base):
     is_active          = Column(Boolean, default=True, nullable=False)
     enrolled_date      = Column(Date, nullable=True)
     dropped_date       = Column(Date, nullable=True)           # set when unenrolled
+
+    # Payment fields for Stripe integration
+    payment_status     = Column(String, default="pending", nullable=True)  # pending, completed, failed
+    payment_id         = Column(String, nullable=True)  # Stripe payment intent ID
+    amount_paid        = Column(Float, default=0, nullable=True)
 
     created_at         = Column(DateTime(timezone=True), server_default=func.now())
     updated_at         = Column(DateTime(timezone=True), onupdate=func.now())

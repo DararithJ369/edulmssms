@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useProfileData } from "@/hooks/useProfileData";
-import { ParentProfileView } from "@/components/profiles/ParentProfileView";
+import { MemoizedParentProfileView } from "@/components/profiles/ParentProfileView";
 import { ProfileEditForm } from "@/components/profiles/ProfileEditForm";
 import { ArrowLeft, Pencil, X } from "lucide-react";
 
@@ -83,7 +83,7 @@ export function ParentDetail() {
             }}
           />
         ) : (
-          <ParentProfileView
+          <MemoizedParentProfileView
             fullName={profile?.full_name}
             phone={profile?.phone}
             address={profile?.address}

@@ -8,6 +8,18 @@ from app.schemas.term import TermCreate, TermUpdate, TermResponse
 
 
 class AcademicYearService:
+    
+    @staticmethod
+    def setup_form(db: Session) -> dict:
+        return {
+            "fields": {
+                "name":       {"type": "string", "required": True,  "hint": "e.g. 2024-2025"},
+                "start_date": {"type": "date",   "required": True},
+                "end_date":   {"type": "date",   "required": True},
+                "is_current": {"type": "boolean","required": False},
+                "is_active":  {"type": "boolean","required": False},
+            }
+        }
 
     @staticmethod
     def get_academic_years(db: Session, page: int = 1, limit: int = 10) -> dict:

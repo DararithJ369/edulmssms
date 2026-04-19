@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ProfileAvatar } from "./ProfileAvatar";
 import { useNavigate } from "react-router";
 import { Eye, Phone } from "lucide-react";
+import { memo } from "react";
 
 interface StudentProfile {
   id: number;
@@ -173,12 +174,12 @@ export function StudentProfileView({
             {/* Badges row */}
             <div className="flex flex-wrap gap-2">
               {studentProfile?.grade_level_name && (
-                <Badge className="text-xs font-semibold bg-green-500 hover:bg-green-600 text-white border-0 shadow-md">
+                <Badge className="px-3 py-1 bg-[#72e3ad]/20 dark:bg-[#006239]/30 text-[#1d7e59] dark:text-[#72e3ad] text-xs font-bold uppercase tracking-wider border-0">
                   {studentProfile.grade_level_name}
                 </Badge>
               )}
               {studentProfile?.department && (
-                <Badge className="text-xs font-semibold bg-blue-500 hover:bg-blue-600 text-white border-0 shadow-md">
+                <Badge className="px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-bold uppercase tracking-wider border-0">
                   {studentProfile.department}
                 </Badge>
               )}
@@ -310,3 +311,5 @@ export function StudentProfileView({
     </div>
   );
 }
+
+export const MemoizedStudentProfileView = memo(StudentProfileView);

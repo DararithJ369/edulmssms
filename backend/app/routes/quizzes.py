@@ -11,8 +11,8 @@ quiz_router = APIRouter(prefix="/quizzes", tags=["Quizzes"])
 
 
 @quiz_router.get("")
-def get_all_quizzes(page: int = 1, limit: int = 10, db: Session = Depends(get_db)):
-    return QuizService.get_quizzes(db, page, limit)
+def get_all_quizzes(page: int = 1, limit: int = 10, search: str = "", db: Session = Depends(get_db)):
+    return QuizService.get_quizzes(db, page, limit, search)
 
 
 @quiz_router.get("/{quiz_id}", response_model=QuizResponse)

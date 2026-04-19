@@ -9,9 +9,15 @@ from app.schemas.subject import SubjectCreate, SubjectUpdate, SubjectResponse
 subject_router = APIRouter(prefix="/subjects", tags=["Subjects"])
 
 
+# ── Static paths ──────────────────────────────────────────────────────────────
+
+
 @subject_router.get("/setup-form", dependencies=[Depends(PermissionGuard.admin_only)])
 def setup_form(db: Session = Depends(get_db)):
     return SubjectService.setup_form(db)
+
+
+# ── Collection ────────────────────────────────────────────────────────────────
 
 
 @subject_router.get("")
@@ -19,12 +25,11 @@ def get_all_subjects(page: int = 1, limit: int = 10, db: Session = Depends(get_d
     return SubjectService.get_subjects(db, page, limit)
 
 
-@subject_router.get("/{subject_id}", response_model=SubjectResponse)
-def get_subject(subject_id: int, db: Session = Depends(get_db)):
-    return SubjectService.get_subject_by_id(db, subject_id)
-
-
-@subject_router.post("", response_model=SubjectResponse, dependencies=[Depends(PermissionGuard.admin_only)])
+@subject_router.post(
+    "", 
+    response_model=SubjectResponse, 
+    dependencies=[Depends(PermissionGuard.admin_only)]
+)
 def create_subject(
     teacher_id: str = Form(...),
     name: str = Form(...),
@@ -47,6 +52,14 @@ def create_subject(
             is_active=is_active,
         ),
     )
+
+
+# ── Dynamic /{subject_id} — MUST be last ─────────────────────────────────────
+
+
+@subject_router.get("/{subject_id}", response_model=SubjectResponse)
+def get_subject(subject_id: int, db: Session = Depends(get_db)):
+    return SubjectService.get_subject_by_id(db, subject_id)
 
 
 @subject_router.put("/{subject_id}", response_model=SubjectResponse, dependencies=[Depends(PermissionGuard.admin_only)])

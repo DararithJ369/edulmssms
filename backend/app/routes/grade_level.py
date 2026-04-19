@@ -9,19 +9,21 @@ from app.schemas.grade_level import GradeLevelCreate, GradeLevelUpdate, GradeLev
 grade_level_router = APIRouter(prefix="/grade-levels", tags=["Grade Levels"])
 
 
+# ── Static paths ──────────────────────────────────────────────────────────────
+
+
 @grade_level_router.get("/setup-form", dependencies=[Depends(PermissionGuard.admin_only)])
 def setup_form(db: Session = Depends(get_db)):
     return GradeLevelService.setup_form(db)
+
+
+# ── Collection ────────────────────────────────────────────────────────────────
 
 
 @grade_level_router.get("")
 def get_all_grade_levels(page: int = 1, limit: int = 10, db: Session = Depends(get_db)):
     return GradeLevelService.get_grade_levels(db, page, limit)
 
-
-@grade_level_router.get("/{level_id}", response_model=GradeLevelResponse)
-def get_grade_level(level_id: int, db: Session = Depends(get_db)):
-    return GradeLevelService.get_grade_level_by_id(db, level_id)
 
 
 @grade_level_router.post("", response_model=GradeLevelResponse, dependencies=[Depends(PermissionGuard.admin_only)])
@@ -39,7 +41,19 @@ def create_grade_level(
     )
 
 
-@grade_level_router.put("/{level_id}", response_model=GradeLevelResponse, dependencies=[Depends(PermissionGuard.admin_only)])
+# ── Dynamic /{level_id} — MUST be last ───────────────────────────────────────
+
+
+@grade_level_router.get("/{level_id}", response_model=GradeLevelResponse)
+def get_grade_level(level_id: int, db: Session = Depends(get_db)):
+    return GradeLevelService.get_grade_level_by_id(db, level_id)
+
+
+@grade_level_router.put(
+    "/{level_id}", 
+    response_model=GradeLevelResponse, 
+    dependencies=[Depends(PermissionGuard.admin_only)]
+)
 def update_grade_level(
     level_id:    int,
     name:        Optional[str]  = Form(None),
