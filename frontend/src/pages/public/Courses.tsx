@@ -76,7 +76,7 @@ export default function PublicCourses() {
   const categories = ["All Courses", "Programming", "Design", "Business", "Science"];
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-900">
+    <div className="min-h-screen bg-background">
       {/* Hero Section */}
       <div className="relative bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-700 dark:to-blue-900 text-white py-20">
         <div className="max-w-6xl mx-auto px-8">

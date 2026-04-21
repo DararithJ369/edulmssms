@@ -50,7 +50,7 @@ export default function Enrollments() {
   const totalPages = Math.ceil(meta.total / meta.limit);
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-900">
+    <div className="min-h-screen bg-background">
       <div className="border-b border-gray-200 dark:border-slate-700">
         <div className="max-w-6xl mx-auto px-8 py-12">
           <h1 className="notion-header">Enrollments</h1>

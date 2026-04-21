@@ -81,7 +81,7 @@ export default function EnrollmentCheckout() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white dark:bg-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-4">
           <Loader2 className="w-12 h-12 animate-spin mx-auto text-blue-600" />
           <p className="text-gray-600 dark:text-gray-400">Loading course details...</p>
@@ -92,7 +92,7 @@ export default function EnrollmentCheckout() {
 
   if (!course) {
     return (
-      <div className="min-h-screen bg-white dark:bg-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-4">
           <AlertCircle className="w-12 h-12 mx-auto text-red-600" />
           <p className="text-gray-600 dark:text-gray-400">Course not found</p>

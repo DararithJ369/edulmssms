@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import { API } from "@/lib/endpoints";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import CustomPagination from "@/components/global/CustomPagination";
 import {
   Dialog,
   DialogContent,
@@ -83,7 +84,7 @@ export default function Submissions() {
   const totalPages = Math.ceil(meta.total / meta.limit);
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-900">
+    <div className="min-h-screen bg-background">
       <div className="border-b border-gray-200 dark:border-slate-700">
         <div className="max-w-6xl mx-auto px-8 py-12">
           <h1 className="notion-header">Submissions</h1>
@@ -103,7 +104,7 @@ export default function Submissions() {
             <p className="text-gray-500 dark:text-gray-400">No submissions found</p>
           </div>
         ) : (
-          <div className="notion-card overflow-hidden">
+          <div className="notion-card overflow-hidden bg-white dark:bg-slate-900">
             <div className="notion-table">
               <table className="w-full">
                 <thead>
@@ -147,42 +148,12 @@ export default function Submissions() {
         )}
 
         {totalPages > 1 && (
-          <div className="flex justify-center gap-2 pt-8">
-            <Button
-              variant="outline"
-              disabled={page === 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="notion-button"
-            >
-              ← Previous
-            </Button>
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-              const start = Math.max(1, page - 2);
-              return start + i;
-            }).map((p) =>
-              p <= totalPages ? (
-                <Button
-                  key={p}
-                  onClick={() => setPage(p)}
-                  className={
-                    page === p
-                      ? "bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold"
-                      : "notion-button"
-                  }
-                >
-                  {p}
-                </Button>
-              ) : null
-            )}
-            <Button
-              variant="outline"
-              disabled={page === totalPages}
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              className="notion-button"
-            >
-              Next →
-            </Button>
-          </div>
+          <CustomPagination
+            loading={loading}
+            page={page}
+            setPage={setPage}
+            totalPages={totalPages}
+          />
         )}
       </div>
 
