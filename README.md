@@ -7,17 +7,16 @@ A full‑stack Learning Management System (LMS) and School Management System (SM
 - Academics: classes, subjects, grades, assignments, quizzes, results, attendance
 - LMS: courses, submissions, exams, public course catalog
 - System settings: academic years, grade levels, roles & permissions
-- Consistent UI with green accent palette
 
 ## Tech Stack
 - **Backend:** FastAPI, SQLAlchemy, Alembic
-- **Frontend:** React + TypeScript (Vite), Tailwind, shadcn/ui
+- **Frontend:**  NextJS + TypeScript, Tailwind, shadcn/ui
 - **Auth:** JWT
 
 ## Project Structure
 ```
 backend/   # FastAPI app, models, routes, services
-frontend/  # React app
+frontend/  # NextJS app
 ```
 
 ## Getting Started
