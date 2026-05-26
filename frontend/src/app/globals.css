@@ -1,0 +1,157 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 222 47% 11%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 220 14% 94%;
+    --muted-foreground: 215 16% 46%;
+    --accent: 220 14% 94%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 222 47% 11%;
+    --chart-1: 42 96% 73%;
+    --chart-2: 199 95% 86%;
+    --chart-3: 245 83% 89%;
+    --chart-4: 330 86% 90%;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+.react-calendar {
+  width: 100% !important;
+  border: none !important;
+  font-family: "Inter", sans-serif !important;
+}
+
+.react-calendar__navigation__label__labelText {
+  font-weight: 600;
+}
+
+.react-calendar__tile--active {
+  background-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+}
+
+.rbc-btn-group:first-child {
+  display: none !important;
+}
+
+.rbc-toolbar-label {
+  text-align: right !important;
+  padding: 0px 20px !important;
+}
+
+.rbc-btn-group:last-child {
+  font-size: 13px !important;
+}
+
+.rbc-btn-group:last-child button {
+  border: none !important;
+  background-color: hsl(var(--secondary)) !important;
+  margin-left: 2px !important;
+}
+
+.rbc-toolbar button.rbc-active {
+  background-color: hsl(var(--accent)) !important;
+  box-shadow: none !important;
+}
+
+.rbc-time-view {
+  border-color: hsl(var(--border)) !important;
+}
+
+.rbc-time-header {
+  display: none !important;
+}
+
+.rbc-time-content {
+  border: none !important;
+}
+
+.rbc-time-gutter.rbc-time-column {
+  font-size: 12px !important;
+}
+
+.rbc-time-gutter.rbc-time-column .rbc-timeslot-group {
+  padding: 0px 20px !important;
+}
+
+.rbc-timeslot-group {
+  background-color: hsl(var(--muted)) !important;
+}
+
+.rbc-day-slot {
+  font-size: 14px !important;
+}
+
+.rbc-event {
+  border: none !important;
+  color: hsl(var(--foreground)) !important;
+  padding: 10px !important;
+  margin: 10px !important;
+  width: 99% !important;
+}
+
+.rbc-event:nth-child(1) {
+  background-color: hsl(var(--chart-2)) !important;
+}
+.rbc-event:nth-child(2) {
+  background-color: hsl(var(--chart-1)) !important;
+}
+.rbc-event:nth-child(3) {
+  background-color: hsl(var(--chart-3)) !important;
+}
+.rbc-event:nth-child(4) {
+  background-color: hsl(var(--chart-4)) !important;
+}
+.rbc-event:nth-child(5) {
+  background-color: hsl(var(--chart-2)) !important;
+}
+.rbc-event:nth-child(6) {
+  background-color: hsl(var(--chart-1)) !important;
+}
+.rbc-event:nth-child(7) {
+  background-color: hsl(var(--chart-3)) !important;
+}
+.rbc-event:nth-child(8) {
+  background-color: hsl(var(--chart-4)) !important;
+}
+
+.rbc-event-label{
+  color: hsl(var(--muted-foreground)) !important;
+  margin-bottom: 5px;
+}
+

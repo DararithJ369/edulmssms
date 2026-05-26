@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { api } from "@/lib/api";
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 
 interface ProfileData {
   id: number;

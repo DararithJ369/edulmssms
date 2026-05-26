@@ -1,0 +1,15 @@
+export const CLASSES = {
+    GET_ALL: "/classes",
+    CREATE: "/classes",
+    GET_BY_ID: (classId: string) => `/classes/${classId}`,
+    UPDATE: (classId: string) => `/classes/${classId}`,
+    DELETE: (classId: string) => `/classes/${classId}`,
+    GET_STUDENTS: (classId: string) => `/classes/${classId}/students`,
+    ADD_STUDENT: (classId: string, studentId: string) => `/classes/${classId}/students/${studentId}`,
+    REMOVE_STUDENT: (classId: string, studentId: string) => `/classes/${classId}/students/${studentId}`,
+    GET_SESSIONS: (classId: string) => `/classes/${classId}/sessions`,
+    CREATE_SESSION: (classId: string) => `/classes/${classId}/sessions`,
+    GET_ATTENDANCE: (classId: string, sessionId: string) => `/classes/${classId}/sessions/${sessionId}/attendance`,
+    MARK_ATTENDANCE: (classId: string, sessionId: string) => `/classes/${classId}/sessions/${sessionId}/attendance`,
+    GET_INSTRUCTORS: (classId: string) => `/classes/${classId}/instructors`,
+} as const;
