@@ -44,6 +44,8 @@ class Course(Base):
     )
     enrollments = relationship("Enrollment", back_populates="course", lazy="selectin")
     modules = relationship("Module", back_populates="course", lazy="selectin", cascade="all, delete-orphan")
+    assignments = relationship("Assignment", back_populates="course", lazy="selectin", cascade="all, delete-orphan", overlaps="course")
+    quizzes = relationship("Quiz", back_populates="course", lazy="selectin", cascade="all, delete-orphan", overlaps="course")
 
 # ---------------- Module ----------------
 class Module(Base):

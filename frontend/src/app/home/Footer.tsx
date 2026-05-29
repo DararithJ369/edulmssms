@@ -15,8 +15,8 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
           <div className="space-y-6">
             <div className="flex items-center space-x-2">
-              <div className="bg-[#3ecf8e] p-1.5 rounded-lg">
-                <GraduationCap className="text-black w-6 h-6" />
+              <div className="bg-[#0038A8] p-1.5 rounded-lg">
+                <GraduationCap className="text-white w-6 h-6" />
               </div>
               <span className="text-2xl font-bold tracking-tight text-foreground uppercase">
                 Edunexus
@@ -29,19 +29,19 @@ const Footer = () => {
             <div className="flex space-x-4">
               <a
                 href="#"
-                className="w-10 h-10 rounded-full bg-white dark:bg-[#1c1c1c] border border-gray-200 dark:border-gray-800 flex items-center justify-center hover:bg-[#3ecf8e] hover:text-black transition-all text-gray-500 dark:text-gray-400 shadow-sm"
+                className="w-10 h-10 rounded-full bg-white dark:bg-[#1c1c1c] border border-gray-200 dark:border-gray-800 flex items-center justify-center hover:bg-[#0038A8] hover:text-white transition-all text-gray-500 dark:text-gray-400 shadow-sm"
               >
                 <Globe className="w-5 h-5" />
               </a>
               <a
                 href="#"
-                className="w-10 h-10 rounded-full bg-white dark:bg-[#1c1c1c] border border-gray-200 dark:border-gray-800 flex items-center justify-center hover:bg-[#3ecf8e] hover:text-black transition-all text-gray-500 dark:text-gray-400 shadow-sm"
+                className="w-10 h-10 rounded-full bg-white dark:bg-[#1c1c1c] border border-gray-200 dark:border-gray-800 flex items-center justify-center hover:bg-[#0038A8] hover:text-white transition-all text-gray-500 dark:text-gray-400 shadow-sm"
               >
                 <Mail className="w-5 h-5" />
               </a>
               <a
                 href="#"
-                className="w-10 h-10 rounded-full bg-white dark:bg-[#1c1c1c] border border-gray-200 dark:border-gray-800 flex items-center justify-center hover:bg-[#3ecf8e] hover:text-black transition-all text-gray-500 dark:text-gray-400 shadow-sm"
+                className="w-10 h-10 rounded-full bg-white dark:bg-[#1c1c1c] border border-gray-200 dark:border-gray-800 flex items-center justify-center hover:bg-[#0038A8] hover:text-white transition-all text-gray-500 dark:text-gray-400 shadow-sm"
               >
                 <ArrowUpRight className="w-5 h-5" />
               </a>
@@ -56,7 +56,7 @@ const Footer = () => {
               <li>
                 <a
                   href="#"
-                  className="text-gray-600 dark:text-gray-500 hover:text-[#3ecf8e] transition-colors"
+                  className="text-gray-600 dark:text-gray-500 hover:text-[#0038A8] transition-colors"
                 >
                   Undergraduate
                 </a>
@@ -64,7 +64,7 @@ const Footer = () => {
               <li>
                 <a
                   href="#"
-                  className="text-gray-600 dark:text-gray-500 hover:text-[#3ecf8e] transition-colors"
+                  className="text-gray-600 dark:text-gray-500 hover:text-[#0038A8] transition-colors"
                 >
                   Postgraduate
                 </a>
@@ -72,7 +72,7 @@ const Footer = () => {
               <li>
                 <a
                   href="#"
-                  className="text-gray-600 dark:text-gray-500 hover:text-[#3ecf8e] transition-colors"
+                  className="text-gray-600 dark:text-gray-500 hover:text-[#0038A8] transition-colors"
                 >
                   Executive Education
                 </a>
@@ -80,7 +80,7 @@ const Footer = () => {
               <li>
                 <a
                   href="#"
-                  className="text-gray-600 dark:text-gray-500 hover:text-[#3ecf8e] transition-colors"
+                  className="text-gray-600 dark:text-gray-500 hover:text-[#0038A8] transition-colors"
                 >
                   Online Courses
                 </a>
@@ -88,7 +88,7 @@ const Footer = () => {
               <li>
                 <a
                   href="#"
-                  className="text-gray-600 dark:text-gray-500 hover:text-[#3ecf8e] transition-colors"
+                  className="text-gray-600 dark:text-gray-500 hover:text-[#0038A8] transition-colors"
                 >
                   Scholarships
                 </a>
@@ -104,7 +104,7 @@ const Footer = () => {
               <li>
                 <a
                   href="#"
-                  className="text-gray-600 dark:text-gray-500 hover:text-[#3ecf8e] transition-colors"
+                  className="text-gray-600 dark:text-gray-500 hover:text-[#0038A8] transition-colors"
                 >
                   Campus Map
                 </a>
@@ -112,7 +112,7 @@ const Footer = () => {
               <li>
                 <a
                   href="#"
-                  className="text-gray-600 dark:text-gray-500 hover:text-[#3ecf8e] transition-colors"
+                  className="text-gray-600 dark:text-gray-500 hover:text-[#0038A8] transition-colors"
                 >
                   Library
                 </a>
@@ -120,7 +120,7 @@ const Footer = () => {
               <li>
                 <a
                   href="#"
-                  className="text-gray-600 dark:text-gray-500 hover:text-[#3ecf8e] transition-colors"
+                  className="text-gray-600 dark:text-gray-500 hover:text-[#0038A8] transition-colors"
                 >
                   Research Portal
                 </a>
@@ -128,7 +128,7 @@ const Footer = () => {
               <li>
                 <a
                   href="#"
-                  className="text-gray-600 dark:text-gray-500 hover:text-[#3ecf8e] transition-colors"
+                  className="text-gray-600 dark:text-gray-500 hover:text-[#0038A8] transition-colors"
                 >
                   Career Center
                 </a>
@@ -136,7 +136,7 @@ const Footer = () => {
               <li>
                 <a
                   href="#"
-                  className="text-gray-600 dark:text-gray-500 hover:text-[#3ecf8e] transition-colors"
+                  className="text-gray-600 dark:text-gray-500 hover:text-[#0038A8] transition-colors"
                 >
                   Alumni Network
                 </a>
@@ -158,7 +158,7 @@ const Footer = () => {
                 placeholder="Email address"
                 className="bg-white dark:bg-[#1c1c1c] border border-gray-200 dark:border-gray-800 rounded-l-lg px-4 py-3 text-gray-900 dark:text-white focus:outline-none w-full"
               />
-              <button className="bg-[#3ecf8e] text-black px-4 py-3 rounded-r-lg font-bold hover:bg-[#34b27b] transition-colors">
+              <button className="bg-[#0038A8] text-white px-4 py-3 rounded-r-lg font-bold hover:bg-[#002D86] transition-colors shadow-sm">
                 Join
               </button>
             </div>
@@ -189,9 +189,9 @@ const Footer = () => {
           </div>
           <button
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-            className="mt-6 md:mt-0 p-3 rounded-full bg-white dark:bg-[#1c1c1c] border border-gray-200 dark:border-gray-800 hover:border-[#3ecf8e] transition-all group shadow-sm"
+            className="mt-6 md:mt-0 p-3 rounded-full bg-white dark:bg-[#1c1c1c] border border-gray-200 dark:border-gray-800 hover:border-[#0038A8] transition-all group shadow-sm"
           >
-            <ArrowUp className="w-5 h-5 group-hover:text-[#3ecf8e] text-gray-400" />
+            <ArrowUp className="w-5 h-5 group-hover:text-[#0038A8] text-gray-400" />
           </button>
         </div>
       </div>

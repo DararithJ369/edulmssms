@@ -28,6 +28,8 @@ from app.db.seed.quiz_seeder import QuizSeeder
 from app.db.seed.exam_seeder import ExamSeeder
 from app.db.seed.result_seeder import ResultSeeder
 from app.db.seed.submission_seeder import SubmissionSeeder
+from app.db.seed.announcement_seeder import AnnouncementSeeder
+from app.db.seed.finance_seeder import FinanceSeeder
 from app.utils.colors import Colors
 
 
@@ -56,6 +58,7 @@ def ensure_seed_tables(db):
         "app.models.instructor_profile",
         "app.models.student_profile",
         "app.models.parent_profile",
+        "app.models.finance",
     ]
     
     for module_name in model_modules:
@@ -137,14 +140,21 @@ def main():
             student_role = roles.get("student")
 
             admin = user_seeder.seed_admin(admin_role.id) if admin_role else None
+            # Seed 5 realistic instructors
+            instructors = user_seeder.seed_instructors(instructor_role.id, count=5) if instructor_role else []
+            # Make sure we also have a fallback instructor just in case
             instructor = user_seeder.seed_instructor(instructor_role.id) if instructor_role else None
+            if instructor and instructor not in instructors:
+                instructors.append(instructor)
+
             students = user_seeder.seed_students(student_role.id, count=20) if student_role else []
             parent_role = roles.get("parent")
             parents = user_seeder.seed_parents(parent_role.id, count=5) if parent_role else []  
 
             # Extract IDs immediately before any further operations
             admin_id: str = admin.id if admin else None  
-            instructor_id: str = instructor.id if instructor else None
+            instructor_ids_list: list[str] = [i.id for i in instructors]
+            instructor_id: str = instructor_ids_list[0] if instructor_ids_list else None
             student_ids_list: list[str] = [s.id for s in students]
             parent_ids_list: list[str] = [p.id for p in parents]  
 
@@ -153,8 +163,15 @@ def main():
 
             if admin:
                 profile_seeder.seed_profile(admin_id, "System Admin")
-            if instructor:
-                profile_seeder.seed_profile(instructor_id, "Mr. Sok Dara")
+            
+            # Seed instructor profiles
+            instructor_names = [
+                "Dr. Sarah Chen", "Prof. Michael Johnson", "Dr. James Wilson", 
+                "Prof. Lisa Anderson", "Dr. Robert Martinez"
+            ]
+            for i, inst_id in enumerate(instructor_ids_list):
+                inst_name = instructor_names[i] if i < len(instructor_names) else f"Instructor {i+1}"
+                profile_seeder.seed_profile(inst_id, inst_name)
 
             # Real student names
             student_names = [
@@ -276,75 +293,58 @@ def main():
 
             # Seed subjects
             subject_seeder = SubjectSeeder(db)
-            subjects = subject_seeder.seed_subjects(instructor_id)
-
-            # Extract subject IDs immediately
-            subject_ids = [s.id for s in subjects] if subjects else []
+            subjects = subject_seeder.seed_subjects(instructor_ids_list)
 
             # Seed courses
             course_seeder = CourseSeeder(db)
-            subject_id = subject_ids[0] if subject_ids else None
-            courses = course_seeder.seed_courses(instructor_id, subject_id)
-
-            # Extract course IDs immediately
+            courses = course_seeder.seed_courses(instructor_ids_list, subjects)
             course_ids = [c.id for c in courses] if courses else []
 
             # Seed modules
             module_seeder = ModuleSeeder(db)
-            course_id = course_ids[0] if course_ids else None
-            modules = module_seeder.seed_modules(course_id)
-
-            # Extract module IDs immediately
-            module_ids = [m.id for m in modules] if modules else []
+            modules = module_seeder.seed_modules(courses)
 
             # Seed lessons
             lesson_seeder = LessonSeeder(db)
-            module_id = module_ids[0] if module_ids else None
-            lessons = lesson_seeder.seed_lessons(module_id)
+            lessons = lesson_seeder.seed_lessons(modules)
 
-            # Extract lesson IDs immediately
-            lesson_ids = [l.id for l in lessons] if lessons else []
+            # Seed enrollments for ALL courses
+            if course_ids and student_profile_ids:
+                enrollment_seeder = EnrollmentSeeder(db)
+                for c_id in course_ids:
+                    enrollment_seeder.seed_enrollments(c_id, student_profile_ids, academic_year_id)
 
             # Seed assignments
             assignment_seeder = AssignmentSeeder(db)
-            assignments = assignment_seeder.seed_assignments(course_id, instructor_id)
-
-            # Extract assignment IDs immediately
-            assignment_ids = [a.id for a in assignments] if assignments else []
-
-            # Seed enrollments
-            if course_ids and student_profile_ids:
-                enrollment_seeder = EnrollmentSeeder(db)
-                enrollments = enrollment_seeder.seed_enrollments(course_ids[0], student_profile_ids, academic_year_id)
-
-            # Seed attendance
-            if course_ids and student_ids_list and instructor_id:
-                attendance_seeder = AttendanceSeeder(db)
-                attendance = attendance_seeder.seed_attendance(course_ids[0], student_ids_list, instructor_id)
+            assignments = assignment_seeder.seed_assignments(courses, instructor_ids_list)
 
             # Seed quizzes
-            if course_ids and instructor_id:
-                quiz_seeder = QuizSeeder(db)
-                quizzes = quiz_seeder.seed_quizzes(course_ids[0], instructor_id)
+            quiz_seeder = QuizSeeder(db)
+            quizzes = quiz_seeder.seed_quizzes(courses, instructor_ids_list)
 
-            # Seed exams (with seeded lessons)
-            try:
-                if instructor_id and lesson_ids:
-                    exam_seeder = ExamSeeder(db)
-                    exams = exam_seeder.seed_exams(lesson_ids[0], instructor_id)
-            except Exception as e:
-                db.rollback()  # Rollback the failed transaction
-                Colors.warning(f"Could not seed exams: {str(e)}")
+            # Seed exams
+            exam_seeder = ExamSeeder(db)
+            exams = exam_seeder.seed_exams(lessons, instructor_ids_list)
 
-            # Seed results
-            if assignment_ids and student_ids_list:
-                result_seeder = ResultSeeder(db)
-                results = result_seeder.seed_results(student_ids_list, assignment_ids[0], instructor_id)
+            # Seed attendance across multiple dates
+            attendance_seeder = AttendanceSeeder(db)
+            attendance = attendance_seeder.seed_attendance(courses, student_ids_list, instructor_ids_list)
 
             # Seed submissions
-            if assignment_ids and student_ids_list:
-                submission_seeder = SubmissionSeeder(db)
-                submissions = submission_seeder.seed_submissions(student_ids_list, assignment_ids[0])
+            submission_seeder = SubmissionSeeder(db)
+            submissions = submission_seeder.seed_submissions(student_ids_list, assignments)
+
+            # Seed results with personalized feedback
+            result_seeder = ResultSeeder(db)
+            results = result_seeder.seed_results(student_ids_list, assignments, instructor_ids_list)
+
+            # Seed announcements (general and course-specific)
+            announcement_seeder = AnnouncementSeeder(db)
+            announcements = announcement_seeder.seed_announcements(courses, instructor_ids_list, admin_id)
+
+            # Seed finance records (fee collections, staff salaries, operating expenses)
+            finance_seeder = FinanceSeeder(db)
+            finance_seeder.seed_finance()
 
             print("LMS + SMS data seeded successfully")
 

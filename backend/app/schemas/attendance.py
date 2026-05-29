@@ -5,7 +5,7 @@ from datetime import datetime, date
 
 class attendanceBase(BaseModel):
     student_id: str
-    course_id: str
+    course_id: int
     date: date
     status: str # present, absent, late
     time: Optional[str] = None # e.g. "09:00 AM"

@@ -2,22 +2,19 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
-import { motion } from "framer-motion";
+import Image from "next/image";
 import {
-  ChevronLeft,
-  ChevronRight,
   CircleDollarSign,
   GraduationCap,
   LayoutDashboard,
   Menu,
-  MessageSquare,
   MoreHorizontal,
   PanelLeftClose,
-  PanelLeftOpen,
   School2,
   Settings,
   ShieldCheck,
   Users,
+  MessageSquare,
 } from "lucide-react";
 
 import { cn } from "@/lib/ui";
@@ -26,12 +23,20 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarSection, type MenuSection } from "@/components/sidebar/SidebarSection";
+import { api } from "@/lib/api";
+import { removeToken } from "@/lib/auth";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const normalizeRole = (role: string | null | undefined) => {
   if (role === "instructor") {
     return "teacher";
   }
-
   return role ?? "";
 };
 
@@ -52,7 +57,7 @@ const sections: MenuSection[] = [
       { label: "Academic Years", disabled: true, visible: ["admin"] },
       { label: "Classes", href: "/list/classes", visible: ["admin", "teacher"] },
       { label: "Subjects", href: "/list/subjects", visible: ["admin"] },
-      { label: "Courses", disabled: true, visible: ["admin", "teacher"] },
+      { label: "Courses", href: "/list/courses", visible: ["admin", "teacher", "student", "parent"] },
     ],
   },
   {
@@ -61,7 +66,7 @@ const sections: MenuSection[] = [
     items: [
       { label: "Lessons", href: "/list/lessons", visible: ["admin", "teacher"] },
       { label: "Assignments", href: "/list/assignments", visible: ["admin", "teacher", "student", "parent"] },
-      { label: "Quizzes", href: "/list/exams", visible: ["admin", "teacher", "student", "parent"] },
+      { label: "Quizzes", href: "/list/quizzes", visible: ["admin", "teacher", "student", "parent"] },
     ],
   },
   {
@@ -101,6 +106,13 @@ const sections: MenuSection[] = [
   },
 ];
 
+const roleGradients: Record<string, string> = {
+  admin: "bg-gradient-to-tr from-indigo-500 to-violet-600 text-white",
+  teacher: "bg-gradient-to-tr from-emerald-500 to-teal-600 text-white",
+  student: "bg-gradient-to-tr from-blue-500 to-sky-600 text-white",
+  parent: "bg-gradient-to-tr from-amber-500 to-orange-600 text-white",
+};
+
 export type SidebarProps = {
   role: string;
 };
@@ -108,10 +120,16 @@ export type SidebarProps = {
 const Sidebar = ({ role: rawRole }: SidebarProps) => {
   const pathname = usePathname();
   const role = useMemo(() => normalizeRole(rawRole), [rawRole]);
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isHidden, setIsHidden] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
 
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [userProfile, setUserProfile] = useState<{
+    username: string;
+    email: string;
+    image?: string;
+  } | null>(null);
+
+  // Sync mobile breakpoint
   useEffect(() => {
     const media = window.matchMedia("(max-width: 1024px)");
     const update = () => setIsMobile(media.matches);
@@ -120,18 +138,58 @@ const Sidebar = ({ role: rawRole }: SidebarProps) => {
     return () => media.removeEventListener("change", update);
   }, []);
 
+  // Hydrate collapsed state preference from localStorage
   useEffect(() => {
-    if (isMobile) {
-      setIsHidden(false);
-      setIsCollapsed(false);
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("sidebar-collapsed");
+      setIsCollapsed(saved === "true");
     }
-  }, [isMobile]);
+  }, []);
 
+  // Update layout padding and save preference when collapsed/mobile state toggles
   useEffect(() => {
-    const root = document.documentElement;
-    const width = isMobile || isHidden ? "0px" : isCollapsed ? "80px" : "280px";
-    root.style.setProperty("--sidebar-width", width);
-  }, [isCollapsed, isMobile, isHidden]);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("sidebar-collapsed", String(isCollapsed));
+      const root = document.documentElement;
+      const width = isMobile ? "0px" : isCollapsed ? "80px" : "280px";
+      root.style.setProperty("--sidebar-width", width);
+    }
+  }, [isCollapsed, isMobile]);
+
+  // Lazy load and cache user profile to eliminate dynamic fetches on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const cachedUsername = localStorage.getItem("user_username");
+      const cachedEmail = localStorage.getItem("user_email");
+      const cachedImage = localStorage.getItem("user_image");
+
+      if (cachedUsername) {
+        setUserProfile({
+          username: cachedUsername,
+          email: cachedEmail || "",
+          image: cachedImage || "",
+        });
+      } else {
+        // Fallback single lazy fetch if missing
+        api.get("/users/me").then(({ data }) => {
+          localStorage.setItem("user_username", data.username || "");
+          localStorage.setItem("user_email", data.email || "");
+          localStorage.setItem("user_image", data.image || "");
+          setUserProfile({
+            username: data.username || "",
+            email: data.email || "",
+            image: data.image || "",
+          });
+        }).catch(() => {
+          setUserProfile({
+            username: "Academic Member",
+            email: "",
+            image: "",
+          });
+        });
+      }
+    }
+  }, []);
 
   const visibleSections = useMemo(
     () =>
@@ -145,55 +203,74 @@ const Sidebar = ({ role: rawRole }: SidebarProps) => {
   );
 
   const isActive = (href?: string) => {
-    if (!href) {
-      return false;
-    }
-
+    if (!href) return false;
     return pathname === href || pathname?.startsWith(`${href}/`);
+  };
+
+  const getInitials = (name?: string) => {
+    if (!name) return "JD";
+    const parts = name.split(/[\s_.-]+/);
+    return parts.map((p) => p[0]?.toUpperCase()).slice(0, 2).join("");
+  };
+
+  const handleLogout = () => {
+    removeToken();
+    window.location.href = "/login";
   };
 
   const sidebarContent = (
     <TooltipProvider delayDuration={200}>
-      <motion.aside
-        layout
+      <aside
         className={cn(
-          "flex h-screen flex-col gap-4 overflow-hidden px-3 py-4",
-          "rounded-r-[28px]",
-          "bg-card/80 shadow-[0_24px_60px_rgba(15,23,42,0.12)] ring-1 ring-border backdrop-blur-xl",
-          isHidden && "pointer-events-none opacity-0",
-          isHidden ? "w-0 px-0 py-0" : isCollapsed ? "w-[80px] items-center" : "w-[280px]"
+          "relative flex h-screen flex-col gap-4 overflow-hidden px-4 py-5",
+          "rounded-r-[32px] select-none",
+          "bg-card/75 border-r border-border/60 shadow-[4px_0_40px_rgba(15,23,42,0.03)] backdrop-blur-2xl transition-all duration-300",
+          isCollapsed ? "w-[80px] items-center" : "w-[280px]"
         )}
-        animate={{ width: isHidden ? 0 : isCollapsed ? 80 : 280 }}
-        transition={{ type: "spring", stiffness: 240, damping: 26 }}
-        aria-label="Primary"
-        aria-hidden={isHidden}
+        aria-label="Primary Navigation"
       >
-        <div className={cn("flex w-full items-center", isCollapsed ? "justify-center" : "justify-between")}>
-          <div className={cn("flex items-center gap-3", isCollapsed && "hidden")}> 
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg">
-              <LayoutDashboard className="h-4 w-4" />
-            </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Lets Trip</p>
-              <p className="text-sm font-semibold text-foreground">SchoolLama</p>
-            </div>
+        {/* Clickable vertical line collapse trigger */}
+        {!isMobile && (
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsCollapsed((prev) => !prev);
+            }}
+            className="absolute right-0 top-0 bottom-0 z-50 w-2.5 cursor-col-resize hover:bg-[#0038A8]/5 active:bg-[#0038A8]/10 group/border flex items-center justify-center transition-colors duration-200"
+            title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+          >
+            <div className="w-[1.5px] h-14 rounded bg-transparent group-hover/border:bg-[#0038A8]/50 group-active/border:bg-[#0038A8]/80 transition-colors duration-200" />
           </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={cn(
-                "rounded-full border border-border bg-background shadow-sm transition-colors duration-300 hover:bg-accent",
-                isCollapsed && "rounded-full"
-              )}
-              onClick={() => setIsCollapsed((prev) => !prev)}
-              aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            >
-              {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-            </Button>
+        )}
+
+        <div className={cn("flex w-full items-center gap-2", isCollapsed ? "justify-center" : "justify-between")}>
+          <div className="flex items-center gap-2.5 overflow-hidden">
+            <div className="relative h-8 w-8 shrink-0">
+              <Image 
+                src="/ams.png" 
+                alt="AMS Logo" 
+                fill
+                sizes="32px"
+                className="object-contain hover:scale-105 transition-transform duration-300"
+                priority
+              />
+            </div>
+            
+            {!isCollapsed && (
+              <div className="flex flex-col select-none animate-in fade-in slide-in-from-left-2 duration-300">
+                <span className="text-[13px] font-black tracking-wider text-foreground uppercase leading-none">
+                  AMS <span className="text-[#0038A8]">ACADEMY</span>
+                </span>
+                <span className="text-[9px] font-medium text-muted-foreground/80 mt-1 uppercase tracking-widest leading-none">
+                  System
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="flex-1 w-full overflow-y-auto pr-1 no-scrollbar">
-          <div className={cn("space-y-4", isCollapsed && "w-full items-center")}> 
+        <div className="flex-1 w-full overflow-y-auto pr-1 no-scrollbar space-y-4">
+          <div className="space-y-4"> 
             <SidebarSection
               section={{
                 title: "Overview",
@@ -202,66 +279,92 @@ const Sidebar = ({ role: rawRole }: SidebarProps) => {
               }}
               isCollapsed={isCollapsed}
               isActive={isActive}
+              role={role}
             />
 
             {visibleSections.map((section) => (
-              <SidebarSection key={section.title} section={section} isCollapsed={isCollapsed} isActive={isActive} />
+              <SidebarSection
+                key={section.title}
+                section={section}
+                isCollapsed={isCollapsed}
+                isActive={isActive}
+                role={role}
+              />
             ))}
           </div>
         </div>
 
-        <div className="mt-3 w-full">
-          <div
-            className={cn(
-              "flex items-center gap-2 rounded-2xl border border-border bg-card/80 px-2.5 py-2 shadow-sm",
-              isCollapsed && "justify-center"
-            )}
-          >
-            <Avatar className="h-9 w-9">
-              <AvatarImage src="/avatar.png" alt="User" />
-              <AvatarFallback>JD</AvatarFallback>
-            </Avatar>
-            {!isCollapsed && (
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-foreground">John Doe</p>
-                <p className="text-[11px] text-muted-foreground capitalize">{role || "admin"}</p>
+        <div className="mt-3 w-full border-t border-border/60 pt-3">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <div
+                className={cn(
+                  "flex items-center gap-2.5 rounded-2xl border border-border/80 bg-card/40 hover:bg-accent/40 px-2.5 py-2 shadow-sm transition-all duration-300 cursor-pointer select-none",
+                  isCollapsed && "justify-center"
+                )}
+              >
+                <Avatar className="h-9 w-9 border border-border/60 shadow-sm ring-offset-background transition-transform duration-300 hover:scale-105 shrink-0">
+                  {userProfile?.image ? (
+                    <AvatarImage src={userProfile.image} alt={userProfile.username} />
+                  ) : null}
+                  <AvatarFallback className={cn("font-bold text-xs select-none", roleGradients[role] || "bg-primary text-primary-foreground")}>
+                    {getInitials(userProfile?.username || role)}
+                  </AvatarFallback>
+                </Avatar>
+                
+                {!isCollapsed && (
+                  <div className="flex-1 min-w-0 text-left animate-in fade-in duration-300">
+                    <p className="text-xs font-semibold text-foreground truncate">{userProfile?.username || "Guest User"}</p>
+                    <p className="text-[10px] text-muted-foreground truncate capitalize">{role}</p>
+                  </div>
+                )}
+                
+                {!isCollapsed && (
+                  <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground/60 transition-colors hover:text-foreground shrink-0" />
+                )}
               </div>
-            )}
-            <div className={cn("flex items-center gap-1", isCollapsed && "hidden")}>
-              <Button variant="ghost" size="icon"> 
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="top" align={isCollapsed ? "center" : "end"} className="w-56 p-1.5 bg-popover/90 backdrop-blur rounded-2xl shadow-xl border border-border/60 z-[9999]">
+              <div className="px-2 py-1.5 mb-1">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Account</p>
+                <p className="text-sm font-bold text-foreground truncate mt-0.5">{userProfile?.username || "Guest User"}</p>
+                <p className="text-xs text-muted-foreground truncate">{userProfile?.email || "No email"}</p>
+              </div>
+              <DropdownMenuSeparator className="bg-border/60" />
+              <DropdownMenuItem onClick={() => window.location.href = `/${role}`}>
+                <LayoutDashboard className="mr-2 h-4 w-4 text-muted-foreground" />
+                <span>Dashboard</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => window.location.href = "/admin"}>
+                <Settings className="mr-2 h-4 w-4 text-muted-foreground" />
+                <span>Settings</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator className="bg-border/60" />
+              <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:bg-destructive/10 focus:text-destructive font-semibold">
+                <PanelLeftClose className="mr-2 h-4 w-4" />
+                <span>Sign Out</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-      </motion.aside>
+      </aside>
     </TooltipProvider>
   );
 
   return (
     <>
-      <div className="hidden lg:block fixed left-0 top-0 z-40">{sidebarContent}</div>
-      {!isMobile && isHidden && (
-        <div className="fixed left-3 top-5 z-50">
-          <Button
-            size="icon"
-            variant="outline"
-            className="bg-white/80 backdrop-blur"
-            onClick={() => setIsHidden(false)}
-            aria-label="Show sidebar"
-          >
-            <PanelLeftOpen className="h-4 w-4" />
-          </Button>
-        </div>
-      )}
+      {/* Desktop Sidebar (Fixed Left Layout with collapse transition width) */}
+      <div className="hidden lg:block fixed left-0 top-0 z-40 transition-all duration-300">{sidebarContent}</div>
+      
+      {/* Mobile Drawer Trigger & Drawer */}
       <div className="lg:hidden fixed left-4 top-4 z-50">
         <Sheet>
           <SheetTrigger asChild>
-            <Button size="icon" variant="outline" className="bg-white/80 backdrop-blur">
+            <Button size="icon" variant="outline" className="bg-white/80 backdrop-blur shadow-sm rounded-xl">
               <Menu className="h-4 w-4" />
             </Button>
           </SheetTrigger>
-          <SheetContent className="p-0">
+          <SheetContent className="p-0 w-[280px] bg-transparent border-none">
             {sidebarContent}
           </SheetContent>
         </Sheet>

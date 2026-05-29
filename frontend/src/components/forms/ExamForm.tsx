@@ -83,7 +83,7 @@ const ExamForm = ({
         <InputField
           label="Start Date"
           name="startTime"
-          defaultValue={data?.startTime}
+          defaultValue={data?.startTime ? new Date(data.startTime).toISOString().slice(0, 16) : (data?.start_time ? new Date(data.start_time).toISOString().slice(0, 16) : "")}
           register={register}
           error={errors?.startTime}
           type="datetime-local"
@@ -91,7 +91,7 @@ const ExamForm = ({
         <InputField
           label="End Date"
           name="endTime"
-          defaultValue={data?.endTime}
+          defaultValue={data?.endTime ? new Date(data.endTime).toISOString().slice(0, 16) : (data?.end_time ? new Date(data.end_time).toISOString().slice(0, 16) : "")}
           register={register}
           error={errors?.endTime}
           type="datetime-local"
@@ -111,7 +111,7 @@ const ExamForm = ({
           <select
             className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
             {...register("lessonId")}
-            defaultValue={data?.teachers}
+            defaultValue={data?.lessonId || data?.lesson_id}
           >
             {lessons.map((lesson: { id: number; name: string }) => (
               <option value={lesson.id} key={lesson.id}>

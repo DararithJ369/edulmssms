@@ -87,9 +87,7 @@ const SubjectListPage = async ({
   const subjectsResponse = await serverFetch<{
     data: SubjectList[];
     meta: { total: number };
-  }>("/subjects", {
-    params: { page: p, limit: ITEM_PER_PAGE },
-  });
+  }>(`/subjects?page=${p}&limit=${ITEM_PER_PAGE}`);
 
   const data = subjectsResponse.data || [];
   const count = subjectsResponse.meta?.total ?? 0;

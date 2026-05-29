@@ -162,7 +162,18 @@ const StudentForm = ({
         <InputField
           label="Birthday"
           name="birthday"
-          defaultValue={data?.birthday.toISOString().split("T")[0]}
+          defaultValue={
+            data?.birthday 
+              ? (() => {
+                  try {
+                    const d = data.birthday instanceof Date ? data.birthday : new Date(data.birthday);
+                    return isNaN(d.getTime()) ? "" : d.toISOString().split("T")[0];
+                  } catch {
+                    return "";
+                  }
+                })()
+              : ""
+          }
           register={register}
           error={errors.birthday}
           type="date"

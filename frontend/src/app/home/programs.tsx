@@ -65,7 +65,7 @@ const Programs = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-6">
           <div className="space-y-4">
-            <h2 className="text-[#3ecf8e] font-bold tracking-widest uppercase text-sm">
+            <h2 className="text-[#0038A8] font-bold tracking-widest uppercase text-sm">
               Academic Programs
             </h2>
             <h3 className="text-4xl font-bold text-foreground">
@@ -81,13 +81,13 @@ const Programs = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {loading ? (
             <div className="col-span-full flex justify-center py-16">
-              <Loader2 className="w-8 h-8 text-[#3ecf8e] animate-spin" />
+              <Loader2 className="w-8 h-8 text-[#0038A8] animate-spin" />
             </div>
           ) : (
             programs.map((program, idx) => (
             <div
               key={idx}
-              className="group relative bg-gray-50 dark:bg-[#1c1c1c] border border-gray-200 dark:border-gray-800 p-8 rounded-2xl hover:border-[#3ecf8e]/50 transition-all duration-300 shadow-sm hover:shadow-xl"
+              className="group relative bg-gray-50 dark:bg-[#1c1c1c] border border-gray-200 dark:border-gray-800 p-8 rounded-2xl hover:border-[#0038A8]/50 transition-all duration-300 shadow-sm hover:shadow-xl"
             >
               <div className="absolute top-0 right-0 p-4 opacity-10 dark:opacity-5 transition-opacity group-hover:opacity-20 dark:group-hover:opacity-10">
                 <program.icon
@@ -97,7 +97,7 @@ const Programs = () => {
               </div>
 
               <div className="bg-white dark:bg-[#1c1c1c] w-14 h-14 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-sm border border-gray-100 dark:border-gray-700">
-                <program.icon className="text-[#3ecf8e] w-7 h-7" />
+                <program.icon className="text-[#0038A8] w-7 h-7" />
               </div>
 
               <h4 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
@@ -118,7 +118,7 @@ const Programs = () => {
                 ))}
               </div>
 
-              <button className="mt-8 flex items-center text-[#3ecf8e] font-bold group-hover:translate-x-2 transition-transform">
+              <button className="mt-8 flex items-center text-[#0038A8] font-bold group-hover:translate-x-2 transition-transform">
                 Learn More <Cpu className="ml-2 w-4 h-4" />
               </button>
             </div>

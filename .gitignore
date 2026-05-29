@@ -55,6 +55,7 @@ frontend(2)/
 
 summary.md
 
+
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
@@ -91,3 +92,6 @@ frontend/.env*.local
 # typescript
 *.tsbuildinfo
 frontend/next-env.d.ts
+
+
+.antigravitycli/

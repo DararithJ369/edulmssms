@@ -84,14 +84,32 @@ class AttendanceService:
 
     @staticmethod
     def get_all_attendance(
-        db: Session, page: int = 1, limit: int = 10, search: str = ""
+        db: Session, page: int = 1, limit: int = 10, search: str = "", current_user = None
     ) -> dict:
         query = db.query(Attendance)
         
+        # Role-based filtering
+        if current_user:
+            role = current_user.role.name.lower()
+            if role == "student":
+                query = query.filter(Attendance.student_id == current_user.id)
+            elif role == "parent":
+                if current_user.profile and current_user.profile.parent_profile:
+                    student_user_ids = [
+                        s.profile.user_id for s in current_user.profile.parent_profile.students 
+                        if s.profile
+                    ]
+                    query = query.filter(Attendance.student_id.in_(student_user_ids))
+                else:
+                    return {
+                        "data": [],
+                        "meta": {"page": page, "total": 0, "limit": limit},
+                    }
+        
         if search:
-            query = query.join(User, Attendance.student_id == User.id).filter(
-                (User.first_name.ilike(f"%{search}%")) |
-                (User.last_name.ilike(f"%{search}%")) |
+            from app.models.user_profile import UserProfile
+            query = query.join(UserProfile, Attendance.student_id == UserProfile.user_id).filter(
+                (UserProfile.full_name.ilike(f"%{search}%")) |
                 (Attendance.status.ilike(f"%{search}%"))
             )
         

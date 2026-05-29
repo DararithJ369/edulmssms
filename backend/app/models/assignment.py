@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 from app.db.base import Base
 
 class Assignment(Base):
@@ -15,7 +16,12 @@ class Assignment(Base):
     attachment_file = Column(String, nullable=True)
     
     course_id = Column(Integer, ForeignKey("courses.id"), nullable=False)
+    lesson_id = Column(Integer, ForeignKey("lessons.id"), nullable=True)
     teacher_id = Column(String, ForeignKey("users.id"), nullable=False)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    course = relationship("Course", back_populates="assignments", lazy="selectin", overlaps="assignments")
+    lesson = relationship("Lesson", lazy="selectin")

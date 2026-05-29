@@ -62,16 +62,21 @@ class UserSeeder(BaseSeeder):
         students = []
         student_names = [
             "Emma Johnson", "Liam Smith", "Olivia Williams", "Noah Brown", "Ava Jones",
-            "Ethan Garcia", "Sophia Miller", "Mason Davis", "Isabella Rodriguez", "Logan Martinez"
+            "Ethan Garcia", "Sophia Miller", "Mason Davis", "Isabella Rodriguez", "Logan Martinez",
+            "Mia Hernandez", "Lucas Lopez", "Charlotte Gonzalez", "Oliver Wilson", "Amelia Anderson",
+            "Benjamin Taylor", "Harper Thomas", "Elijah Moore", "Evelyn Jackson", "James White"
         ]
         
         for i in range(1, min(count + 1, len(student_names) + 1)):
-            email = f"student{i}@example.com"
+            name = student_names[i-1]
+            first, last = name.split()
+            username = f"{first.lower()}.{last.lower()}"
+            email = f"{username}@example.com"
             if not self.exists(email=email):
                 student_data = {
-                    "username": f"student{i}",
+                    "username": username,
                     "email": email,
-                    "hashed_password": hash_password(f"student{i}123"),
+                    "hashed_password": hash_password(f"{first.lower()}123"),
                     "role_id": role_id,
                     "is_active": True,
                     "is_superuser": False,
@@ -97,12 +102,16 @@ class UserSeeder(BaseSeeder):
         ]
         
         for i in range(1, min(count + 1, len(instructor_names) + 1)):
-            email = f"instructor{i}@university.edu"
+            name = instructor_names[i-1]
+            parts = name.replace("Dr. ", "").replace("Prof. ", "").split()
+            first, last = parts[0], parts[1]
+            username = f"{first.lower()}.{last.lower()}"
+            email = f"{username}@university.edu"
             if not self.exists(email=email):
                 instructor_data = {
-                    "username": f"instructor{i}",
+                    "username": username,
                     "email": email,
-                    "hashed_password": hash_password(f"instructor{i}123"),
+                    "hashed_password": hash_password(f"{first.lower()}123"),
                     "role_id": role_id,
                     "is_active": True,
                     "is_superuser": False,
@@ -128,12 +137,15 @@ class UserSeeder(BaseSeeder):
         ]
         
         for i in range(1, min(count + 1, len(parent_names) + 1)):
-            email = f"parent{i}@example.com"
+            name = parent_names[i-1]
+            first, last = name.split()
+            username = f"{first.lower()}.{last.lower()}"
+            email = f"{username}@example.com"
             if not self.exists(email=email):
                 parent_data = {
-                    "username": f"parent{i}",
+                    "username": username,
                     "email": email,
-                    "hashed_password": hash_password(f"parent{i}123"),
+                    "hashed_password": hash_password(f"{first.lower()}123"),
                     "role_id": role_id,
                     "is_active": True,
                     "is_superuser": False,

@@ -190,7 +190,82 @@ class UserService:
         if not user:
             db.rollback()
             raise HTTPException(status_code=404, detail="User not found")
-        
-        db.delete(user)
-        db.commit()
-        return {"detail": "User deleted"}
+
+        # Import models inside to avoid circular dependencies
+        from app.models.user_profile import UserProfile
+        from app.models.student_profile import StudentProfile
+        from app.models.instructor_profile import InstructorProfile
+        from app.models.parent_profile import ParentProfile
+        from app.models.enrollment import Enrollment
+        from app.models.subject import Subject
+        from app.models.course import Course
+        from app.models.attendance import Attendance
+        from app.models.result import Result
+        from app.models.submission import Submission
+        from app.models.announcement import Announcement
+        from app.models.exam import Exam
+        from app.models.assignment import Assignment
+        from app.models.quiz import Quiz, QuizQuestion, QuizOption
+
+        try:
+            # 1. Clean up student-specific enrollments & profiles
+            profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
+            if profile:
+                sp = db.query(StudentProfile).filter(StudentProfile.profile_id == profile.id).first()
+                if sp:
+                    db.query(Enrollment).filter(Enrollment.student_profile_id == sp.id).delete(synchronize_session=False)
+                    db.delete(sp)
+                
+                ip = db.query(InstructorProfile).filter(InstructorProfile.profile_id == profile.id).first()
+                if ip:
+                    db.delete(ip)
+                
+                pp = db.query(ParentProfile).filter(ParentProfile.profile_id == profile.id).first()
+                if pp:
+                    db.delete(pp)
+
+                db.delete(profile)
+
+            # 2. Clean up subjects
+            db.query(Subject).filter(Subject.instructor_id == user_id).delete(synchronize_session=False)
+
+            # 3. Clean up courses
+            courses = db.query(Course).filter(Course.instructor_id == user_id).all()
+            for course in courses:
+                db.query(Enrollment).filter(Enrollment.course_id == course.id).delete(synchronize_session=False)
+                db.delete(course)
+
+            # 4. Clean up attendance
+            db.query(Attendance).filter((Attendance.student_id == user_id) | (Attendance.recorded_by == user_id)).delete(synchronize_session=False)
+
+            # 5. Clean up results
+            db.query(Result).filter((Result.student_id == user_id) | (Result.graded_by == user_id)).delete(synchronize_session=False)
+
+            # 6. Clean up submissions
+            db.query(Submission).filter(Submission.student_id == user_id).delete(synchronize_session=False)
+
+            # 7. Clean up announcements
+            db.query(Announcement).filter(Announcement.sender_id == user_id).delete(synchronize_session=False)
+
+            # 8. Clean up exams
+            db.query(Exam).filter(Exam.created_by == user_id).delete(synchronize_session=False)
+
+            # 9. Clean up assignments
+            db.query(Assignment).filter(Assignment.teacher_id == user_id).delete(synchronize_session=False)
+
+            # 10. Clean up quizzes & questions & options
+            quizzes = db.query(Quiz).filter(Quiz.instructor_id == user_id).all()
+            for q in quizzes:
+                questions = db.query(QuizQuestion).filter(QuizQuestion.quiz_id == q.id).all()
+                for qn in questions:
+                    db.query(QuizOption).filter(QuizOption.question_id == qn.id).delete(synchronize_session=False)
+                    db.delete(qn)
+                db.delete(q)
+
+            # 11. Delete the user
+            db.delete(user)
+            db.commit()
+            return {"detail": "User deleted successfully"}
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=400, detail=f"Error deleting user: {str(e)}")

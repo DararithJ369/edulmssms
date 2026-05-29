@@ -21,11 +21,23 @@ export default function middleware(req: NextRequest) {
   const userRoleCookie = req.cookies.get("user_role")?.value || null;
   const role = userRoleCookie ? normalizeRole(userRoleCookie) : null;
 
+  // Self-healing auth redirect loop breaker:
+  // If the server-api redirected the user to /login?clear=1 due to database reseeding,
+  // we delete all outdated/invalid cookies and redirect cleanly to /login.
+  if (pathname === "/login" && url.searchParams.has("clear")) {
+    const response = NextResponse.redirect(new URL("/login", req.url));
+    response.cookies.delete("access_token");
+    response.cookies.delete("token");
+    response.cookies.delete("user_role");
+    return response;
+  }
+
   const isProtectedRoute = matchers.some(({ matcher }) => matcher(pathname));
 
   if (pathname === "/login" && accessToken) {
     return NextResponse.redirect(new URL(`/${role || "home"}`, req.url));
   }
+
 
   if (isProtectedRoute && !accessToken) {
     return NextResponse.redirect(new URL("/login", req.url));

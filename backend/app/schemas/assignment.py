@@ -11,6 +11,7 @@ class AssignmentBase(BaseModel):
     due_date: datetime
     attachment_file: Optional[str] = None
     teacher_id: str
+    lesson_id: Optional[int] = None
 
 class AssignmentCreate(AssignmentBase):
     pass
@@ -20,6 +21,7 @@ class AssignmentUpdate(BaseModel):
     description: Optional[str] = None
     due_date: Optional[datetime] = None
     attachment_file: Optional[str] = None
+    lesson_id: Optional[int] = None
     
 
 class AssignmentResponse(AssignmentBase):

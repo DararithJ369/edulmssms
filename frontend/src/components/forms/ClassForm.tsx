@@ -102,14 +102,14 @@ const ClassForm = ({
           <select
             className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
             {...register("supervisorId")}
-            defaultValue={data?.teachers}
+            defaultValue={data?.supervisorId || data?.supervisor_id}
           >
             {teachers.map(
               (teacher: { id: string; name: string; surname: string }) => (
                 <option
                   value={teacher.id}
                   key={teacher.id}
-                  selected={data && teacher.id === data.supervisorId}
+                  selected={data && teacher.id === (data.supervisorId || data.supervisor_id)}
                 >
                   {teacher.name + " " + teacher.surname}
                 </option>
@@ -127,13 +127,13 @@ const ClassForm = ({
           <select
             className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
             {...register("gradeId")}
-            defaultValue={data?.gradeId}
+            defaultValue={data?.gradeId || data?.grade_id}
           >
             {grades.map((grade: { id: number; level: number }) => (
               <option
                 value={grade.id}
                 key={grade.id}
-                selected={data && grade.id === data.gradeId}
+                selected={data && grade.id === (data.gradeId || data.grade_id)}
               >
                 {grade.level}
               </option>

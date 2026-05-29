@@ -69,7 +69,7 @@ const Stats = () => {
     <section id="stats" className="py-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16 space-y-4">
-          <h2 className="text-[#3ecf8e] font-bold tracking-widest uppercase text-sm">
+          <h2 className="text-[#0038A8] font-bold tracking-widest uppercase text-sm">
             Our Impact
           </h2>
           <h3 className="text-4xl md:text-5xl font-bold text-foreground">
@@ -89,15 +89,15 @@ const Stats = () => {
             <div className="h-[300px] w-full">
               {loading ? (
                 <div className="flex items-center justify-center h-full">
-                  <Loader2 className="w-8 h-8 text-[#3ecf8e] animate-spin" />
+                  <Loader2 className="w-8 h-8 text-[#0038A8] animate-spin" />
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={chartData}>
                   <defs>
                     <linearGradient id="colorGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3ecf8e" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#3ecf8e" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#0038A8" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#0038A8" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid
@@ -113,12 +113,12 @@ const Stats = () => {
                       border: "1px solid #ddd",
                       borderRadius: "8px",
                     }}
-                    itemStyle={{ color: "#3ecf8e" }}
+                    itemStyle={{ color: "#0038A8" }}
                   />
                   <Area
                     type="monotone"
                     dataKey="graduates"
-                    stroke="#3ecf8e"
+                    stroke="#0038A8"
                     fillOpacity={1}
                     fill="url(#colorGrad)"
                     strokeWidth={3}
@@ -148,7 +148,7 @@ const Stats = () => {
                 icon: Globe,
                 title: `${stats?.globalPartners}+ Global Partners`,
                 desc: "Study exchange programs with Ivy League universities.",
-                color: "text-[#3ecf8e]",
+                color: "text-[#0038A8]",
               },
               {
                 icon: Award,
@@ -159,7 +159,7 @@ const Stats = () => {
             ].map((item, idx) => (
               <div
                 key={idx}
-                className="bg-white dark:bg-[#1c1c1c] p-6 rounded-2xl border border-gray-200 dark:border-gray-800 flex items-start space-x-4 hover:border-[#3ecf8e]/30 transition-all cursor-default shadow-sm hover:shadow-md"
+                className="bg-white dark:bg-[#1c1c1c] p-6 rounded-2xl border border-gray-200 dark:border-gray-800 flex items-start space-x-4 hover:border-[#0038A8]/30 transition-all cursor-default shadow-sm hover:shadow-md"
               >
                 <div
                   className={`p-3 rounded-lg bg-gray-50 dark:bg-[#121212] ${item.color}`}

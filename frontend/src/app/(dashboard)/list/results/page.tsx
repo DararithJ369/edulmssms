@@ -111,9 +111,7 @@ const renderRow = (item: ResultList) => (
   const resultsResponse = await serverFetch<{
     data: ResultList[];
     meta: { total: number };
-  }>("/results", {
-    params: { page: p, limit: ITEM_PER_PAGE },
-  });
+  }>(`/results?page=${p}&limit=${ITEM_PER_PAGE}`);
 
   const data = resultsResponse.data || [];
   const count = resultsResponse.meta?.total ?? 0;

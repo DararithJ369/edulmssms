@@ -92,9 +92,7 @@ const AssignmentListPage = async ({
   const assignmentsResponse = await serverFetch<{
     data: AssignmentList[];
     meta: { total: number };
-  }>("/assignments", {
-    params: { page: p, limit: ITEM_PER_PAGE },
-  });
+  }>(`/assignments?page=${p}&limit=${ITEM_PER_PAGE}`);
 
   const data = assignmentsResponse.data || [];
   const count = assignmentsResponse.meta?.total ?? 0;

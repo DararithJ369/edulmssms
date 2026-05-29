@@ -9,6 +9,7 @@ class QuizBase(BaseModel):
     description: Optional[str] = None
     due_date: datetime
     instructor_id: str
+    lesson_id: Optional[int] = None
 
 class QuizCreate(QuizBase):
     pass
@@ -17,6 +18,7 @@ class QuizUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     due_date: Optional[datetime] = None
+    lesson_id: Optional[int] = None
     
     
 class QuizResponse(QuizBase):

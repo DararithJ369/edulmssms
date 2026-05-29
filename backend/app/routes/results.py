@@ -9,9 +9,16 @@ from app.schemas.result import ResultCreate, ResultUpdate, ResultResponse
 result_router = APIRouter(prefix="/results", tags=["Results"])
 
 
-@result_router.get("", dependencies=[Depends(PermissionGuard.admin_or_instructor)])
-def get_all_results(page: int = 1, limit: int = 10, search: str = "", type: str = "", db: Session = Depends(get_db)):
-    return ResultService.get_results(db, page, limit, search, type)
+@result_router.get("")
+def get_all_results(
+    page: int = 1,
+    limit: int = 10,
+    search: str = "",
+    type: str = "",
+    current_user = Depends(PermissionGuard.get_current_user),
+    db: Session = Depends(get_db),
+):
+    return ResultService.get_results(db, page, limit, search, type, current_user)
 
 
 @result_router.get("/{result_id}", response_model=ResultResponse)

@@ -6,6 +6,7 @@ import { serverFetch } from "@/lib/server-api";
 import { ITEM_PER_PAGE } from "@/lib/settings";
 import Image from "next/image";
 import { cookies } from "next/headers";
+import Link from "next/link";
 
 const normalizeRole = (role: string | null | undefined) => {
   if (role === "instructor") {
@@ -68,7 +69,11 @@ const renderRow = (item: LessonList) => (
     key={item.id}
     className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-lamaPurpleLight"
   >
-    <td className="flex items-center gap-4 p-4">{item.title}</td>
+    <td className="flex items-center gap-4 p-4 font-semibold text-[#0038A8] hover:underline cursor-pointer">
+      <Link href={`/list/lessons/${item.id}`}>
+        {item.title}
+      </Link>
+    </td>
     <td className="hidden md:table-cell">{item.duration || "-"}</td>
     <td className="hidden lg:table-cell">{item.order ?? "-"}</td>
     <td className="hidden lg:table-cell">{item.material_type || "-"}</td>
@@ -92,9 +97,7 @@ const renderRow = (item: LessonList) => (
   const lessonsResponse = await serverFetch<{
     data: LessonList[];
     meta: { total: number };
-  }>("/lessons", {
-    params: { page: p, limit: ITEM_PER_PAGE },
-  });
+  }>(`/lessons?page=${p}&limit=${ITEM_PER_PAGE}`);
 
   const data = lessonsResponse.data || [];
   const count = lessonsResponse.meta?.total ?? 0;

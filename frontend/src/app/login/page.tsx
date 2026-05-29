@@ -45,7 +45,11 @@ export default function LoginPage() {
         userId: meResponse.data?.id,
       });
 
-      router.push(roleRouteMap[roleName] || "/admin");
+      localStorage.setItem("user_username", meResponse.data?.username || "");
+      localStorage.setItem("user_email", meResponse.data?.email || "");
+      localStorage.setItem("user_image", meResponse.data?.image || "");
+
+      window.location.href = roleRouteMap[roleName] || "/admin";
     } catch (err: any) {
       setError(err?.response?.data?.detail || err.message || "Login failed");
     } finally {
@@ -59,11 +63,11 @@ export default function LoginPage() {
       <div className="flex flex-col gap-4 p-6 md:p-10 bg-white dark:bg-[#121212]">
         <div className="flex justify-center gap-2 md:justify-start mb-8">
           <Link href="/" className="flex items-center gap-2 font-medium">
-            <div className="bg-[#3ecf8e] text-black flex size-8 items-center justify-center rounded-md font-bold">
-              <School className="size-5" />
+            <div className="text-black flex size-8 items-center justify-center rounded-md font-bold">
+              <img src="/ams.png" alt="AMS Logo" className="h-6 w-8" />
             </div>
-            <span className="text-gray-900 dark:text-white font-bold text-lg">
-              Edunexus
+            <span className="text-2xl font-bold tracking-tight text-foreground">
+              EDU<span className="text-[#0038A8]">LAMS</span>
             </span>
           </Link>
         </div>
@@ -96,7 +100,7 @@ export default function LoginPage() {
                   <input
                     type="email"
                     placeholder="name@example.com"
-                    className="w-full px-4 py-3 bg-gray-50 dark:bg-[#1c1c1c] border border-gray-200 dark:border-gray-800 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3ecf8e] focus:border-transparent transition-all"
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-[#1c1c1c] border border-gray-200 dark:border-gray-800 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0038A8] focus:border-transparent transition-all"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -111,7 +115,7 @@ export default function LoginPage() {
                     <input
                       type={showPassword ? "text" : "password"}
                       placeholder="••••••••"
-                      className="w-full px-4 py-3 pr-12 bg-gray-50 dark:bg-[#1c1c1c] border border-gray-200 dark:border-gray-800 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3ecf8e] focus:border-transparent transition-all"
+                      className="w-full px-4 py-3 pr-12 bg-gray-50 dark:bg-[#1c1c1c] border border-gray-200 dark:border-gray-800 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0038A8] focus:border-transparent transition-all"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
@@ -134,7 +138,7 @@ export default function LoginPage() {
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
-                      className="w-4 h-4 rounded border-gray-300 text-[#3ecf8e] focus:ring-[#3ecf8e]"
+                      className="w-4 h-4 rounded border-gray-300 text-[#0038A8] focus:ring-[#0038A8]"
                     />
                     <span className="text-sm text-gray-600 dark:text-gray-400">
                       Remember me
@@ -142,7 +146,7 @@ export default function LoginPage() {
                   </label>
                   <Link
                     href="#"
-                    className="text-sm font-medium text-[#3ecf8e] hover:text-[#34b27b] transition-colors"
+                    className="text-sm font-medium text-[#0038A8] hover:text-[#002D86] transition-colors"
                   >
                     Forgot password?
                   </Link>
@@ -151,7 +155,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-[#3ecf8e] text-black px-6 py-3 rounded-lg font-bold text-lg hover:bg-[#34b27b] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 group"
+                  className="w-full bg-[#0038A8] text-white px-6 py-3 rounded-lg font-bold text-lg hover:bg-[#002D86] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 group shadow-md shadow-[#0038A8]/10"
                 >
                   {loading ? (
                     <>
@@ -191,7 +195,7 @@ export default function LoginPage() {
                 Don&apos;t have an account?{" "}
                 <Link
                   href="#"
-                  className="font-medium text-[#3ecf8e] hover:text-[#34b27b] transition-colors"
+                  className="font-medium text-[#0038A8] hover:text-[#002D86] transition-colors"
                 >
                   Sign up
                 </Link>

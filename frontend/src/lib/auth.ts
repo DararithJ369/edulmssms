@@ -54,6 +54,9 @@ export const removeToken = () => {
   localStorage.removeItem("refresh_token");
   localStorage.removeItem("user_role");
   localStorage.removeItem("user_id");
+  localStorage.removeItem("user_username");
+  localStorage.removeItem("user_email");
+  localStorage.removeItem("user_image");
 
   removeCookie("access_token");
   removeCookie("refresh_token");
