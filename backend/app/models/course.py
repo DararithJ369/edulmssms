@@ -81,3 +81,14 @@ class Lesson(Base):
     # Relationships
     module = relationship("Module", back_populates="lessons")
 
+    @property
+    def module_name(self) -> str:
+        return self.module.title if self.module else f"Module #{self.module_id}"
+
+    @property
+    def course_name(self) -> str:
+        if self.module and self.module.course:
+            return self.module.course.course_name
+        return ""
+
+

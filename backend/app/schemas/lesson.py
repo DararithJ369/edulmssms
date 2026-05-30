@@ -31,6 +31,8 @@ class LessonUpdate(BaseModel):
 class LessonResponse(LessonBase):
     id: int
     created_at: datetime
+    module_name: Optional[str] = None
+    course_name: Optional[str] = None
 
     model_config = {"from_attributes": True}
     
@@ -40,5 +42,7 @@ class Lesson(LessonBase):
     module_id: int
     created_at: datetime
     updated_at: Optional[datetime]
+    module_name: Optional[str] = None
+    course_name: Optional[str] = None
     
     model_config = {"from_attributes": True}

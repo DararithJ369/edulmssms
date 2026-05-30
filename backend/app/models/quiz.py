@@ -23,6 +23,15 @@ class Quiz(Base):
     # Relationships
     course = relationship("Course", back_populates="quizzes", lazy="selectin", overlaps="quizzes")
     lesson = relationship("Lesson", lazy="selectin")
+
+    @property
+    def course_name(self) -> str:
+        return self.course.course_name if self.course else f"Course #{self.course_id}"
+
+    @property
+    def lesson_title(self) -> str:
+        return self.lesson.title if self.lesson else ""
+
     
     
 class QuizQuestion(Base):

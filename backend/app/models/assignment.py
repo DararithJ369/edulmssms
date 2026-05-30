@@ -25,3 +25,14 @@ class Assignment(Base):
     # Relationships
     course = relationship("Course", back_populates="assignments", lazy="selectin", overlaps="assignments")
     lesson = relationship("Lesson", lazy="selectin")
+    teacher = relationship("User", foreign_keys=[teacher_id], lazy="selectin")
+
+    @property
+    def course_name(self) -> str:
+        return self.course.course_name if self.course else f"Course #{self.course_id}"
+
+    @property
+    def teacher_name(self) -> str:
+        if self.teacher and self.teacher.profile:
+            return self.teacher.profile.full_name or self.teacher.username
+        return self.teacher.username if self.teacher else f"Teacher #{self.teacher_id}"

@@ -48,7 +48,31 @@ def get_course_lessons(course_id: int, db: Session = Depends(get_db)):
     return CourseService.get_course_lessons(db, course_id)
 
 
-# ── Enrollments ───────────────────────────────────────────────────────────────
+@course_router.get("/{course_id}/modules")
+def get_course_modules(course_id: int, db: Session = Depends(get_db)):
+    from app.models.course import Module
+    modules = db.query(Module).filter(Module.course_id == course_id).order_by(Module.order.asc()).all()
+    return [
+        {
+            "id": m.id,
+            "title": m.title,
+            "description": m.description,
+            "order": m.order,
+            "lessons": [
+                {
+                    "id": l.id,
+                    "title": l.title,
+                    "description": l.description,
+                    "duration": l.duration,
+                    "material_type": l.material_type,
+                    "order": l.order
+                } for l in m.lessons
+            ]
+        } for m in modules
+    ]
+
+
+# ── Enrollments ────────────────-----------------------------------------------
 
 @course_router.post("/{course_id}/enroll", dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def enroll_student(course_id: int, payload: EnrollmentCreate, db: Session = Depends(get_db)):

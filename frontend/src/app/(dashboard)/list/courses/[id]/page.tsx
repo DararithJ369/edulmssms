@@ -1,95 +1,70 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
-  Bold,
-  Italic,
-  Link2,
-  List,
-  ListOrdered,
-  GripVertical,
+  BookOpen,
   ChevronDown,
   ChevronUp,
-  Plus,
-  Trash2,
-  CheckCircle,
-  Eye,
-  Sliders,
-  DollarSign,
-  Undo2,
-  BookOpen,
+  Award,
+  GraduationCap,
+  Layers,
+  Edit,
+  MessageSquare,
+  FileText,
+  CheckSquare,
+  Globe,
+  Calendar,
+  User,
+  Folder,
+  ExternalLink,
+  HelpCircle,
+  PlayCircle,
+  FileSpreadsheet,
+  CheckCircle2,
+  Lock,
 } from "lucide-react";
 import { api } from "@/lib/api";
 
-type SyllabusItem = {
-  id: number;
-  week: number;
-  title: string;
-};
-
-export default function CourseDetailEditorPage() {
+export default function CourseDetailPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const courseId = params.id as string;
+  const activeModuleIdParam = searchParams.get("expandedModuleId");
 
+  // Role State
+  const [role, setRole] = useState<string>("");
+  
   // Primary Course States
   const [courseName, setCourseName] = useState("");
   const [courseCode, setCourseCode] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("Computer Science");
   const [difficulty, setDifficulty] = useState("beginner");
-  const [price, setPrice] = useState<number>(123.0);
-  const [salePercent, setSalePercent] = useState<number>(35);
-  const [isPublished, setIsPublished] = useState(true);
+  const [price, setPrice] = useState<number>(0);
   const [thumbnail, setThumbnail] = useState("https://images.unsplash.com/photo-1610962381137-50ef93055125?auto=format&fit=crop&q=80&w=800");
+  const [instructorName, setInstructorName] = useState("");
   
-  // Custom Syllabus / Content State
-  const [syllabus, setSyllabus] = useState<SyllabusItem[]>([
-    { id: 1, week: 1, title: "Introduction to Business Management" },
-    { id: 2, week: 2, title: "Foundations of Company Management" },
-    { id: 3, week: 3, title: "Understanding Business Objectives" },
-    { id: 4, week: 4, title: "Aligning Business and User Objectives" },
-    { id: 5, week: 5, title: "Strategies for Success" },
-  ]);
-
-  // Tags Tray
-  const [tags, setTags] = useState<string[]>([
-    "Business",
-    "Economics",
-    "Success",
-    "CIO",
-    "Goals",
-    "Management",
-    "Company",
-  ]);
-  const [newTagInput, setNewTagInput] = useState("");
-
-  // Syllabus Expanded State
-  const [expandedSyllabus, setExpandedSyllabus] = useState<Record<number, boolean>>({
-    1: true,
-  });
-
-  // Modal / Feedback State
+  // Dynamic Modules State
+  const [modules, setModules] = useState<any[]>([]);
+  const [expandedSyllabus, setExpandedSyllabus] = useState<Record<number, boolean>>({});
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [showSuccessToast, setShowSuccessToast] = useState(false);
-  const [editSyllabusId, setEditSyllabusId] = useState<number | null>(null);
-  const [editSyllabusText, setEditSyllabusText] = useState("");
 
-  // Mathematical pricing calculations in real-time
-  const saleAmount = parseFloat((price * (salePercent / 100)).toFixed(2));
-  const finalPrice = parseFloat((price - saleAmount).toFixed(2));
-
-  // Load Course details on mount
   useEffect(() => {
+    // Retrieve role from localStorage safely on client side
+    if (typeof window !== "undefined") {
+      const userRole = localStorage.getItem("user_role") || "student";
+      setRole(userRole === "instructor" ? "teacher" : userRole);
+    }
+
     const fetchCourseDetails = async () => {
       try {
         setLoading(true);
+        // 1. Fetch Course details
         const { data } = await api.get(`/courses/${courseId}`);
         if (data) {
           setCourseName(data.course_name || "");
@@ -97,15 +72,24 @@ export default function CourseDetailEditorPage() {
           setDescription(data.description || "");
           setCategory(data.category || "Computer Science");
           setDifficulty(data.difficulty || "beginner");
-          setPrice(data.price || 123.0);
-          setIsPublished(data.is_published ?? true);
+          setPrice(data.price || 0);
+          setInstructorName(data.instructor_name || "Faculty Staff");
           if (data.thumbnail) {
             setThumbnail(data.thumbnail);
           }
         }
+
+        // 2. Fetch Course modules & nested lessons dynamically
+        const { data: modulesData } = await api.get(`/courses/${courseId}/modules`);
+        if (modulesData && modulesData.length > 0) {
+          setModules(modulesData);
+          const activeModuleId = activeModuleIdParam ? parseInt(activeModuleIdParam) : modulesData[0].id;
+          setExpandedSyllabus({ [activeModuleId]: true });
+        } else {
+          setModules([]);
+        }
       } catch (err) {
-        console.error("Failed to load course details from API, using realistic seed fallback.");
-        // Fallback seed values based on course code
+        console.error("Failed to load course details from API, using realistic fallback.");
         if (courseId === "1" || courseId.includes("205")) {
           setCourseName("Full-Stack Web Development");
           setCourseCode("CS-205");
@@ -115,6 +99,30 @@ export default function CourseDetailEditorPage() {
           setCategory("Computer Science");
           setDifficulty("intermediate");
           setPrice(499.0);
+          setInstructorName("Dr. Sarah Chen");
+          const fallbackModules = [
+            {
+              id: 1,
+              title: "HTML5 & CSS3 Essentials",
+              description: "Introduction to document layout structures, semantic tags, visual CSS rules, Flexbox, and responsive Grid styling.",
+              lessons: [
+                { id: 1, title: "Introduction to HTML5 Semantic Tags", duration: "45min" },
+                { id: 2, title: "CSS3 Flexbox Layout Guide", duration: "60min" },
+                { id: 3, title: "Responsive Designs & CSS Grid", duration: "50min" }
+              ]
+            },
+            {
+              id: 2,
+              title: "Client-Side Javascript & DOM Manipulation",
+              description: "Programming dynamic web features, variables, array callback functions, asynchronous fetch, and interactive browser events.",
+              lessons: [
+                { id: 4, title: "DOM Selection and Event Listeners", duration: "50min" }
+              ]
+            }
+          ];
+          setModules(fallbackModules);
+          const activeModuleId = activeModuleIdParam ? parseInt(activeModuleIdParam) : fallbackModules[0].id;
+          setExpandedSyllabus({ [activeModuleId]: true });
         } else {
           setCourseName("Introduction to Python and Web Programming");
           setCourseCode("CS-101");
@@ -124,6 +132,21 @@ export default function CourseDetailEditorPage() {
           setCategory("Computer Science");
           setDifficulty("beginner");
           setPrice(299.0);
+          setInstructorName("Prof. Michael Johnson");
+          const fallbackModules = [
+            {
+              id: 1,
+              title: "Python Basics & Control Flow",
+              description: "Getting started with Python interpreter, variables, basic operators, loop structures (for/while), and logic conditionals.",
+              lessons: [
+                { id: 10, title: "Introduction to Python Interpreter", duration: "40min" },
+                { id: 11, title: "Conditional Statements & Variables", duration: "45min" }
+              ]
+            }
+          ];
+          setModules(fallbackModules);
+          const activeModuleId = activeModuleIdParam ? parseInt(activeModuleIdParam) : fallbackModules[0].id;
+          setExpandedSyllabus({ [activeModuleId]: true });
         }
       } finally {
         setLoading(false);
@@ -133,54 +156,6 @@ export default function CourseDetailEditorPage() {
     fetchCourseDetails();
   }, [courseId]);
 
-  // Handle Save (PUT request)
-  const handleSave = async () => {
-    try {
-      setSaving(true);
-      await api.put(`/courses/${courseId}`, {
-        course_name: courseName,
-        course_code: courseCode,
-        description: description,
-        category: category,
-        difficulty: difficulty,
-        price: price,
-        is_published: isPublished,
-      });
-
-      setShowSuccessToast(true);
-      setTimeout(() => setShowSuccessToast(false), 3000);
-    } catch (err) {
-      console.error("Failed to update course:", err);
-      // Even if API fails (e.g. permission restriction), trigger mock success feedback for aesthetic validation
-      setShowSuccessToast(true);
-      setTimeout(() => setShowSuccessToast(false), 3000);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Pricing inputs modification updates slider percent
-  const handleAmountOfSaleChange = (val: string) => {
-    const amt = parseFloat(val);
-    if (!isNaN(amt) && price > 0) {
-      const percent = Math.min(100, Math.max(0, Math.round((amt / price) * 100)));
-      setSalePercent(percent);
-    }
-  };
-
-  // Add new syllabus section
-  const handleAddSyllabusSection = () => {
-    const nextWeek = syllabus.length + 1;
-    const newItem: SyllabusItem = {
-      id: Date.now(),
-      week: nextWeek,
-      title: `Week ${nextWeek} - Beginner - Syllabus Module Topics`,
-    };
-    setSyllabus([...syllabus, newItem]);
-    setExpandedSyllabus({ ...expandedSyllabus, [newItem.id]: true });
-  };
-
-  // Toggle syllabus accordion expand
   const toggleSyllabusExpand = (id: number) => {
     setExpandedSyllabus({
       ...expandedSyllabus,
@@ -188,532 +163,518 @@ export default function CourseDetailEditorPage() {
     });
   };
 
-  // Remove tag chip
-  const handleRemoveTag = (tagToRemove: string) => {
-    setTags(tags.filter((t) => t !== tagToRemove));
-  };
-
-  // Add tag chip
-  const handleAddTag = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newTagInput.trim() && !tags.includes(newTagInput.trim())) {
-      setTags([...tags, newTagInput.trim()]);
-      setNewTagInput("");
-    }
-  };
-
-  // Trigger syllabus edit
-  const startEditSyllabus = (item: SyllabusItem) => {
-    setEditSyllabusId(item.id);
-    setEditSyllabusText(item.title);
-  };
-
-  // Save syllabus edit
-  const saveSyllabusEdit = () => {
-    setSyllabus(
-      syllabus.map((s) => (s.id === editSyllabusId ? { ...s, title: editSyllabusText } : s))
-    );
-    setEditSyllabusId(null);
-  };
-
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#F7F8FA] text-foreground">
         <div className="h-10 w-10 border-4 border-[#0038A8] border-t-transparent rounded-full animate-spin mb-3" />
-        <p className="text-sm font-semibold select-none">Retrieving Course Syllabus...</p>
+        <p className="text-sm font-semibold select-none">Loading Course Details...</p>
       </div>
     );
   }
 
   return (
     <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans">
-      {/* SUCCESS POPUP TOAST */}
-      <AnimatePresence>
-        {showSuccessToast && (
-          <motion.div
-            initial={{ opacity: 0, y: -50, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -50, scale: 0.9 }}
-            className="fixed top-8 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2.5 px-6 py-4 bg-white/80 dark:bg-[#1c1c1c]/80 backdrop-blur-xl border border-[#0038A8]/30 shadow-[0_20px_50px_rgba(0,0,0,0.1)] rounded-2xl"
-          >
-            <CheckCircle className="h-5 w-5 text-[#0038A8]" />
-            <div className="text-left">
-              <p className="text-sm font-black text-foreground">Changes Saved Successfully</p>
-              <p className="text-xs text-muted-foreground">Course data and weekly modules have been synced.</p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* SYLLABUS EDIT MODAL POPUP */}
-      {editSyllabusId && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-[450px] p-6 bg-card border border-border/80 shadow-2xl rounded-2xl space-y-4">
-            <h3 className="text-base font-extrabold text-foreground">Edit Week Module Title</h3>
-            <input
-              type="text"
-              value={editSyllabusText}
-              onChange={(e) => setEditSyllabusText(e.target.value)}
-              className="w-full px-3 py-2 bg-muted/50 border border-border/80 focus:border-[#0038A8]/40 rounded-xl text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-[#0038A8]/10 transition-all"
-            />
-            <div className="flex justify-end gap-2.5 pt-2">
-              <button
-                onClick={() => setEditSyllabusId(null)}
-                className="px-4 py-2 border border-border/80 rounded-xl hover:bg-muted font-bold text-xs transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={saveSyllabusEdit}
-                className="px-4 py-2 bg-[#0038A8] text-white font-bold rounded-xl text-xs hover:bg-[#002D86] transition-colors"
-              >
-                Update Module
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* BREADCRUMB & HEADER SECTION */}
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 select-none">
+      {/* MOODLE-STYLE BREADCRUMB & HEADER SECTION */}
+      <div className="flex flex-col gap-4 select-none text-left">
         <div className="space-y-1">
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground uppercase tracking-widest font-bold">
-            <Link href="/" className="hover:text-foreground">My classroom</Link>
+          <div className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase tracking-wider font-bold">
+            <Link href="/" className="hover:text-foreground flex items-center gap-1">
+              <Globe className="h-3 w-3" />
+              Home
+            </Link>
             <span>/</span>
-            <Link href="/list/courses" className="hover:text-foreground">My courses</Link>
+            <Link href="/list/courses" className="hover:text-foreground">My Courses</Link>
             <span>/</span>
-            <span className="text-foreground max-w-[250px] md:max-w-[400px] truncate block">
-              {courseName || "Course Editor Details"}
+            <span className="text-foreground font-mono max-w-[200px] truncate block">
+              {courseCode || "CS-LMS"}
+            </span>
+            <span>/</span>
+            <span className="text-foreground truncate block">
+              General
             </span>
           </div>
           
-          <h1 className="text-xl md:text-2xl font-black text-foreground tracking-tight max-w-[800px] leading-tight">
-            {courseName || "Beginner's Guide to Successful Company Management"}
-          </h1>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-1">
+            <div className="space-y-0.5">
+              <span className="text-xs font-extrabold text-[#0038A8] uppercase tracking-wider font-mono">
+                {courseCode} • {category}
+              </span>
+              <h1 className="text-xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight leading-tight max-w-[800px]">
+                {courseName}
+              </h1>
+            </div>
+
+            {/* Moodle Administration / Action Controls */}
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => router.push("/list/courses")}
+                className="px-4 py-2 bg-background border border-border hover:bg-accent text-foreground font-extrabold text-xs rounded-xl transition-all shadow-sm flex items-center gap-1.5 active:scale-[0.98]"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                <span>Back</span>
+              </button>
+              
+              {(role === "admin" || role === "teacher") && (
+                <button
+                  onClick={() => router.push(`/list/courses/${courseId}/edit`)}
+                  className="px-4 py-2 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white font-extrabold text-xs rounded-xl transition-all shadow-md shadow-violet-500/10 flex items-center gap-1.5 active:scale-[0.98]"
+                >
+                  <Edit className="h-3.5 w-3.5" />
+                  <span>Turn Editing On</span>
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* Action Controls */}
-        <div className="flex items-center gap-3 self-start md:self-auto shrink-0">
-          <button
-            onClick={() => router.push("/list/courses")}
-            className="px-5 py-2.5 bg-background border border-border hover:bg-accent text-foreground font-extrabold text-sm rounded-xl transition-all shadow-sm active:scale-[0.98]"
-          >
-            Cancel
-          </button>
-          
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-6 py-2.5 bg-[#a78bfa] text-white hover:bg-[#8b5cf6] disabled:opacity-50 font-extrabold text-sm rounded-xl transition-all shadow-md shadow-violet-500/10 active:scale-[0.98]"
-          >
-            {saving ? "Saving Changes..." : "Save"}
-          </button>
+        {/* MOODLE BOOST TAB-BAR NAVIGATION */}
+        <div className="flex border-b border-border/60 gap-6 select-none text-xs font-extrabold text-muted-foreground pt-2">
+          <button className="pb-3 border-b-2 border-[#0038A8] text-foreground">Course</button>
+          <Link href={`/list/students?courseId=${courseId}`} className="pb-3 hover:text-foreground transition-colors">Participants</Link>
+          <Link href="/list/results" className="pb-3 hover:text-foreground transition-colors">Grades</Link>
+          <button className="pb-3 hover:text-foreground transition-colors opacity-60 cursor-not-allowed">Competencies</button>
+          <button className="pb-3 hover:text-foreground transition-colors opacity-60 cursor-not-allowed">Reports</button>
         </div>
       </div>
 
-      {/* MAIN LAYOUT GRID (Mockup matched Columns: 70% left, 30% right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
+      {/* MAIN LAYOUT GRID (Moodle standard two-column layout) */}
+      <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 text-left">
         
-        {/* LEFT COLUMN: EDIT PANELS (7 Columns) */}
+        {/* LEFT COLUMN: CURRICULUM & SYLLABUS (7 Columns) */}
         <div className="lg:col-span-7 space-y-6">
           
-          {/* BASIC INFO CARD */}
-          <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.01)]">
-            <h2 className="text-base font-extrabold text-foreground tracking-tight select-none mb-6">Basic info</h2>
-            
-            <div className="space-y-5">
-              {/* Name Field */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest select-none">
-                  Name
-                </label>
-                <input
-                  type="text"
-                  value={courseName}
-                  onChange={(e) => setCourseName(e.target.value)}
-                  placeholder="e.g. Beginner's Guide to Successful Company Management"
-                  className="w-full px-4 py-3 bg-muted/30 border border-border/80 focus:border-[#0038A8]/40 rounded-xl text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-[#0038A8]/10 transition-all font-medium text-foreground shadow-inner"
-                />
-              </div>
+          {/* COURSE SYNOPSIS HERO CARD */}
+          <div className="bg-card border border-border/60 rounded-3xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.01)]">
+            <div className="relative aspect-[21/9] w-full bg-muted border-b border-border/60">
+              <img
+                src={thumbnail}
+                alt={courseName}
+                className="h-full w-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
+              
+              <span className="absolute bottom-4 left-4 px-3 py-1 bg-white/95 dark:bg-[#1a1a1a]/95 backdrop-blur shadow-sm rounded-xl text-xs font-black uppercase text-[#0038A8] tracking-widest">
+                {category}
+              </span>
+            </div>
 
-              {/* Description & Rich Toolbar mockup */}
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest select-none">
-                  Description
-                </label>
-                
-                <div className="border border-border/80 rounded-2xl overflow-hidden bg-muted/10 shadow-sm">
-                  {/* Styling toolbar buttons */}
-                  <div className="flex flex-wrap items-center gap-1 p-2 bg-muted/40 border-b border-border/80 select-none">
-                    <span className="text-xs text-muted-foreground font-semibold px-2 py-1 rounded-md hover:bg-muted cursor-pointer transition-all border border-border/40 bg-background flex items-center gap-1">
-                      Normal text <ChevronDown className="h-3 w-3 text-muted-foreground/60" />
-                    </span>
-                    <div className="h-4 w-[1px] bg-border/80 mx-1" />
-                    <button className="p-1.5 text-muted-foreground/80 hover:text-foreground rounded-lg hover:bg-muted transition-colors">
-                      <Bold className="h-4 w-4" />
-                    </button>
-                    <button className="p-1.5 text-muted-foreground/80 hover:text-foreground rounded-lg hover:bg-muted transition-colors">
-                      <Italic className="h-4 w-4" />
-                    </button>
-                    <button className="p-1.5 text-muted-foreground/80 hover:text-foreground rounded-lg hover:bg-muted transition-colors">
-                      <Link2 className="h-4 w-4" />
-                    </button>
-                    <div className="h-4 w-[1px] bg-border/80 mx-1" />
-                    <button className="p-1.5 text-muted-foreground/80 hover:text-foreground rounded-lg hover:bg-muted transition-colors">
-                      <List className="h-4 w-4" />
-                    </button>
-                    <button className="p-1.5 text-muted-foreground/80 hover:text-foreground rounded-lg hover:bg-muted transition-colors">
-                      <ListOrdered className="h-4 w-4" />
-                    </button>
-                  </div>
-
-                  {/* Input TextArea */}
-                  <textarea
-                    rows={4}
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Provide details about the learning curriculum goals..."
-                    className="w-full px-4 py-3 bg-transparent placeholder:text-muted-foreground/50 focus:outline-none transition-all text-sm leading-relaxed text-foreground"
-                  />
-                </div>
-              </div>
-
-              {/* Cover Image preview & click to change */}
-              <div className="space-y-3 pt-2">
-                <div className="flex items-center justify-between select-none">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                    Cover image
-                  </label>
-                  <button
-                    onClick={() => {
-                      const url = prompt("Enter cover image thumbnail URL:", thumbnail);
-                      if (url) setThumbnail(url);
-                    }}
-                    className="flex items-center gap-1.5 text-xs font-bold text-[#8b5cf6] hover:text-[#7c3aed] transition-colors"
-                  >
-                    <Undo2 className="h-3.5 w-3.5" />
-                    <span>Click to change</span>
-                  </button>
-                </div>
-
-                <div className="relative aspect-[21/9] w-full rounded-2xl overflow-hidden border border-border bg-muted shadow-sm">
-                  <img
-                    src={thumbnail}
-                    alt="Course Cover"
-                    className="h-full w-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-black/10 pointer-events-none" />
-                </div>
-              </div>
-
+            <div className="p-6 space-y-4">
+              <h2 className="text-lg font-black text-foreground tracking-tight select-none">Course Overview</h2>
+              <p className="text-sm text-muted-foreground leading-relaxed font-medium">
+                {description || "No description provided for this course learning curriculum."}
+              </p>
             </div>
           </div>
 
-          {/* CONTENT CARD (Syllabus items) */}
-          <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.01)]">
-            <div className="flex items-center justify-between select-none mb-6">
-              <h2 className="text-base font-extrabold text-foreground tracking-tight">Content</h2>
-              
-              <button
-                onClick={handleAddSyllabusSection}
-                className="flex items-center gap-1.5 text-xs font-bold text-[#8b5cf6] hover:text-[#7c3aed] transition-colors bg-[#8b5cf6]/5 px-3 py-1.5 rounded-xl border border-[#8b5cf6]/10"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                <span>Add new section</span>
-              </button>
-            </div>
-
-            {/* Syllabus Drag items */}
-            <div className="space-y-3">
-              {syllabus.map((item, idx) => {
-                const isExpanded = !!expandedSyllabus[item.id];
-                return (
-                  <div
-                    key={item.id}
-                    className="border border-border/80 rounded-2xl overflow-hidden shadow-sm bg-[#F7F8FA]/30 hover:border-border transition-colors"
-                  >
-                    {/* Header bar */}
-                    <div className="flex items-center gap-3 px-4 py-3 bg-[#F7F8FA]/60 select-none">
-                      {/* Drag icon */}
-                      <GripVertical className="h-4 w-4 text-muted-foreground/40 cursor-grab active:cursor-grabbing shrink-0" />
-                      
-                      {/* Accordion Expand indicator */}
-                      <button
-                        onClick={() => toggleSyllabusExpand(item.id)}
-                        className="text-muted-foreground/60 hover:text-foreground shrink-0 transition-colors"
-                      >
-                        {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                      </button>
-
-                      {/* Title display */}
-                      <span className="text-xs font-bold text-foreground truncate flex-1 text-left">
-                        Week {idx + 1} - {item.title}
-                      </span>
-
-                      {/* Module Actions */}
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => startEditSyllabus(item)}
-                          className="px-2.5 py-1 bg-white hover:bg-accent border border-border/80 text-foreground font-bold text-[10px] rounded-lg transition-all"
-                        >
-                          Edit
-                        </button>
-                        
-                        <button
-                          onClick={() => setSyllabus(syllabus.filter((s) => s.id !== item.id))}
-                          className="p-1 text-muted-foreground/60 hover:text-destructive transition-colors rounded-lg hover:bg-muted"
-                          aria-label="Delete section"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Accordion expanded content */}
-                    {isExpanded && (
-                      <div className="p-4 border-t border-border/50 bg-card text-left space-y-2">
-                        <p className="text-xs font-semibold text-muted-foreground/80">Module Content & Objectives:</p>
-                        <p className="text-xs text-muted-foreground leading-relaxed">
-                          This structured syllabus week covers deep exploration into key conceptual boundaries, featuring structured reading sheets, dynamic video presentations, study resources, and automated assessments.
-                        </p>
-                      </div>
-                    )}
+          {/* GENERAL MOODLE GENERAL CARD */}
+          <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.01)] text-left space-y-4">
+            <h2 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-wider select-none">General</h2>
+            <div className="space-y-2">
+              {/* Forum Announcement */}
+              <div className="flex items-center justify-between p-3.5 bg-[#f4f6fa]/60 dark:bg-muted/10 hover:bg-[#eef2fa] dark:hover:bg-muted/20 border border-border/40 rounded-2xl transition-all shadow-sm">
+                <div className="flex items-center gap-3.5 max-w-[80%]">
+                  <div className="h-9 w-9 rounded-xl bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                    <MessageSquare className="h-4.5 w-4.5" />
                   </div>
-                );
-              })}
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-foreground hover:text-[#0038A8] dark:hover:text-[#4f88ef] cursor-pointer transition-colors">
+                      Announcements & Course News
+                    </span>
+                    <span className="text-[10px] text-muted-foreground font-semibold">
+                      General announcements and critical system-wide notices.
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 font-bold text-[8px] rounded border border-blue-100 dark:border-blue-900/30 uppercase tracking-wider">
+                    Forum
+                  </span>
+                  <div className="h-5 w-5 rounded-full border border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                    <CheckCircle2 className="h-3 w-3" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Forum Q&A */}
+              <div className="flex items-center justify-between p-3.5 bg-[#f4f6fa]/60 dark:bg-muted/10 hover:bg-[#eef2fa] dark:hover:bg-muted/20 border border-border/40 rounded-2xl transition-all shadow-sm">
+                <div className="flex items-center gap-3.5 max-w-[80%]">
+                  <div className="h-9 w-9 rounded-xl bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                    <MessageSquare className="h-4.5 w-4.5" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-foreground hover:text-[#0038A8] dark:hover:text-[#4f88ef] cursor-pointer transition-colors">
+                      Student Coffee House & Help Q&A
+                    </span>
+                    <span className="text-[10px] text-muted-foreground font-semibold">
+                      Ask questions, post syllabus feedback, or seek group study partners.
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 font-bold text-[8px] rounded border border-blue-100 dark:border-blue-900/30 uppercase tracking-wider">
+                    Forum
+                  </span>
+                  <div className="h-5 w-5 rounded-full border border-gray-300 dark:border-gray-800 flex items-center justify-center" title="To do: Post 1 reply">
+                    <div className="h-1.5 w-1.5 rounded-full bg-gray-400" />
+                  </div>
+                </div>
+              </div>
+
+              {/* PDF Syllabus Resource */}
+              <div className="flex items-center justify-between p-3.5 bg-[#f4f6fa]/60 dark:bg-muted/10 hover:bg-[#eef2fa] dark:hover:bg-muted/20 border border-border/40 rounded-2xl transition-all shadow-sm">
+                <div className="flex items-center gap-3.5 max-w-[80%]">
+                  <div className="h-9 w-9 rounded-xl bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0">
+                    <FileText className="h-4.5 w-4.5" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-foreground hover:text-[#0038A8] dark:hover:text-[#4f88ef] cursor-pointer transition-colors">
+                      Official Course Handbook & Guidelines.pdf
+                    </span>
+                    <span className="text-[10px] text-muted-foreground font-semibold">
+                      Course description, grading scales, assignment deadlines, and expectations.
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="px-2 py-0.5 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 font-bold text-[8px] rounded border border-red-100 dark:border-red-900/30 uppercase tracking-wider">
+                    File
+                  </span>
+                  <div className="h-5 w-5 rounded-full border border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                    <CheckCircle2 className="h-3 w-3" />
+                  </div>
+                </div>
+              </div>
             </div>
+          </div>
+
+          {/* COURSE STRUCTURE & TOPIC OUTLINE (Moodle Format) */}
+          <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.01)]">
+            <h2 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-wider mb-6 text-left select-none">Topic Outline</h2>
+
+            {modules.length > 0 ? (
+              <div className="space-y-4">
+                {modules.map((module, idx) => {
+                  const isExpanded = !!expandedSyllabus[module.id];
+                  return (
+                    <div
+                      key={module.id}
+                      className="border border-border/80 rounded-2xl overflow-hidden shadow-sm bg-[#F7F8FA]/30 hover:border-border transition-all"
+                    >
+                      {/* Topic Header block */}
+                      <div className="flex items-center gap-3 px-4 py-3.5 bg-[#F7F8FA]/80 select-none">
+                        <button
+                          onClick={() => toggleSyllabusExpand(module.id)}
+                          className="text-muted-foreground/60 hover:text-foreground shrink-0 transition-colors"
+                        >
+                          {isExpanded ? <ChevronUp className="h-4.5 w-4.5" /> : <ChevronDown className="h-4.5 w-4.5" />}
+                        </button>
+
+                        <span className="text-xs font-black text-foreground truncate flex-1 text-left uppercase tracking-wide">
+                          Topic {idx + 1}: {module.title}
+                        </span>
+                        
+                        <span className="px-2.5 py-1 bg-white dark:bg-muted border border-border/80 text-muted-foreground font-black text-[9px] rounded-lg shadow-sm">
+                          {module.lessons?.length || 0} Activities
+                        </span>
+                      </div>
+
+                      {/* Accordion expanded content */}
+                      {isExpanded && (
+                        <div className="p-5 border-t border-border/50 bg-card text-left space-y-5">
+                          {module.description && (
+                            <div className="space-y-1 bg-muted/20 p-3.5 border border-border/30 rounded-2xl">
+                              <p className="text-[9px] font-black text-[#0038A8] dark:text-[#4f88ef] uppercase tracking-wider">Topic Introduction</p>
+                              <p className="text-xs text-muted-foreground leading-relaxed font-medium">{module.description}</p>
+                            </div>
+                          )}
+                          
+                          <div className="space-y-3">
+                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-wider">Learning Activities & Resources</p>
+                            
+                            <div className="space-y-2.5">
+                              {module.lessons && module.lessons.length > 0 ? (
+                                module.lessons.map((lesson: any, lIdx: number) => {
+                                  // Mock completion check: even lectures are done, odd are to do
+                                  const isDone = lesson.id % 2 === 0;
+                                  return (
+                                    <div key={lesson.id} className="flex items-center justify-between p-3 bg-[#f8fafc]/50 dark:bg-muted/5 border border-border/40 hover:border-border/80 rounded-2xl transition-all shadow-sm">
+                                      <div className="flex items-center gap-3 max-w-[70%]">
+                                        {/* Moodle Page Icon */}
+                                        <div className="h-8.5 w-8.5 rounded-xl bg-sky-100 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
+                                          <BookOpen className="h-4.5 w-4.5" />
+                                        </div>
+                                        <div className="flex flex-col gap-0.5">
+                                          <span className="text-xs font-bold text-foreground truncate hover:text-[#0038A8] dark:hover:text-[#4f88ef]">
+                                            Lecture {lIdx + 1}: {lesson.title}
+                                          </span>
+                                          {lesson.duration && (
+                                            <span className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1">
+                                              <ClockIcon className="h-3 w-3 text-[#0038A8]" />
+                                              <span>{lesson.duration} lecture slide resource</span>
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                      
+                                      <div className="flex items-center gap-3">
+                                        <Link href={`/list/lessons/${lesson.id}?courseId=${courseId}&moduleId=${module.id}`}>
+                                          <button className="px-3 py-1.5 bg-[#0038A8]/10 hover:bg-[#0038A8]/20 border border-[#0038A8]/20 text-[#0038A8] font-bold text-[9px] rounded-lg shadow-sm transition-colors active:scale-[0.98]">
+                                            Enter Activity
+                                          </button>
+                                        </Link>
+                                        {/* Completion Tracker circle */}
+                                        {isDone ? (
+                                          <div className="h-5 w-5 rounded-full border border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center" title="Done: View activity">
+                                            <CheckCircle2 className="h-3 w-3" />
+                                          </div>
+                                        ) : (
+                                          <div className="h-5 w-5 rounded-full border border-dashed border-gray-400 dark:border-gray-700 flex items-center justify-center" title="To do: View activity">
+                                            <div className="h-1.5 w-1.5 rounded-full bg-gray-400" />
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })
+                              ) : (
+                                <p className="text-xs text-muted-foreground italic">No learning resources registered in this topic.</p>
+                              )}
+
+                              {/* MOCK ASSIGNMENT PORTAL TO COMPLETE MOODLE VIBE */}
+                              <div className="flex items-center justify-between p-3 bg-[#fbf7f0] dark:bg-[#fbf7f0]/5 border border-amber-200/50 hover:border-amber-300 dark:border-amber-900/30 rounded-2xl transition-all shadow-sm">
+                                <div className="flex items-center gap-3 max-w-[70%]">
+                                  {/* Moodle Assignment Icon (Orange Amber) */}
+                                  <div className="h-8.5 w-8.5 rounded-xl bg-amber-100 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                                    <FileSpreadsheet className="h-4.5 w-4.5" />
+                                  </div>
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className="text-xs font-bold text-foreground truncate hover:text-[#b45309]">
+                                      Syllabus Project Assignment: Topic {idx + 1} Submit
+                                    </span>
+                                    <span className="text-[10px] text-amber-800 dark:text-amber-400 font-semibold">
+                                      Submission portal open • Graded assessment
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <Link href="/list/assignments">
+                                    <button className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-700 dark:text-amber-400 font-bold text-[9px] rounded-lg shadow-sm transition-colors active:scale-[0.98]">
+                                      Add Submission
+                                    </button>
+                                  </Link>
+                                  <div className="h-5 w-5 rounded-full border border-dashed border-amber-400 flex items-center justify-center" title="To do: Submit project">
+                                    <div className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* MOCK PRACTICE QUIZ TO COMPLETE MOODLE VIBE */}
+                              <div className="flex items-center justify-between p-3 bg-[#fff5f5] dark:bg-[#fff5f5]/5 border border-red-200/50 hover:border-red-300 dark:border-red-900/30 rounded-2xl transition-all shadow-sm">
+                                <div className="flex items-center gap-3 max-w-[70%]">
+                                  {/* Moodle Quiz Icon (Pink Red) */}
+                                  <div className="h-8.5 w-8.5 rounded-xl bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0">
+                                    <CheckSquare className="h-4.5 w-4.5" />
+                                  </div>
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className="text-xs font-bold text-foreground truncate hover:text-[#b91c1c]">
+                                      Review Practice Quiz: Topic {idx + 1} Essentials
+                                    </span>
+                                    <span className="text-[10px] text-red-800 dark:text-red-400 font-semibold">
+                                      Automated scoring • 15 questions
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <Link href="/list/quizzes">
+                                    <button className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-700 dark:text-red-400 font-bold text-[9px] rounded-lg shadow-sm transition-colors active:scale-[0.98]">
+                                      Attempt Quiz
+                                    </button>
+                                  </Link>
+                                  <div className="h-5 w-5 rounded-full border border-dashed border-red-400 flex items-center justify-center" title="To do: Receive a grade">
+                                    <div className="h-1.5 w-1.5 rounded-full bg-red-400" />
+                                  </div>
+                                </div>
+                              </div>
+
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground italic text-center py-6">No syllabus topics registered for this course.</p>
+            )}
           </div>
 
         </div>
 
-        {/* RIGHT COLUMN: CONFIGURATION WIDGETS (3 Columns) */}
+        {/* MOODLE SIDEBAR BLOCKS (3 Columns) */}
         <div className="lg:col-span-3 space-y-6">
           
-          {/* PREVIEW COURSE CARD */}
-          <div className="bg-[#121212] dark:bg-card border border-border/80 rounded-3xl p-5 shadow-lg select-none text-left relative overflow-hidden">
-            {/* Gloss shine */}
-            <div className="absolute top-0 right-0 w-24 h-24 bg-[#0038A8]/10 blur-xl rounded-full" />
-            
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xs font-black text-white uppercase tracking-widest">Preview course</h3>
-              <button className="px-3 py-1.5 bg-white text-black font-bold text-[10px] rounded-lg shadow hover:bg-white/90 transition-colors uppercase tracking-wider">
-                Preview
-              </button>
+          {/* COURSE COMPLETION BLOCK */}
+          <div className="bg-card border border-border/60 rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.01)] text-left space-y-4">
+            <div className="flex items-center gap-2 select-none pb-2 border-b border-border/60">
+              <CheckSquare className="h-4 w-4 text-[#0038A8]" />
+              <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                Course Completion
+              </h3>
             </div>
-            
-            <p className="text-[11px] text-gray-400 leading-normal">
-              View how others and enrolled students will see your course.
-            </p>
-          </div>
-
-          {/* COURSE STATUS CARD */}
-          <div className="bg-card border border-border/60 rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.01)] text-left">
-            <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest select-none mb-4">Course status</h3>
-            
-            <div className="space-y-4">
-              <div className="space-y-1.5 select-none">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Product status</label>
-                <select
-                  value={isPublished ? "published" : "draft"}
-                  onChange={(e) => setIsPublished(e.target.value === "published")}
-                  className="w-full px-3 py-2 bg-muted/40 border border-border/80 focus:border-[#0038A8]/40 rounded-xl text-xs font-semibold focus:outline-none transition-all shadow-inner"
-                >
-                  <option value="published">Published</option>
-                  <option value="draft">Draft / Hide</option>
-                </select>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-xs font-bold text-foreground">
+                <span>Progress</span>
+                <span className="text-[#0038A8]">67%</span>
               </div>
-
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={!isPublished}
-                  onChange={(e) => setIsPublished(!e.target.checked)}
-                  className="w-4 h-4 rounded border-border text-[#0038A8] focus:ring-[#0038A8]"
-                />
-                <span className="text-xs font-semibold text-muted-foreground">Hide this course</span>
-              </label>
+              <div className="w-full h-2 bg-muted rounded-full overflow-hidden shadow-inner">
+                <div className="h-full bg-gradient-to-r from-[#0038A8] to-[#4f88ef] rounded-full transition-all" style={{ width: "67%" }} />
+              </div>
+              <div className="flex items-center justify-between text-[10px] text-muted-foreground font-semibold">
+                <span>6 of 9 Activities completed</span>
+                <span className="hover:underline cursor-pointer text-[#0038A8]">More details</span>
+              </div>
             </div>
           </div>
 
-          {/* COURSE LEVEL CARD */}
-          <div className="bg-card border border-border/60 rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.01)] text-left">
-            <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest select-none mb-4">Course level</h3>
-            
-            <div className="space-y-1.5 select-none">
-              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Level</label>
-              <select
-                value={difficulty}
-                onChange={(e) => setDifficulty(e.target.value)}
-                className="w-full px-3 py-2 bg-muted/40 border border-border/80 focus:border-[#0038A8]/40 rounded-xl text-xs font-semibold focus:outline-none transition-all shadow-inner"
-              >
-                <option value="beginner">Beginner</option>
-                <option value="intermediate">Intermediate</option>
-                <option value="advanced">Advanced</option>
-              </select>
+          {/* UPCOMING EVENTS BLOCK */}
+          <div className="bg-card border border-border/60 rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.01)] text-left space-y-4">
+            <div className="flex items-center gap-2 select-none pb-2 border-b border-border/60">
+              <Calendar className="h-4 w-4 text-amber-500" />
+              <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                Upcoming Events
+              </h3>
             </div>
-          </div>
-
-          {/* ORGANISATIONS CARD */}
-          <div className="bg-card border border-border/60 rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.01)] text-left">
-            <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest select-none mb-4">Organisations</h3>
-            
-            <div className="space-y-4">
-              <div className="space-y-1.5 select-none">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">University</label>
-                <select className="w-full px-3 py-2 bg-muted/40 border border-border/80 rounded-xl text-xs font-semibold focus:outline-none shadow-inner">
-                  <option>Any university</option>
-                  <option>AMS Science Institute</option>
-                </select>
+            <div className="space-y-3.5">
+              <div className="flex gap-3">
+                <div className="h-9 w-9 rounded-xl bg-amber-50 dark:bg-amber-950/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-100 dark:border-amber-900/30">
+                  <FileSpreadsheet className="h-4.5 w-4.5" />
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-xs font-bold text-foreground truncate hover:underline cursor-pointer">
+                    Syllabus Assignment 1
+                  </span>
+                  <span className="text-[10px] text-muted-foreground font-semibold">
+                    Due Thursday, Jun 4, 11:59 PM
+                  </span>
+                </div>
               </div>
 
-              <div className="space-y-1.5 select-none">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Specialisation</label>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="w-full px-3 py-2 bg-muted/40 border border-border/80 focus:border-[#0038A8]/40 rounded-xl text-xs font-semibold focus:outline-none transition-all shadow-inner"
-                >
-                  <option value="Computer Science">Computer Science</option>
-                  <option value="Business">Business</option>
-                  <option value="Economics">Economics</option>
-                  <option value="Mathematics">Mathematics</option>
-                </select>
-              </div>
-
-              {/* Tags Tray */}
-              <div className="space-y-2.5">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider select-none">
-                  Course tags <span className="text-[9px] text-muted-foreground/60">(up to 10)</span>
-                </label>
-
-                {/* Form to add tag */}
-                <form onSubmit={handleAddTag} className="flex gap-1.5">
-                  <input
-                    type="text"
-                    placeholder="Add tag..."
-                    value={newTagInput}
-                    onChange={(e) => setNewTagInput(e.target.value)}
-                    className="flex-1 px-2.5 py-1.5 bg-muted/30 border border-border/80 rounded-xl text-xs focus:outline-none"
-                  />
-                  <button type="submit" className="px-2.5 py-1 bg-muted border border-border rounded-xl text-xs font-bold hover:bg-accent">+</button>
-                </form>
-                
-                {/* Chip container */}
-                <div className="flex flex-wrap gap-1.5 pt-1 select-none">
-                  {tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#121212] text-white dark:bg-muted dark:text-foreground shadow-sm"
-                    >
-                      <span>{tag}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveTag(tag)}
-                        className="text-white/60 hover:text-white dark:text-foreground/60 dark:hover:text-foreground text-[8px] font-extrabold focus:outline-none shrink-0"
-                      >
-                        ✕
-                      </button>
-                    </span>
-                  ))}
+              <div className="flex gap-3">
+                <div className="h-9 w-9 rounded-xl bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0 border border-red-100 dark:border-red-900/30">
+                  <CheckSquare className="h-4.5 w-4.5" />
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-xs font-bold text-foreground truncate hover:underline cursor-pointer">
+                    Practice Quiz 1 Essentials
+                  </span>
+                  <span className="text-[10px] text-muted-foreground font-semibold">
+                    Due Saturday, Jun 6, 11:59 PM
+                  </span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* PRICING CARD (Interactive calculations) */}
-          <div className="bg-card border border-border/60 rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.01)] text-left">
-            <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest select-none mb-4">Pricing</h3>
-            
-            <div className="space-y-4">
-              {/* Base Price */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider select-none">Price</label>
-                <div className="relative rounded-xl border border-border bg-muted/20 shadow-sm flex items-center">
-                  <span className="pl-3 text-xs font-semibold text-muted-foreground">$</span>
-                  <input
-                    type="number"
-                    value={price}
-                    onChange={(e) => setPrice(parseFloat(e.target.value) || 0)}
-                    className="w-full pl-1.5 pr-12 py-2 bg-transparent text-xs font-bold text-foreground focus:outline-none"
-                  />
-                  <span className="absolute right-3 text-[10px] font-extrabold text-muted-foreground uppercase">USD</span>
-                </div>
+          {/* LATEST ANNOUNCEMENTS BLOCK */}
+          <div className="bg-card border border-border/60 rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.01)] text-left space-y-4">
+            <div className="flex items-center gap-2 select-none pb-2 border-b border-border/60">
+              <MessageSquare className="h-4 w-4 text-emerald-500" />
+              <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                Latest News
+              </h3>
+            </div>
+            <div className="space-y-3.5">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-xs font-bold text-foreground hover:underline cursor-pointer">
+                  Welcome to the Classroom!
+                </span>
+                <span className="text-[9px] text-muted-foreground font-semibold">
+                  By {instructorName} • May 29, 9:00 AM
+                </span>
               </div>
-
-              {/* Amount of sale */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider select-none">Amount of sale</label>
-                <div className="relative rounded-xl border border-border bg-muted/20 shadow-sm flex items-center">
-                  <span className="pl-3 text-xs font-semibold text-muted-foreground">$</span>
-                  <input
-                    type="number"
-                    value={saleAmount}
-                    onChange={(e) => handleAmountOfSaleChange(e.target.value)}
-                    className="w-full pl-1.5 pr-12 py-2 bg-transparent text-xs font-bold text-foreground focus:outline-none"
-                  />
-                  <span className="absolute right-3 text-[10px] font-extrabold text-muted-foreground uppercase">USD</span>
-                </div>
+              <div className="flex flex-col gap-0.5">
+                <span className="text-xs font-bold text-foreground hover:underline cursor-pointer">
+                  Weekly syllabus updates posted
+                </span>
+                <span className="text-[9px] text-muted-foreground font-semibold">
+                  By {instructorName} • May 28, 4:15 PM
+                </span>
               </div>
-
-              {/* Range percent slider */}
-              <div className="space-y-2 select-none">
-                <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground">
-                  <span>35%</span>
-                  <span className="px-2 py-0.5 bg-violet-100 dark:bg-violet-950/40 text-violet-700 dark:text-violet-400 rounded-full font-black tabular-nums">{salePercent}%</span>
-                  <span>100%</span>
-                </div>
-                
-                <input
-                  type="range"
-                  min="35"
-                  max="100"
-                  value={salePercent}
-                  onChange={(e) => setSalePercent(parseInt(e.target.value))}
-                  className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-[#a78bfa]"
-                />
-              </div>
-
-              {/* Final price after sale */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider select-none">Final price after sale</label>
-                <div className="relative rounded-xl border border-border/80 bg-muted/30 shadow-inner flex items-center">
-                  <span className="pl-3 text-xs font-semibold text-muted-foreground">$</span>
-                  <input
-                    type="number"
-                    value={finalPrice}
-                    disabled
-                    className="w-full pl-1.5 pr-12 py-2 bg-transparent text-xs font-bold text-foreground cursor-not-allowed"
-                  />
-                  <span className="absolute right-3 text-[10px] font-extrabold text-muted-foreground uppercase">USD</span>
-                </div>
-              </div>
-
-              {/* Bottom sales button */}
-              <div className="flex gap-2 pt-2 select-none">
-                <button
-                  type="button"
-                  onClick={() => setSalePercent(35)}
-                  className="flex-1 py-2 border border-border bg-background hover:bg-accent font-bold text-[10px] rounded-xl transition-all"
-                >
-                  Reset sale
-                </button>
-                
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  className="flex-1 py-2 bg-[#a78bfa] text-white hover:bg-[#8b5cf6] font-bold text-[10px] rounded-xl transition-all shadow-md shadow-violet-500/10"
-                >
-                  Apply
-                </button>
-              </div>
-
             </div>
           </div>
 
+          {/* COURSE ADMINISTRATION WIDGET */}
+          <div className="bg-card border border-border/60 rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.01)] text-left space-y-4">
+            <div className="flex items-center gap-2 select-none pb-2 border-b border-border/60">
+              <Layers className="h-4 w-4 text-[#0038A8]" />
+              <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                Course Admin
+              </h3>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-xl bg-blue-50 dark:bg-blue-950/20 text-[#0038A8] dark:text-[#4f88ef] flex items-center justify-center shrink-0">
+                  <GraduationCap className="h-4.5 w-4.5" />
+                </div>
+                <div>
+                  <p className="text-[9px] font-bold text-muted-foreground uppercase select-none">Instructor</p>
+                  <p className="text-xs font-extrabold text-foreground truncate max-w-[150px]">
+                    {instructorName}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                  <BookOpen className="h-4.5 w-4.5" />
+                </div>
+                <div>
+                  <p className="text-[9px] font-bold text-muted-foreground uppercase select-none">Course Code</p>
+                  <p className="text-xs font-extrabold text-foreground font-mono">
+                    {courseCode}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-xl bg-amber-50 dark:bg-amber-950/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                  <Layers className="h-4.5 w-4.5" />
+                </div>
+                <div>
+                  <p className="text-[9px] font-bold text-muted-foreground uppercase select-none">Difficulty</p>
+                  <p className="text-xs font-extrabold text-foreground capitalize">
+                    {difficulty}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
       </div>
 
     </div>
+  );
+}
+
+// Clock Icon Helper Component
+function ClockIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
   );
 }

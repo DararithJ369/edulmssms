@@ -24,6 +24,8 @@ class QuizUpdate(BaseModel):
 class QuizResponse(QuizBase):
     id: int
     created_at: datetime
+    course_name: Optional[str] = None
+    lesson_title: Optional[str] = None
 
     model_config = {"from_attributes": True}
     
@@ -32,8 +34,11 @@ class Quiz(QuizBase):
     id: int
     created_at: datetime
     updated_at: Optional[datetime]
+    course_name: Optional[str] = None
+    lesson_title: Optional[str] = None
 
     model_config = {"from_attributes": True}
+
     
     
 class QuizSubmitPayload(BaseModel):

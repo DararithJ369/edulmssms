@@ -31,6 +31,8 @@ class ResultResponse(ResultBase):
     id: int
     percentage: Optional[float]
     graded_at: datetime
+    student_name: Optional[str] = None
+    assessment_title: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -39,5 +41,7 @@ class Result(ResultBase):
     id: int
     percentage: Optional[float]
     graded_at: datetime
+    student_name: Optional[str] = None
+    assessment_title: Optional[str] = None
 
     model_config = {"from_attributes": True}

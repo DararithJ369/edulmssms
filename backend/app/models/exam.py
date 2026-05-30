@@ -1,6 +1,8 @@
 from sqlalchemy import Column, Integer, String, Text, DateTime, Time, ForeignKey
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 from app.db.base import Base
+
 
 
 class Exam(Base):
@@ -27,3 +29,16 @@ class Exam(Base):
     venue = Column(String)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    lesson = relationship("Lesson", foreign_keys=[lesson_id], lazy="selectin")
+
+    @property
+    def lesson_title(self) -> str:
+        return self.lesson.title if self.lesson else f"Lesson #{self.lesson_id}"
+
+    @property
+    def course_name(self) -> str:
+        if self.lesson and self.lesson.module and self.lesson.module.course:
+            return self.lesson.module.course.course_name
+        return ""

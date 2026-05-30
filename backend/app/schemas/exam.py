@@ -38,6 +38,8 @@ class ExamUpdate(BaseModel):
 class ExamResponse(ExamBase):   
     id: int
     created_at: datetime
+    lesson_title: Optional[str] = None
+    course_name: Optional[str] = None
 
     model_config = {"from_attributes": True}
     
@@ -49,5 +51,7 @@ class ExamSubmitPayload(BaseModel):
 class Exam(ExamBase):
     id: int
     created_at: datetime
+    lesson_title: Optional[str] = None
+    course_name: Optional[str] = None
 
     model_config = {"from_attributes": True}

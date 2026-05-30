@@ -26,6 +26,8 @@ class AttendanceResponse(attendanceBase):
     id: int
     recorded_by: str # teacher_id
     created_at: datetime
+    student_name: Optional[str] = None
+    course_name: Optional[str] = None
     
     model_config = {"from_attributes": True}
     
@@ -40,8 +42,11 @@ class Attendance(BaseModel):
     note: Optional[str] = None
     recorded_by: str # teacher_id
     created_at: datetime
+    student_name: Optional[str] = None
+    course_name: Optional[str] = None
     
     model_config = {"from_attributes": True}
+
         
 
 class AttendanceBulkCreate(BaseModel):

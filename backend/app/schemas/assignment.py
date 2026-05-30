@@ -27,6 +27,8 @@ class AssignmentUpdate(BaseModel):
 class AssignmentResponse(AssignmentBase):
     id: int
     created_at: datetime
+    course_name: Optional[str] = None
+    teacher_name: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -35,5 +37,7 @@ class Assignment(AssignmentBase):
     id: int
     created_at: datetime
     updated_at: Optional[datetime]
+    course_name: Optional[str] = None
+    teacher_name: Optional[str] = None
 
     model_config = {"from_attributes": True}

@@ -121,6 +121,26 @@ def update_lesson(
     
     return {"message": "Lesson updated successfully", "data": lesson}
 
+# Update module
+@router.put("/modules/{module_id}", dependencies=[Depends(PermissionGuard.admin_or_instructor)])
+def update_module(
+    module_id: int,
+    module_data: ModuleCreate,
+    db: Session = Depends(get_db)
+):
+    module = db.query(Module).filter(Module.id == module_id).first()
+    if not module:
+        raise HTTPException(status_code=404, detail="Module not found")
+    
+    module.title = module_data.title
+    if module_data.description is not None:
+        module.description = module_data.description
+        
+    db.commit()
+    db.refresh(module)
+    
+    return {"message": "Module updated successfully", "data": module}
+
 # Delete module
 @router.delete("/modules/{module_id}", dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def delete_module(

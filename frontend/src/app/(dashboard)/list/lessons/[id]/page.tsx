@@ -4,11 +4,16 @@ import Link from "next/link";
 
 const SingleLessonPage = async ({
   params: { id },
+  searchParams,
 }: {
   params: { id: string };
+  searchParams: { [key: string]: string | undefined };
 }) => {
   let lesson: any = null;
   let fetchError: string | null = null;
+
+  const courseId = searchParams?.courseId || "";
+  const moduleId = searchParams?.moduleId || "";
 
   try {
     lesson = await serverFetch<any>(`/lessons/${id}`);
@@ -23,8 +28,8 @@ const SingleLessonPage = async ({
         <h1 className="text-xl font-semibold">Lesson Not Found</h1>
         <p className="text-sm mt-1">We couldn&apos;t retrieve the lesson with ID: <code>{id}</code></p>
         {fetchError && <p className="text-xs font-mono mt-2 bg-white p-2 border rounded">{fetchError}</p>}
-        <Link href="/list/lessons" className="mt-4 inline-block text-sm text-blue-600 underline font-semibold">
-          Back to Lessons List
+        <Link href={courseId ? `/list/courses/${courseId}${moduleId ? `?expandedModuleId=${moduleId}` : ""}` : "/list/lessons"} className="mt-4 inline-block text-sm text-blue-600 underline font-semibold">
+          {courseId ? "Back to Course Syllabus" : "Back to Lessons List"}
         </Link>
       </div>
     );
@@ -53,7 +58,7 @@ const SingleLessonPage = async ({
       <div className="flex items-center justify-between bg-white dark:bg-[#1c1c1c] p-4 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
         <div className="flex items-center gap-4">
           <Link
-            href="/list/lessons"
+            href={courseId ? `/list/courses/${courseId}${moduleId ? `?expandedModuleId=${moduleId}` : ""}` : "/list/lessons"}
             className="w-10 h-10 flex items-center justify-center rounded-full border border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
