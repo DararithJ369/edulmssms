@@ -259,7 +259,7 @@ const Sidebar = ({ role: rawRole }: SidebarProps) => {
             {!isCollapsed && (
               <div className="flex flex-col select-none animate-in fade-in slide-in-from-left-2 duration-300">
                 <span className="text-[13px] font-black tracking-wider text-foreground uppercase leading-none">
-                  AMS <span className="text-[#0038A8]">ACADEMY</span>
+                  EDU<span className="text-[#0038A8]">LAMS</span>
                 </span>
                 <span className="text-[9px] font-medium text-muted-foreground/80 mt-1 uppercase tracking-widest leading-none">
                   System

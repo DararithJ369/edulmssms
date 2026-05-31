@@ -1,10 +1,11 @@
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, Depends, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from app.middleware.guard.permission import PermissionGuard
 from app.config.session import get_db
 from app.config.security import get_current_user
 from app.models.user import User
+from app.models.class_ import Class
 from app.services.user_profile_service import (
     InstructorProfileService,
 )
@@ -13,6 +14,7 @@ from app.schemas.user_profile import (
     InstructorProfileUpdate,
     InstructorProfileResponse,
 )
+from app.schemas.class_ import ClassResponse
 
 instructor_router = APIRouter(prefix="/instructors", tags=["Instructor Profiles"])
 
@@ -76,3 +78,22 @@ def update_instructor_profile(
 )
 def delete_instructor_profile(user_id: str, db: Session = Depends(get_db)):
     return InstructorProfileService.delete_instructor_profile(db, user_id)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Classes supervised by instructor  →  /instructors/{user_id}/classes
+# ─────────────────────────────────────────────────────────────────────────────
+
+@instructor_router.get("/{user_id}/classes", response_model=List[ClassResponse])
+def get_instructor_classes(
+    user_id: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Return all classes where this instructor is the supervisor."""
+    classes = (
+        db.query(Class)
+        .filter(Class.supervisor_id == user_id)
+        .all()
+    )
+    return [ClassResponse.model_validate(c) for c in classes]

@@ -83,13 +83,7 @@ const LessonListPage = async ({
         {/* Administration Actions */}
         <div className="flex items-center gap-2 shrink-0">
           {role === "admin" && (
-            <div className="flex items-center bg-[#8b5cf6] text-white hover:bg-[#7c3aed] font-extrabold text-xs rounded-xl transition-all shadow-md shadow-violet-500/10 active:scale-[0.98] overflow-hidden">
-              <span className="pl-4 pr-1 py-2 flex items-center gap-1.5">
-                <Plus className="h-4 w-4" />
-                <span>Add Lesson</span>
-              </span>
-              <FormContainer table="lesson" type="create" />
-            </div>
+            <FormContainer table="lesson" type="create" triggerText="Add Lesson" />
           )}
         </div>
       </div>
@@ -122,15 +116,18 @@ const LessonListPage = async ({
             return (
               <div 
                 key={item.id} 
-                className="flex items-center justify-between p-4 bg-[#f8fafc]/50 dark:bg-muted/5 border border-border/40 hover:border-border/85 rounded-2xl transition-all shadow-sm group"
+                className="relative flex items-center justify-between p-5 bg-card/65 hover:bg-card border border-border/50 hover:border-sky-500/25 rounded-3xl transition-all duration-300 shadow-[0_2px_8px_rgba(0,0,0,0.01)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.02)] hover:-translate-y-[1px] group overflow-hidden"
               >
-                <div className="flex items-center gap-4 max-w-[70%]">
+                {/* Left Active/Hover Indicator Bar */}
+                <span className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-3xl bg-sky-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                
+                <div className="flex items-center gap-4 max-w-[70%] z-10">
                   {/* Blue Moodle Page Icon */}
-                  <div className="h-9 w-9 rounded-xl bg-sky-100 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0 border border-sky-200/50">
+                  <div className="h-10 w-10 rounded-2xl bg-sky-50 border border-sky-100 dark:bg-sky-950/20 dark:border-sky-950/30 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0 shadow-sm transition-all duration-300 group-hover:scale-105">
                     <BookOpen className="h-5 w-5" />
                   </div>
 
-                  <div className="flex flex-col text-left gap-0.5">
+                  <div className="flex flex-col text-left gap-1">
                     <Link 
                       href={`/list/lessons/${item.id}`}
                       className="text-sm font-extrabold text-foreground tracking-tight leading-snug hover:text-[#0038A8] dark:hover:text-[#4f88ef] transition-colors"
@@ -138,34 +135,38 @@ const LessonListPage = async ({
                       {item.title}
                     </Link>
 
-                    <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-semibold flex-wrap">
+                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap font-medium">
                       {item.course_name && (
-                        <span className="flex items-center gap-1 text-[#0038A8] dark:text-[#4f88ef] font-bold">
-                          <Layers className="h-3 w-3" />
-                          <span>{item.course_name} • {item.module_name || `Module #${item.order}`}</span>
+                        <span className="text-[#0038A8] dark:text-[#4f88ef] font-bold">
+                          {item.course_name}
                         </span>
                       )}
-                      <span className="flex items-center gap-1 text-[#0038A8] dark:text-[#4f88ef] font-mono">
-                        <Tag className="h-3 w-3" />
-                        <span>Syllabus Order: {item.order || 1}</span>
-                      </span>
+                      {item.course_name && <span className="text-muted-foreground/40">•</span>}
+                      {item.module_name && (
+                        <span>{item.module_name}</span>
+                      )}
+                      {(item.module_name || item.course_name) && <span className="text-muted-foreground/40">•</span>}
+                      <span>Order {item.order || 1}</span>
                       {item.duration && (
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3 text-sky-500" />
-                          <span>Duration: {item.duration}</span>
-                        </span>
+                        <>
+                          <span className="text-muted-foreground/40">•</span>
+                          <span>{item.duration}</span>
+                        </>
                       )}
                       {item.material_type && (
-                        <span className="flex items-center gap-1 uppercase tracking-wider text-[8px] bg-sky-100/50 dark:bg-sky-950/20 px-2 py-0.5 rounded border border-sky-200/20 text-sky-600 dark:text-sky-400">
-                          {item.material_type}
-                        </span>
+                        <>
+                          <span className="text-muted-foreground/40">•</span>
+                          <span className="uppercase text-[9px] font-extrabold tracking-wider text-sky-600 dark:text-sky-400">
+                            {item.material_type}
+                          </span>
+                        </>
                       )}
                     </div>
                   </div>
                 </div>
 
                 {/* Right Side Actions and Completion tracking */}
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 z-10">
                   {/* Dynamic actions for admins */}
                   {role === "admin" && (
                     <div className="flex items-center gap-1 select-none opacity-40 group-hover:opacity-100 transition-opacity">
@@ -175,7 +176,7 @@ const LessonListPage = async ({
                   )}
 
                   <Link href={`/list/lessons/${item.id}`}>
-                    <button className="px-3.5 py-1.5 bg-[#0038A8]/10 hover:bg-[#0038A8]/20 border border-[#0038A8]/20 text-[#0038A8] font-bold text-[9px] rounded-lg shadow-sm transition-colors active:scale-[0.98]">
+                    <button className="px-4 py-1.5 bg-[#0038A8]/10 hover:bg-[#0038A8]/20 border border-[#0038A8]/20 text-[#0038A8] dark:text-sky-300 font-extrabold text-[9px] rounded-lg shadow-sm transition-colors active:scale-[0.98] uppercase tracking-wider">
                       Open Activity
                     </button>
                   </Link>
@@ -186,8 +187,8 @@ const LessonListPage = async ({
                       <CheckCircle2 className="h-3.5 w-3.5" />
                     </div>
                   ) : (
-                    <div className="h-5.5 w-5.5 rounded-full border border-dashed border-gray-400 dark:border-gray-700 flex items-center justify-center shrink-0 shadow-sm" title="To do: View activity">
-                      <div className="h-1.5 w-1.5 rounded-full bg-gray-400" />
+                    <div className="h-5.5 w-5.5 rounded-full border border-dashed border-gray-300 dark:border-gray-800 flex items-center justify-center shrink-0 shadow-sm" title="To do: View activity">
+                      <div className="h-1.5 w-1.5 rounded-full bg-gray-300 dark:bg-gray-800" />
                     </div>
                   )}
                 </div>

@@ -86,13 +86,7 @@ const AttendanceListPage = async ({
         {/* Administration Actions */}
         <div className="flex items-center gap-2 shrink-0">
           {(role === "admin" || role === "teacher") && (
-            <div className="flex items-center bg-[#8b5cf6] text-white hover:bg-[#7c3aed] font-extrabold text-xs rounded-xl transition-all shadow-md shadow-violet-500/10 active:scale-[0.98] overflow-hidden">
-              <span className="pl-4 pr-1 py-2 flex items-center gap-1.5">
-                <Plus className="h-4 w-4" />
-                <span>Mark Attendance</span>
-              </span>
-              <FormContainer table="attendance" type="create" />
-            </div>
+            <FormContainer table="attendance" type="create" triggerText="Mark Attendance" />
           )}
         </div>
       </div>

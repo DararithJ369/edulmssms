@@ -7,6 +7,7 @@ class ResultBase(BaseModel):
     student_id: str
     assignment_id: Optional[int] = None
     exam_id: Optional[int] = None
+    quiz_id: Optional[int] = None
     graded_by: str
     score: int
     total_marks: int
@@ -32,6 +33,7 @@ class ResultResponse(ResultBase):
     percentage: Optional[float]
     graded_at: datetime
     student_name: Optional[str] = None
+    grader_name: Optional[str] = None
     assessment_title: Optional[str] = None
 
     model_config = {"from_attributes": True}
@@ -42,6 +44,7 @@ class Result(ResultBase):
     percentage: Optional[float]
     graded_at: datetime
     student_name: Optional[str] = None
+    grader_name: Optional[str] = None
     assessment_title: Optional[str] = None
 
     model_config = {"from_attributes": True}

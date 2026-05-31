@@ -53,7 +53,7 @@ class UserProfileService:
         
         # Return role-specific response based on user role
         # SQLAlchemy will auto-load the appropriate relationship due to lazy="selectin"
-        if user.role.name.lower() == "instructor":
+        if user.role.name.lower() in ["instructor", "teacher"]:
             return InstructorProfileResponse.model_validate(profile)
         elif user.role.name.lower() == "student":
             return StudentProfileResponse.model_validate(profile)
@@ -241,7 +241,7 @@ class UserProfileService:
         
         # Return role-specific response
         user = db.query(User).filter(User.id == user_id).first()
-        if user.role.name.lower() == "instructor":
+        if user.role.name.lower() in ["instructor", "teacher"]:
             return InstructorProfileResponse.model_validate(profile)
         elif user.role.name.lower() == "student":
             return StudentProfileResponse.model_validate(profile)

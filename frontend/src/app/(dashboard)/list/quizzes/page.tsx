@@ -107,49 +107,49 @@ const QuizListPage = async ({
             return (
               <div 
                 key={item.id} 
-                className="flex items-center justify-between p-4 bg-[#fbf5f5]/40 dark:bg-muted/5 border border-border/40 hover:border-red-300/50 dark:hover:border-red-950/30 rounded-2xl transition-all shadow-sm group"
+                className="relative flex items-center justify-between p-5 bg-card/65 hover:bg-card border border-border/50 hover:border-red-500/25 rounded-3xl transition-all duration-300 shadow-[0_2px_8px_rgba(0,0,0,0.01)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.02)] hover:-translate-y-[1px] group overflow-hidden"
               >
-                <div className="flex items-center gap-4 max-w-[70%]">
+                {/* Left Active/Hover Indicator Bar */}
+                <span className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-3xl bg-red-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                
+                <div className="flex items-center gap-4 max-w-[70%] z-10">
                   {/* Red Moodle Quiz Icon */}
-                  <div className="h-9 w-9 rounded-xl bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0 border border-red-200/50">
+                  <div className="h-10 w-10 rounded-2xl bg-red-50 border border-red-100 dark:bg-red-950/20 dark:border-red-950/30 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0 shadow-sm transition-all duration-300 group-hover:scale-105">
                     <CheckSquare className="h-5 w-5" />
                   </div>
 
-                  <div className="flex flex-col text-left gap-0.5">
+                  <div className="flex flex-col text-left gap-1">
                     <span className="text-sm font-extrabold text-foreground tracking-tight leading-snug group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors">
                       {item.title}
                     </span>
 
-                    <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-semibold flex-wrap">
-                      <span className="flex items-center gap-1 text-[#0038A8] dark:text-[#4f88ef] font-bold">
-                        <GraduationCap className="h-3 w-3" />
-                        <span>{item.course_name || `Course #${item.course_id}`}</span>
+                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap font-medium">
+                      <span className="text-[#0038A8] dark:text-[#4f88ef] font-bold font-sans">
+                        {item.course_name || `Course #${item.course_id}`}
                       </span>
                       {item.lesson_id && (
-                        <span className="flex items-center gap-1 font-bold text-sky-600 dark:text-sky-400">
-                          <BookOpen className="h-3 w-3 text-sky-500" />
-                          <span>{item.lesson_title || `Lesson #${item.lesson_id}`}</span>
-                        </span>
+                        <>
+                          <span className="text-muted-foreground/40">•</span>
+                          <span className="text-sky-600 dark:text-sky-400 font-sans">{item.lesson_title || `Lesson #${item.lesson_id}`}</span>
+                        </>
                       )}
-                      <span className="flex items-center gap-1 text-red-500">
-                        <Clock className="h-3 w-3" />
-                        <span>
-                          Due: {new Intl.DateTimeFormat("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          }).format(new Date(item.due_date))}
-                        </span>
+                      <span className="text-muted-foreground/40">•</span>
+                      <span className="text-red-500 font-sans">
+                        Due: {new Intl.DateTimeFormat("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        }).format(new Date(item.due_date))}
                       </span>
                     </div>
                   </div>
                 </div>
 
                 {/* Right Side Actions and Completion tracking */}
-                <div className="flex items-center gap-4">
-                  <Link href={`/list/quizzes`}>
-                    <button className="px-3.5 py-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-700 dark:text-red-400 font-bold text-[9px] rounded-lg shadow-sm transition-colors active:scale-[0.98]">
+                <div className="flex items-center gap-4 z-10">
+                  <Link href={`/list/courses/${item.course_id}/learn?lessonId=${item.lesson_id}`}>
+                    <button className="px-4 py-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/25 text-red-700 dark:text-red-400 font-extrabold text-[9px] rounded-lg shadow-sm transition-colors active:scale-[0.98] uppercase tracking-wider">
                       Attempt Quiz
                     </button>
                   </Link>

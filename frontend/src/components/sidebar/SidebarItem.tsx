@@ -55,9 +55,9 @@ export const SidebarItem = ({
     <div
       className={cn(
         "group/item relative flex w-full items-center rounded-2xl transition-all duration-300 cursor-pointer select-none",
-        "text-foreground/80 hover:text-foreground",
-        "hover:bg-accent/30 backdrop-blur-sm",
-        isCollapsed ? "justify-center p-2.5 h-10 w-10 mx-auto" : "gap-2.5 px-3 py-2 text-[13px]",
+        "text-muted-foreground/90 hover:text-foreground",
+        "hover:bg-accent/25 backdrop-blur-sm",
+        isCollapsed ? "justify-center p-2.5 h-10 w-10 mx-auto" : "gap-2.5 px-3.5 py-2.5 text-[13.5px]",
         isActive && "text-foreground font-semibold",
         !isActive && "border border-transparent",
         disabled && "pointer-events-none opacity-50"
@@ -66,19 +66,30 @@ export const SidebarItem = ({
       {isActive && (
         <span
           className={cn(
-            "absolute inset-0 rounded-2xl border pointer-events-none z-0",
-            role === "admin" && "bg-indigo-50/50 dark:bg-indigo-950/20 border-indigo-100/50 dark:border-indigo-950/30 shadow-[0_4px_12px_rgba(99,102,241,0.03)]",
-            role === "teacher" && "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-100/50 dark:border-emerald-950/30 shadow-[0_4px_12px_rgba(16,185,129,0.03)]",
-            role === "student" && "bg-sky-50/50 dark:bg-sky-950/20 border-sky-100/50 dark:border-sky-950/30 shadow-[0_4px_12px_rgba(14,165,233,0.03)]",
-            role === "parent" && "bg-amber-50/50 dark:bg-amber-950/20 border-amber-100/50 dark:border-amber-950/30 shadow-[0_4px_12px_rgba(245,158,11,0.03)]"
+            "absolute inset-0 rounded-2xl border pointer-events-none z-0 transition-all duration-300",
+            role === "admin" && "bg-gradient-to-r from-indigo-50/60 to-indigo-50/15 dark:from-indigo-950/20 dark:to-transparent border-indigo-100/50 dark:border-indigo-950/30 shadow-[0_2px_8px_rgba(99,102,241,0.02)]",
+            role === "teacher" && "bg-gradient-to-r from-emerald-50/60 to-emerald-50/15 dark:from-emerald-950/20 dark:to-transparent border-emerald-100/50 dark:border-emerald-950/30 shadow-[0_2px_8px_rgba(16,185,129,0.02)]",
+            role === "student" && "bg-gradient-to-r from-sky-50/60 to-sky-50/15 dark:from-sky-950/20 dark:to-transparent border-sky-100/50 dark:border-sky-950/30 shadow-[0_2px_8px_rgba(14,165,233,0.02)]",
+            role === "parent" && "bg-gradient-to-r from-amber-50/60 to-amber-50/15 dark:from-amber-950/20 dark:to-transparent border-amber-100/50 dark:border-amber-950/30 shadow-[0_2px_8px_rgba(245,158,11,0.02)]"
+          )}
+        />
+      )}
+      {isActive && (
+        <span
+          className={cn(
+            "absolute left-0 top-3 bottom-3 w-[2.5px] rounded-r-full z-10 transition-all duration-300",
+            role === "admin" && "bg-indigo-600 dark:bg-indigo-400",
+            role === "teacher" && "bg-emerald-600 dark:bg-emerald-400",
+            role === "student" && "bg-sky-600 dark:bg-sky-400",
+            role === "parent" && "bg-amber-600 dark:bg-amber-400"
           )}
         />
       )}
       
-      <Icon className={cn("relative z-10 h-4.5 w-4.5 shrink-0 transition-all duration-300 group-hover/item:scale-105", isActive && styles.icon)} />
+      <Icon className={cn("relative z-10 h-4.5 w-4.5 shrink-0 transition-all duration-300 group-hover/item:scale-105 group-hover/item:translate-x-0.5", isActive && styles.icon)} />
       
       {!isCollapsed && (
-        <span className="relative z-10 font-medium whitespace-nowrap overflow-hidden text-ellipsis transition-opacity duration-300">
+        <span className="relative z-10 font-semibold whitespace-nowrap overflow-hidden text-ellipsis transition-all duration-300 group-hover/item:translate-x-0.5">
           {label}
         </span>
       )}

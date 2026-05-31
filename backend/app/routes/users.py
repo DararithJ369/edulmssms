@@ -93,7 +93,7 @@ def get_user_by_id(user_id: str, db: Session = Depends(get_db)):
 
 @user_router.put("/{user_id}", response_model=UserResponse)
 def update_user(
-    id: str,
+    user_id: str,
     username: str = Form(...),
     email: str = Form(...),
     password: str = Form(...),
@@ -108,7 +108,7 @@ def update_user(
             password=password,
             role_id=role_id
         )
-        return UserService.update_user(db, id, user_data, image)
+        return UserService.update_user(db, user_id, user_data, image)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
     

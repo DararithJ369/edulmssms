@@ -238,34 +238,36 @@ export const createStudent = async (
   currentState: CurrentState,
   data: StudentSchema
 ) => {
-  console.log(data);
   try {
-    const classItem = await prisma.class.findUnique({
-      where: { id: data.classId },
-      include: { _count: { select: { students: true } } },
+    const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+    // We can't access cookies in server action easily, use the internal API
+    // For the student list form (create), post to FastAPI
+    const body = {
+      username: data.username,
+      email: data.email || null,
+      password: data.password,
+      role: "student",
+    };
+    const res = await fetch(`${API}/users`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
     });
+    if (!res.ok) throw new Error(await res.text());
+    const created = await res.json();
 
-    if (classItem && classItem.capacity === classItem._count.students) {
-      return { success: false, error: true };
-    }
+    // Create profile
+    const form = new FormData();
+    if (data.name || data.surname) form.append("full_name", `${data.name || ""} ${data.surname || ""}`.trim());
+    if (data.phone)   form.append("phone",   data.phone);
+    if (data.address) form.append("address", data.address);
+    if (data.sex)     form.append("gender",  data.sex);
+    if (data.birthday) form.append("date_of_birth", typeof data.birthday === "string" ? data.birthday : (data.birthday as Date).toISOString().split("T")[0]);
+    if (data.img)     form.append("pfp",     data.img);
 
-    await prisma.student.create({
-      data: {
-        id: data.id || crypto.randomUUID(),
-        username: data.username,
-        name: data.name,
-        surname: data.surname,
-        email: data.email || null,
-        phone: data.phone || null,
-        address: data.address,
-        img: data.img || null,
-        bloodType: data.bloodType,
-        sex: data.sex,
-        birthday: data.birthday,
-        gradeId: data.gradeId,
-        classId: data.classId,
-        parentId: data.parentId,
-      },
+    await fetch(`${API}/profiles/${created.id}`, {
+      method: "POST",
+      body: form,
     });
 
     revalidatePath("/list/students");
@@ -280,30 +282,23 @@ export const updateStudent = async (
   currentState: CurrentState,
   data: StudentSchema
 ) => {
-  if (!data.id) {
-    return { success: false, error: true };
-  }
+  if (!data.id) return { success: false, error: true };
   try {
-    await prisma.student.update({
-      where: {
-        id: data.id,
-      },
-      data: {
-        username: data.username,
-        name: data.name,
-        surname: data.surname,
-        email: data.email || null,
-        phone: data.phone || null,
-        address: data.address,
-        img: data.img || null,
-        bloodType: data.bloodType,
-        sex: data.sex,
-        birthday: data.birthday,
-        gradeId: data.gradeId,
-        classId: data.classId,
-        parentId: data.parentId,
-      },
+    const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+    const form = new FormData();
+    if (data.name || data.surname) form.append("full_name", `${data.name || ""} ${data.surname || ""}`.trim());
+    if (data.phone)   form.append("phone",   data.phone);
+    if (data.address) form.append("address", data.address);
+    if (data.sex)     form.append("gender",  data.sex);
+    if (data.birthday) form.append("date_of_birth", typeof data.birthday === "string" ? data.birthday : (data.birthday as Date).toISOString().split("T")[0]);
+    if (data.img)     form.append("pfp",     data.img);
+
+    const res = await fetch(`${API}/profiles/${data.id}`, {
+      method: "PUT",
+      body: form,
     });
+    if (!res.ok) throw new Error(await res.text());
+
     revalidatePath("/list/students");
     return { success: true, error: false };
   } catch (err) {

@@ -31,3 +31,10 @@ class Class(Base):
         back_populates="class_",
         lazy="selectin",
     )
+    supervisor = relationship("User", foreign_keys=[supervisor_id], lazy="selectin")
+
+    @property
+    def supervisor_name(self) -> str:
+        if self.supervisor and self.supervisor.profile:
+            return self.supervisor.profile.full_name or self.supervisor.username
+        return self.supervisor.username if self.supervisor else f"Staff #{self.supervisor_id[:8]}"

@@ -30,16 +30,16 @@ export const SidebarSection = ({ section, isCollapsed = false, isActive, role }:
   const header = (
     <div
       className={cn(
-        "flex items-center gap-2.5 px-3 py-1.5 select-none transition-all duration-300",
+        "flex items-center gap-2.5 px-3 py-2 select-none transition-all duration-300 mt-2",
         isCollapsed ? "justify-center h-8 w-8 mx-auto hover:bg-accent/40 rounded-xl cursor-pointer" : ""
       )}
     > 
-      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground shadow-sm transition-colors hover:text-foreground">
-        <section.icon className="h-3.5 w-3.5" />
+      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-gradient-to-tr from-muted/50 to-muted/80 dark:from-muted/20 dark:to-muted/40 border border-border/40 text-muted-foreground/80 shadow-sm transition-all duration-300 hover:scale-105">
+        <section.icon className="h-3 w-3" />
       </div>
       {!isCollapsed && (
         <div className="flex flex-1 items-center justify-between overflow-hidden">
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/80 whitespace-nowrap">
+          <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-muted-foreground/60 whitespace-nowrap">
             {section.title}
           </span>
         </div>

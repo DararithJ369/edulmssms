@@ -16,8 +16,10 @@ import {
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { Globe, Plus } from "lucide-react";
 import { Dispatch, SetStateAction, useEffect, useState } from "react";
 import { useFormState } from "react-dom";
+import { createPortal } from "react-dom";
 import { toast } from "react-toastify";
 import { FormContainerProps } from "./FormContainer";
 
@@ -176,6 +178,7 @@ const FormModal = ({
   data,
   id,
   relatedData,
+  triggerText,
 }: FormContainerProps & { relatedData?: any }) => {
   const size = type === "create" ? "w-8 h-8" : "w-7 h-7";
   const bgColor =
@@ -186,6 +189,11 @@ const FormModal = ({
       : "bg-lamaPurple";
 
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const Form = () => {
     const [state, formAction] = useFormState(deleteActionMap[table], {
@@ -228,14 +236,39 @@ const FormModal = ({
 
   return (
     <>
-      <button
-        className={`${size} flex items-center justify-center rounded-full ${bgColor}`}
-        onClick={() => setOpen(true)}
-      >
-        <Image src={`/${type}.png`} alt="" width={16} height={16} />
-      </button>
-      {open && (
-        <div className="w-screen h-screen absolute left-0 top-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+      {triggerText ? (
+        <button
+          className="px-4 py-2 bg-[#8b5cf6] text-white hover:bg-[#7c3aed] font-extrabold text-xs rounded-xl transition-all shadow-md shadow-violet-500/10 flex items-center gap-1.5 active:scale-[0.98] select-none"
+          onClick={() => setOpen(true)}
+        >
+          <Plus className="h-4 w-4" />
+          <span>{triggerText}</span>
+        </button>
+      ) : (
+        <button
+          className={`${size} flex items-center justify-center rounded-full ${bgColor}`}
+          onClick={() => setOpen(true)}
+        >
+          <Image src={`/${type}.png`} alt="" width={16} height={16} />
+        </button>
+      )}
+      {open && (mounted && typeof document !== "undefined" ? (
+        createPortal(
+          <div className="w-screen h-screen fixed left-0 top-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+            <div className="bg-card text-card-foreground border border-border p-4 rounded-md relative w-[90%] md:w-[70%] lg:w-[60%] xl:w-[50%] 2xl:w-[40%] shadow-lg transition-colors duration-300">
+              <Form />
+              <div
+                className="absolute top-4 right-4 cursor-pointer"
+                onClick={() => setOpen(false)}
+              >
+                <Image src="/close.png" alt="" width={14} height={14} />
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+      ) : (
+        <div className="w-screen h-screen fixed left-0 top-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
           <div className="bg-card text-card-foreground border border-border p-4 rounded-md relative w-[90%] md:w-[70%] lg:w-[60%] xl:w-[50%] 2xl:w-[40%] shadow-lg transition-colors duration-300">
             <Form />
             <div
@@ -246,7 +279,7 @@ const FormModal = ({
             </div>
           </div>
         </div>
-      )}
+      ))}
     </>
   );
 };

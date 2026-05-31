@@ -84,35 +84,97 @@ class QuizService:
 
     @staticmethod
     def submit_quiz(
-        db: Session, quiz_id: int, student_id: int, payload: QuizSubmitPayload
+        db: Session, quiz_id: int, student_id: str, payload: QuizSubmitPayload
     ) -> ResultResponse:
         quiz = db.query(Quiz).filter(Quiz.id == quiz_id).first()
         if not quiz:
             raise HTTPException(status_code=404, detail="Quiz not found")
 
-        if db.query(Result).filter(Result.quiz_id == quiz_id, Result.student_id == student_id).first():
+        # Check if already submitted
+        existing = db.query(Result).filter(Result.quiz_id == quiz_id, Result.student_id == student_id).first()
+        if existing:
             raise HTTPException(status_code=400, detail="Quiz already submitted")
 
-        total = len(quiz.questions)
+        # Calculate questions and correct answers
+        questions = db.query(QuizQuestion).filter(QuizQuestion.quiz_id == quiz_id).all()
+        total = len(questions)
+        if total == 0:
+            raise HTTPException(status_code=400, detail="Quiz has no questions")
+
         correct = 0
-        for answer in payload.answers:
-            question = (
-                db.query(QuizQuestion)
-                .filter(QuizQuestion.id == answer.question_id, QuizQuestion.quiz_id == quiz_id)
-                .first()
-            )
-            if question and question.correct_option_id == answer.selected_option_id:
+        for q_id, opt_id in payload.answers.items():
+            try:
+                q_id_int = int(q_id)
+                opt_id_int = int(opt_id)
+            except ValueError:
+                continue
+
+            # Verify the question belongs to this quiz
+            question = db.query(QuizQuestion).filter(QuizQuestion.id == q_id_int, QuizQuestion.quiz_id == quiz_id).first()
+            if not question:
+                continue
+            
+            # Verify the option belongs to this question and is correct
+            option = db.query(QuizOption).filter(QuizOption.id == opt_id_int, QuizOption.question_id == q_id_int).first()
+            if option and option.is_correct == 1:
                 correct += 1
 
-        score = round((correct / total * 100) if total else 0, 2)
+        percentage = round((correct / total) * 100, 1)
+        score_val = int(round(percentage))
+        
+        # Grade calculation
+        if score_val >= 90:
+            grade = "A"
+        elif score_val >= 80:
+            grade = "B"
+        elif score_val >= 70:
+            grade = "C"
+        elif score_val >= 60:
+            grade = "D"
+        elif score_val >= 50:
+            grade = "E"
+        else:
+            grade = "F"
+            
+        is_passed = score_val >= 50
+
         result = Result(
             quiz_id=quiz_id,
             student_id=student_id,
-            score=score,
-            total_questions=total,
-            correct_answers=correct,
+            graded_by=quiz.instructor_id,
+            score=score_val,
+            total_marks=100,
+            percentage=percentage,
+            grade=grade,
+            is_passed=is_passed,
+            feedback=f"Completed interactive quiz. Correct answers: {correct}/{total}.",
         )
         db.add(result)
+        db.flush()
+
+        # If the quiz is associated with a lesson, automatically mark that lesson completed!
+        if quiz.lesson_id:
+            try:
+                from app.models.progress import StudentLessonProgress
+                from app.routes.progress import recalculate_course_progress
+
+                prog = db.query(StudentLessonProgress).filter(
+                    StudentLessonProgress.student_id == student_id,
+                    StudentLessonProgress.lesson_id == quiz.lesson_id
+                ).first()
+                if not prog:
+                    prog = StudentLessonProgress(student_id=student_id, lesson_id=quiz.lesson_id)
+                    db.add(prog)
+                prog.completed = True
+                prog.completed_at = func.now()
+                db.flush()
+
+                # Recalculate course progress percentage
+                recalculate_course_progress(db, student_id, quiz.course_id)
+            except Exception as e:
+                # Gracefully log or ignore to avoid blocking submission
+                print(f"Failed to auto-update student progress on quiz submit: {e}")
+
         db.commit()
         db.refresh(result)
         return ResultResponse.model_validate(result)

@@ -30,6 +30,7 @@ type ResultList = {
   assignment_id?: number | null;
   exam_id?: number | null;
   graded_by: string;
+  grader_name?: string | null;
   score: number;
   total_marks: number;
   grade?: string | null;
@@ -87,13 +88,7 @@ const ResultListPage = async ({
         {/* Administration Actions */}
         <div className="flex items-center gap-2 shrink-0">
           {(role === "admin" || role === "teacher") && (
-            <div className="flex items-center bg-[#8b5cf6] text-white hover:bg-[#7c3aed] font-extrabold text-xs rounded-xl transition-all shadow-md shadow-violet-500/10 active:scale-[0.98] overflow-hidden">
-              <span className="pl-4 pr-1 py-2 flex items-center gap-1.5">
-                <Plus className="h-4 w-4" />
-                <span>Grade Assessment</span>
-              </span>
-              <FormContainer table="result" type="create" />
-            </div>
+            <FormContainer table="result" type="create" triggerText="Grade Assessment" />
           )}
         </div>
       </div>
@@ -136,16 +131,15 @@ const ResultListPage = async ({
                     {item.assessment_title || (item.exam_id ? `Final Exam #${item.exam_id}` : `Assignment Project #${item.assignment_id}`)}
                   </span>
 
-                  <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-semibold flex-wrap font-mono">
-                    <span className="flex items-center gap-1 text-[#0038A8] dark:text-[#4f88ef]">
-                      <UserCheck className="h-3 w-3" />
-                      <span>Student: {item.student_name || item.student_id}</span>
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Award className="h-3 w-3 text-sky-500" />
-                      <span>Graded By: {item.graded_by || "System Autograded"}</span>
-                    </span>
-                  </div>
+                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap font-medium">
+                      <span className="text-[#0038A8] dark:text-[#4f88ef] font-sans">
+                        Student: {item.student_name || item.student_id}
+                      </span>
+                      <span className="text-muted-foreground/40">•</span>
+                      <span className="font-sans">
+                        Graded By: {item.grader_name || item.graded_by || "System Autograded"}
+                      </span>
+                    </div>
                 </div>
               </div>
 

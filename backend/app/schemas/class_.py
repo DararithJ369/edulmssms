@@ -29,6 +29,7 @@ class ClassUpdate(BaseModel):
 class ClassResponse(ClassBase):
     id: int
     created_at: datetime
+    supervisor_name: Optional[str] = None
     
     model_config = {"from_attributes": True}
     
@@ -36,5 +37,6 @@ class ClassResponse(ClassBase):
 class Class(ClassBase):
     id: int
     created_at: datetime
+    supervisor_name: Optional[str] = None
     
     model_config = {"from_attributes": True}

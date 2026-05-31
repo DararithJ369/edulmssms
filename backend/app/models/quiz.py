@@ -23,6 +23,7 @@ class Quiz(Base):
     # Relationships
     course = relationship("Course", back_populates="quizzes", lazy="selectin", overlaps="quizzes")
     lesson = relationship("Lesson", lazy="selectin")
+    questions = relationship("QuizQuestion", back_populates="quiz", cascade="all, delete-orphan", lazy="selectin")
 
     @property
     def course_name(self) -> str:
@@ -41,6 +42,10 @@ class QuizQuestion(Base):
     quiz_id = Column(Integer, ForeignKey("quizzes.id"), nullable=False)
     question_text = Column(Text, nullable=False)
     
+    # Relationships
+    quiz = relationship("Quiz", back_populates="questions")
+    options = relationship("QuizOption", back_populates="question", cascade="all, delete-orphan", lazy="selectin")
+    
     
 class QuizOption(Base):
     __tablename__ = "quiz_options"
@@ -49,3 +54,6 @@ class QuizOption(Base):
     question_id = Column(Integer, ForeignKey("quiz_questions.id"), nullable=False)
     option_text = Column(Text, nullable=False)
     is_correct = Column(Integer, nullable=False)  # 1 for True, 0 for False
+
+    # Relationships
+    question = relationship("QuizQuestion", back_populates="options")

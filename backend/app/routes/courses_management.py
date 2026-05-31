@@ -11,6 +11,7 @@ router = APIRouter(prefix="/courses-management", tags=["Course Management"])
 class ModuleCreate(BaseModel):
     title: str
     description: Optional[str] = None
+    order: Optional[int] = None
 
 class LessonCreate(BaseModel):
     title: str
@@ -135,6 +136,8 @@ def update_module(
     module.title = module_data.title
     if module_data.description is not None:
         module.description = module_data.description
+    if module_data.order is not None:
+        module.order = module_data.order
         
     db.commit()
     db.refresh(module)

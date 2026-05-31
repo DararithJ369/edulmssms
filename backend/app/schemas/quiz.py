@@ -21,11 +21,29 @@ class QuizUpdate(BaseModel):
     lesson_id: Optional[int] = None
     
     
+class QuizOptionResponse(BaseModel):
+    id: int
+    question_id: int
+    option_text: str
+
+    model_config = {"from_attributes": True}
+
+
+class QuizQuestionResponse(BaseModel):
+    id: int
+    quiz_id: int
+    question_text: str
+    options: list[QuizOptionResponse] = []
+
+    model_config = {"from_attributes": True}
+
+
 class QuizResponse(QuizBase):
     id: int
     created_at: datetime
     course_name: Optional[str] = None
     lesson_title: Optional[str] = None
+    questions: Optional[list[QuizQuestionResponse]] = None
 
     model_config = {"from_attributes": True}
     
@@ -36,6 +54,7 @@ class Quiz(QuizBase):
     updated_at: Optional[datetime]
     course_name: Optional[str] = None
     lesson_title: Optional[str] = None
+    questions: Optional[list[QuizQuestionResponse]] = None
 
     model_config = {"from_attributes": True}
 

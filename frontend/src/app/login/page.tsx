@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { School, ArrowRight, Eye, EyeOff } from "lucide-react";
+import { School, ArrowRight, Eye, EyeOff, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { normalizeRole, setAuthSession, setRefreshToken, setToken } from "@/lib/auth";
@@ -159,7 +159,7 @@ export default function LoginPage() {
                 >
                   {loading ? (
                     <>
-                      <span className="animate-spin">⌛</span>
+                      <Loader2 className="w-5 h-5 animate-spin" />
                       Signing in...
                     </>
                   ) : (

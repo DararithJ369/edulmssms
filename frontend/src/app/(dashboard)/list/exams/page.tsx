@@ -84,13 +84,7 @@ const ExamListPage = async ({
         {/* Administration Actions */}
         <div className="flex items-center gap-2 shrink-0">
           {(role === "admin" || role === "teacher") && (
-            <div className="flex items-center bg-[#8b5cf6] text-white hover:bg-[#7c3aed] font-extrabold text-xs rounded-xl transition-all shadow-md shadow-violet-500/10 active:scale-[0.98] overflow-hidden">
-              <span className="pl-4 pr-1 py-2 flex items-center gap-1.5">
-                <Plus className="h-4 w-4" />
-                <span>Add Exam</span>
-              </span>
-              <FormContainer table="exam" type="create" />
-            </div>
+            <FormContainer table="exam" type="create" triggerText="Add Exam" />
           )}
         </div>
       </div>
@@ -136,31 +130,27 @@ const ExamListPage = async ({
                       {item.title}
                     </span>
 
-                    <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-semibold flex-wrap font-mono">
+                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap font-medium">
                       {item.course_name ? (
-                        <span className="flex items-center gap-1 text-[#0038A8] dark:text-[#4f88ef] font-bold">
-                          <BookOpen className="h-3 w-3" />
-                          <span>{item.course_name} • {item.lesson_title}</span>
+                        <span className="text-[#0038A8] dark:text-[#4f88ef] font-semibold font-sans">
+                          {item.course_name} • {item.lesson_title}
                         </span>
                       ) : (
-                        <span className="flex items-center gap-1 text-[#0038A8] dark:text-[#4f88ef]">
-                          <BookOpen className="h-3 w-3" />
-                          <span>Lesson ID: {item.lesson_id}</span>
+                        <span className="text-[#0038A8] dark:text-[#4f88ef] font-semibold font-sans">
+                          Lesson ID: {item.lesson_id}
                         </span>
                       )}
-                      <span className="flex items-center gap-1 text-violet-600">
-                        <Clock className="h-3 w-3" />
-                        <span>Duration: {item.duration} mins</span>
+                      <span className="text-muted-foreground/40">•</span>
+                      <span className="text-violet-600 font-sans">
+                        Duration: {item.duration} mins
                       </span>
-                      <span className="flex items-center gap-1 text-gray-500">
-                        <Calendar className="h-3 w-3" />
-                        <span>
-                          Schedule: {new Intl.DateTimeFormat("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          }).format(new Date(item.exam_date))} at {item.start_time}
-                        </span>
+                      <span className="text-muted-foreground/40">•</span>
+                      <span className="text-gray-500 font-sans">
+                        Schedule: {new Intl.DateTimeFormat("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        }).format(new Date(item.exam_date))} at {item.start_time}
                       </span>
                     </div>
                   </div>

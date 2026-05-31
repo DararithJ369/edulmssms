@@ -206,6 +206,8 @@ class UserService:
         from app.models.exam import Exam
         from app.models.assignment import Assignment
         from app.models.quiz import Quiz, QuizQuestion, QuizOption
+        from app.models.progress import StudentCourseProgress, StudentLessonProgress, StudentModuleProgress
+        from app.models.certificate import StudentCertificate
 
         try:
             # 1. Clean up student-specific enrollments & profiles
@@ -213,7 +215,9 @@ class UserService:
             if profile:
                 sp = db.query(StudentProfile).filter(StudentProfile.profile_id == profile.id).first()
                 if sp:
-                    db.query(Enrollment).filter(Enrollment.student_profile_id == sp.id).delete(synchronize_session=False)
+                    for e in list(sp.enrollments):
+                        db.delete(e)
+                    sp.parents.clear()
                     db.delete(sp)
                 
                 ip = db.query(InstructorProfile).filter(InstructorProfile.profile_id == profile.id).first()
@@ -225,6 +229,12 @@ class UserService:
                     db.delete(pp)
 
                 db.delete(profile)
+
+            # Clean up student progress & certificates
+            db.query(StudentCourseProgress).filter(StudentCourseProgress.student_id == user_id).delete(synchronize_session=False)
+            db.query(StudentLessonProgress).filter(StudentLessonProgress.student_id == user_id).delete(synchronize_session=False)
+            db.query(StudentModuleProgress).filter(StudentModuleProgress.student_id == user_id).delete(synchronize_session=False)
+            db.query(StudentCertificate).filter(StudentCertificate.student_id == user_id).delete(synchronize_session=False)
 
             # 2. Clean up subjects
             db.query(Subject).filter(Subject.instructor_id == user_id).delete(synchronize_session=False)

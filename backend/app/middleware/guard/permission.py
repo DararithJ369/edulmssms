@@ -48,8 +48,8 @@ class PermissionGuard:
     
     @staticmethod
     def admin_or_instructor(current_user=Depends(get_current_user)):
-        if current_user.role.name.lower() not in ["admin", "instructor"]:
-            raise HTTPException(status_code=403, detail="Admin or Instructor privileges required")
+        if current_user.role.name.lower() not in ["admin", "instructor", "teacher"]:
+            raise HTTPException(status_code=403, detail="Admin, Instructor or Teacher privileges required")
         return current_user
 
     @staticmethod
@@ -67,7 +67,7 @@ class PermissionGuard:
     @staticmethod
     def can_view_student(db: Session, current_user, student_user_id: str) -> bool:
         role = current_user.role.name.lower()
-        if role in ["admin", "instructor"]:
+        if role in ["admin", "instructor", "teacher"]:
             return True
 
         if role == "student" and str(current_user.id) == str(student_user_id):

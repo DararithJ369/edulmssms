@@ -7,6 +7,11 @@ from app.services.grade_level_service import GradeLevelService
 from app.schemas.grade_level import GradeLevelCreate, GradeLevelUpdate, GradeLevelResponse
 
 grade_level_router = APIRouter(prefix="/grade-levels", tags=["Grade Levels"])
+grade_level_alias_router = APIRouter(prefix="/grade_level", tags=["Grade Levels"])
+
+@grade_level_alias_router.get("")
+def get_all_grade_levels_alias(page: int = 1, limit: int = 10, db: Session = Depends(get_db)):
+    return GradeLevelService.get_grade_levels(db, page, limit)
 
 
 # ── Static paths ──────────────────────────────────────────────────────────────

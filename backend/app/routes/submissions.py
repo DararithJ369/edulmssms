@@ -1,39 +1,197 @@
-from typing import Optional
-from fastapi import APIRouter, Depends, Form
+from typing import Optional, List
+from fastapi import APIRouter, Depends, Form, UploadFile, File, HTTPException, status
 from sqlalchemy.orm import Session
+from datetime import datetime
+
 from app.middleware.guard.permission import PermissionGuard
 from app.config.session import get_db
-from app.services.submission_service import SubmissionService
-from app.schemas.submission import SubmissionUpdate, SubmissionResponse
+from app.config.security import get_current_user
+from app.models.user import User
+from app.models.submission import Submission
+from app.models.result import Result
+from app.models.assignment import Assignment
+from app.models.quiz import Quiz
+from app.models.exam import Exam
+from app.services.file_manager import FileManager
+from app.schemas.submission import SubmissionResponse, SubmissionUpdate
 
 submission_router = APIRouter(prefix="/submissions", tags=["Submissions"])
 
 
-@submission_router.get("", dependencies=[Depends(PermissionGuard.admin_or_instructor)])
+def calculate_grade_letter(percentage: float) -> str:
+    if percentage >= 90: return "A"
+    elif percentage >= 80: return "B"
+    elif percentage >= 70: return "C"
+    elif percentage >= 60: return "D"
+    elif percentage >= 50: return "E"
+    return "F"
+
+
+@submission_router.get("", response_model=dict, dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def get_all_submissions(page: int = 1, limit: int = 10, db: Session = Depends(get_db)):
-    return SubmissionService.get_submissions(db, page, limit)
+    total = db.query(Submission).count()
+    submissions = db.query(Submission).order_by(Submission.submitted_at.desc()).offset((page - 1) * limit).limit(limit).all()
+    return {
+        "data": [SubmissionResponse.model_validate(s) for s in submissions],
+        "meta": {"page": page, "total": total, "limit": limit}
+    }
+
+
+@submission_router.get("/my", response_model=List[SubmissionResponse])
+def get_my_submissions(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    submissions = db.query(Submission).filter(Submission.student_id == current_user.id).all()
+    return submissions
+
+
+@submission_router.get("/reference/{sub_type}/{ref_id}", response_model=List[SubmissionResponse])
+def get_submissions_by_reference(
+    sub_type: str,
+    ref_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Teachers can view all, students can only view their own
+    query = db.query(Submission).filter(
+        Submission.submission_type == sub_type,
+        Submission.reference_id == ref_id
+    )
+    if current_user.role.name not in ["admin", "teacher", "instructor"]:
+        query = query.filter(Submission.student_id == current_user.id)
+    return query.all()
 
 
 @submission_router.get("/{submission_id}", response_model=SubmissionResponse)
 def get_submission(submission_id: int, db: Session = Depends(get_db)):
-    return SubmissionService.get_submission_by_id(db, submission_id)
+    obj = db.query(Submission).filter(Submission.id == submission_id).first()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    return obj
 
 
-@submission_router.put("/{submission_id}", response_model=SubmissionResponse)
-def update_submission(
+@submission_router.post("", response_model=SubmissionResponse)
+async def submit_homework(
+    submission_type: str = Form(...),
+    reference_id: int = Form(...),
+    submission_text: Optional[str] = Form(None),
+    file: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    student_id = current_user.id
+
+    # Check if a submission already exists (allowing students to edit/resubmit before grading)
+    sub = db.query(Submission).filter(
+        Submission.student_id == student_id,
+        Submission.submission_type == submission_type,
+        Submission.reference_id == reference_id
+    ).first()
+
+    if sub and sub.status == "graded":
+        raise HTTPException(status_code=400, detail="Cannot edit a submission that has already been graded.")
+
+    saved_file_url = None
+    if file:
+        file_meta = FileManager.validate_and_save(file)
+        saved_file_url = file_meta["url"]
+
+    if not sub:
+        # Create new submission record
+        sub = Submission(
+            submission_type=submission_type,
+            reference_id=reference_id,
+            student_id=student_id,
+            submission_text=submission_text,
+            submission_file=saved_file_url,
+            status="submitted",
+            submitted_at=datetime.now()
+        )
+        db.add(sub)
+    else:
+        # Update existing submission (enables resubmission editing)
+        sub.submission_text = submission_text if submission_text else sub.submission_text
+        if saved_file_url:
+            sub.submission_file = saved_file_url
+        sub.submitted_at = datetime.now()
+        sub.status = "submitted"
+
+    db.commit()
+    db.refresh(sub)
+    return sub
+
+
+@submission_router.put("/{submission_id}/grade", response_model=SubmissionResponse, dependencies=[Depends(PermissionGuard.admin_or_instructor)])
+def grade_submission(
     submission_id: int,
-    content: Optional[str] = Form(None),
-    score: Optional[float] = Form(None),
+    score: float = Form(...),
     feedback: Optional[str] = Form(None),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    return SubmissionService.update_submission(
-        db,
-        submission_id,
-        SubmissionUpdate(content=content, score=score, feedback=feedback),
-    )
+    sub = db.query(Submission).filter(Submission.id == submission_id).first()
+    if not sub:
+        raise HTTPException(status_code=404, detail="Submission not found")
+
+    # Update submission
+    sub.score = score
+    sub.feedback = feedback
+    sub.status = "graded"
+    sub.graded_at = datetime.now()
+
+    # Determine dynamic results gradebook mapping
+    total_marks = 100
+    if sub.submission_type == "assignment":
+        assignment = db.query(Assignment).filter(Assignment.id == sub.reference_id).first()
+        if assignment: total_marks = assignment.total_marks or 100
+    elif sub.submission_type == "quiz":
+        quiz = db.query(Quiz).filter(Quiz.id == sub.reference_id).first()
+        # Fallback marks
+    elif sub.submission_type == "exam":
+        exam = db.query(Exam).filter(Exam.id == sub.reference_id).first()
+        if exam: total_marks = exam.total_marks or 100
+
+    percentage = round((score / total_marks) * 100.0, 1)
+    grade_letter = calculate_grade_letter(percentage)
+    is_passed = (percentage >= 50.0)
+
+    # Sync to gradebook Results
+    result = db.query(Result).filter(
+        Result.student_id == sub.student_id,
+        Result.assignment_id == (sub.reference_id if sub.submission_type == "assignment" else None),
+        Result.quiz_id == (sub.reference_id if sub.submission_type == "quiz" else None),
+        Result.exam_id == (sub.reference_id if sub.submission_type == "exam" else None)
+    ).first()
+
+    if not result:
+        result = Result(
+            student_id=sub.student_id,
+            assignment_id=(sub.reference_id if sub.submission_type == "assignment" else None),
+            quiz_id=(sub.reference_id if sub.submission_type == "quiz" else None),
+            exam_id=(sub.reference_id if sub.submission_type == "exam" else None),
+            graded_by=current_user.id
+        )
+        db.add(result)
+
+    result.score = int(score)
+    result.total_marks = total_marks
+    result.percentage = percentage
+    result.grade = grade_letter
+    result.feedback = feedback
+    result.is_passed = is_passed
+    result.graded_at = datetime.now()
+
+    db.commit()
+    db.refresh(sub)
+    return sub
 
 
 @submission_router.delete("/{submission_id}", dependencies=[Depends(PermissionGuard.admin_only)])
 def delete_submission(submission_id: int, db: Session = Depends(get_db)):
-    return SubmissionService.delete_submission(db, submission_id)
+    obj = db.query(Submission).filter(Submission.id == submission_id).first()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    db.delete(obj)
+    db.commit()
+    return {"detail": "Submission deleted successfully"}

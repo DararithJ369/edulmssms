@@ -87,3 +87,39 @@ def unenroll_student(course_id: int, student_id: str, db: Session = Depends(get_
 @course_router.get("/{course_id}/students")
 def get_course_students(course_id: int, db: Session = Depends(get_db)):
     return CourseService.get_course_students(db, course_id)
+
+
+# ── Grades / Results for this course ──────────────────────────────────────────
+
+@course_router.get("/{course_id}/grades")
+def get_course_grades(
+    course_id: int,
+    db: Session = Depends(get_db),
+    _=Depends(PermissionGuard.get_current_user),
+):
+    """Return all results linked to assignments / exams / quizzes in this course."""
+    from app.models.result import Result
+    from app.models.assignment import Assignment
+    from app.models.exam import Exam
+    from app.models.quiz import Quiz
+    from app.schemas.result import ResultResponse
+
+    # Collect result IDs linked to this course's assessments
+    assignment_ids = [r.id for r in db.query(Assignment.id).filter(Assignment.course_id == course_id).all()]
+    exam_ids       = [r.id for r in db.query(Exam.id).filter(Exam.course_id == course_id).all()]
+    quiz_ids       = [r.id for r in db.query(Quiz.id).filter(Quiz.course_id == course_id).all()]
+
+    from sqlalchemy import or_
+    results = (
+        db.query(Result)
+        .filter(
+            or_(
+                Result.assignment_id.in_(assignment_ids) if assignment_ids else False,
+                Result.exam_id.in_(exam_ids) if exam_ids else False,
+                Result.quiz_id.in_(quiz_ids) if quiz_ids else False,
+            )
+        )
+        .all()
+    )
+
+    return [ResultResponse.model_validate(r) for r in results]

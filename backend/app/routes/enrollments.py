@@ -52,7 +52,7 @@ def delete_enrollment(enrollment_id: int, db: Session = Depends(get_db)):
     return EnrollmentService.delete_enrollment(db, enrollment_id)
 
 
-# Student checkout enrollment (token-based)
+# Student self-enroll (no payment needed — school LMS like Moodle)
 @enrollment_router.post("/checkout", response_model=EnrollmentResponse)
 def checkout_enrollment(
     payload: EnrollmentCheckoutRequest,
@@ -70,7 +70,7 @@ def checkout_enrollment(
         raise HTTPException(status_code=404, detail="Course not found")
 
     if course.enrollment_status != "open":
-        raise HTTPException(status_code=400, detail="Course enrollment is closed")
+        raise HTTPException(status_code=400, detail="Course enrollment is currently closed")
 
     academic_year = (
         db.query(AcademicYear)
@@ -97,12 +97,6 @@ def checkout_enrollment(
         )
         term_id = current_term.id if current_term else None
 
-    amount_paid = payload.amount_paid or 0
-    if amount_paid > 0 and not payload.payment_id:
-        raise HTTPException(status_code=400, detail="Payment ID required for paid enrollment")
-
-    payment_status = "completed" if amount_paid == 0 or payload.payment_id else "pending"
-
     enrollment_in = EnrollmentCreate(
         student_profile_id=current_user.profile.student_profile.id,
         course_id=payload.course_id,
@@ -111,11 +105,6 @@ def checkout_enrollment(
         grade_level_id=current_user.profile.student_profile.grade_level_id,
         enrolled_date=date.today(),
         is_active=True,
-        payment_status=payment_status,
-        payment_id=payload.payment_id,
-        amount_paid=amount_paid,
     )
 
-    enrollment = EnrollmentService.create_enrollment(db, enrollment_in)
-    return enrollment
-
+    return EnrollmentService.create_enrollment(db, enrollment_in)

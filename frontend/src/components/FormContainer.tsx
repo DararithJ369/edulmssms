@@ -27,9 +27,10 @@ export type FormContainerProps = {
   type: "create" | "update" | "delete";
   data?: any;
   id?: number | string;
+  triggerText?: string;
 };
 
-const FormContainer = async ({ table, type, data, id }: FormContainerProps) => {
+const FormContainer = async ({ table, type, data, id, triggerText }: FormContainerProps) => {
   let relatedData = {};
 
   const cookieStore = cookies();
@@ -151,6 +152,7 @@ const FormContainer = async ({ table, type, data, id }: FormContainerProps) => {
         data={data}
         id={id}
         relatedData={relatedData}
+        triggerText={triggerText}
       />
     </div>
   );

@@ -5,6 +5,8 @@ from app.middleware.guard.permission import PermissionGuard
 from app.config.session import get_db
 from app.services.result_service import ResultService
 from app.schemas.result import ResultCreate, ResultUpdate, ResultResponse
+from app.models.result import Result
+from app.models.enrollment import Enrollment
 
 result_router = APIRouter(prefix="/results", tags=["Results"])
 

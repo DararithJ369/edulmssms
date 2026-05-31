@@ -30,6 +30,7 @@ class SubjectUpdate(BaseModel):
 class SubjectResponse(SubjectBase):
     id: int
     created_at: datetime
+    instructor_name: Optional[str] = None
 
     model_config = {"from_attributes": True}
     
@@ -37,5 +38,6 @@ class SubjectResponse(SubjectBase):
 class Subject(SubjectBase):
     id: int
     created_at: datetime
+    instructor_name: Optional[str] = None
 
     model_config = {"from_attributes": True}

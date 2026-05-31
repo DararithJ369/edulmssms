@@ -97,6 +97,109 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
         surname: "",
       }));
     }
+    if (method === "findUnique" || method === "findFirst") {
+      const id = args.where.id || args.where.user_id;
+      const u = await callApi(`/users/${id}`);
+      const profile = await callApi(`/students/${id}/profile`);
+      if (!u || !profile) return null;
+
+      const parentUser = profile.student_profile?.parents?.[0]?.profile?.user;
+      const parentName = profile.student_profile?.parents?.[0]?.profile?.full_name || (parentUser ? parentUser.username : "Guardian");
+      const parentPhone = profile.student_profile?.parents?.[0]?.profile?.phone || "";
+
+      return {
+        id: u.id,
+        username: u.username,
+        email: u.email,
+        student_profile: profile.student_profile,
+        parent: {
+          name: parentName,
+          phone: parentPhone,
+          relationship: profile.student_profile?.parents?.[0]?.profile?.relationship || "Guardian"
+        },
+        class: {
+          name: profile.class_name || "A-Level"
+        },
+        grade: {
+          level: profile.grade_level_order || 10
+        }
+      };
+    }
+  }
+
+  if (model === "parent") {
+    if (method === "findUnique" || method === "findFirst") {
+      const id = args.where.id;
+      const u = await callApi(`/users/${id}`);
+      const profile = await callApi(`/parents/${id}/profile`);
+      if (!u || !profile) return null;
+      return {
+        id: u.id,
+        username: u.username,
+        email: u.email,
+        parent_profile: profile.parent_profile,
+      };
+    }
+  }
+
+  if (model === "course") {
+    if (method === "findMany") {
+      const res = await callApi("/courses?limit=100");
+      const raw = res?.data || [];
+      return raw.map((c: any) => ({
+        id: c.id,
+        title: c.title,
+        description: c.description,
+        difficulty: c.difficulty,
+        credits: c.credits,
+        specialisation: c.specialisation
+      }));
+    }
+    if (method === "findUnique" || method === "findFirst") {
+      const id = args.where.id;
+      const course = await callApi(`/courses/${id}`);
+      if (!course) return null;
+      const modulesRes = await callApi(`/courses/${id}/modules`);
+      const modules = modulesRes || [];
+      return {
+        id: course.id,
+        title: course.title,
+        description: course.description,
+        difficulty: course.difficulty,
+        credits: course.credits,
+        specialisation: course.specialisation,
+        modules: modules.map((m: any) => ({
+          id: m.id,
+          title: m.title,
+          lessons: (m.lessons || []).map((l: any) => ({
+            id: l.id,
+            title: l.title,
+            content: l.content,
+            duration: l.duration,
+            material_type: l.material_type,
+            material_url: l.material_url,
+            material_file: l.material_file,
+            order: l.order
+          }))
+        }))
+      };
+    }
+  }
+
+  if (model === "studentProgress") {
+    if (method === "findUnique" || method === "findFirst") {
+      const courseId = args.where.course_id;
+      const res = await callApi(`/progress/course/${courseId}`);
+      return res || {
+        progress_percentage: 0.0,
+        completed_lessons_count: 0,
+        total_lessons_count: 0,
+        completed_modules_count: 0,
+        total_modules_count: 0,
+        completed_lesson_ids: [],
+        completed_module_ids: []
+      };
+    }
   }
 
   if (model === "teacher") {

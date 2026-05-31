@@ -1,3 +1,4 @@
+import FormContainer from "@/components/FormContainer";
 import FormModal from "@/components/FormModal";
 import Pagination from "@/components/Pagination";
 import TableSearch from "@/components/TableSearch";
@@ -83,13 +84,7 @@ const AssignmentListPage = async ({
         {/* Administration Actions */}
         <div className="flex items-center gap-2 shrink-0">
           {(role === "admin" || role === "teacher") && (
-            <div className="flex items-center bg-[#8b5cf6] text-white hover:bg-[#7c3aed] font-extrabold text-xs rounded-xl transition-all shadow-md shadow-violet-500/10 active:scale-[0.98] overflow-hidden">
-              <span className="pl-4 pr-1 py-2 flex items-center gap-1.5">
-                <Plus className="h-4 w-4" />
-                <span>Add Assignment</span>
-              </span>
-              <FormModal table="assignment" type="create" />
-            </div>
+            <FormContainer table="assignment" type="create" triggerText="Add Assignment" />
           )}
         </div>
       </div>
@@ -122,45 +117,45 @@ const AssignmentListPage = async ({
             return (
               <div 
                 key={item.id} 
-                className="flex items-center justify-between p-4 bg-[#fbf8f0]/40 dark:bg-muted/5 border border-border/40 hover:border-amber-300/50 dark:hover:border-amber-950/30 rounded-2xl transition-all shadow-sm group"
+                className="relative flex items-center justify-between p-5 bg-card/65 hover:bg-card border border-border/50 hover:border-amber-500/25 rounded-3xl transition-all duration-300 shadow-[0_2px_8px_rgba(0,0,0,0.01)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.02)] hover:-translate-y-[1px] group overflow-hidden"
               >
-                <div className="flex items-center gap-4 max-w-[70%]">
+                {/* Left Active/Hover Indicator Bar */}
+                <span className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-3xl bg-amber-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                
+                <div className="flex items-center gap-4 max-w-[70%] z-10">
                   {/* Orange Moodle Assignment Icon */}
-                  <div className="h-9 w-9 rounded-xl bg-amber-100 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-200/50">
+                  <div className="h-10 w-10 rounded-2xl bg-amber-50 border border-amber-100 dark:bg-amber-950/20 dark:border-amber-950/30 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 shadow-sm transition-all duration-300 group-hover:scale-105">
                     <FileSpreadsheet className="h-5 w-5" />
                   </div>
 
-                  <div className="flex flex-col text-left gap-0.5">
+                  <div className="flex flex-col text-left gap-1">
                     <span className="text-sm font-extrabold text-foreground tracking-tight leading-snug group-hover:text-amber-700 dark:group-hover:text-amber-400 transition-colors">
                       {item.title}
                     </span>
 
-                    <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-semibold flex-wrap">
-                      <span className="flex items-center gap-1 text-[#0038A8] dark:text-[#4f88ef] font-bold">
-                        <GraduationCap className="h-3 w-3" />
-                        <span>{item.course_name || `Course #${item.course_id}`}</span>
+                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap font-medium">
+                      <span className="text-[#0038A8] dark:text-[#4f88ef] font-bold font-sans">
+                        {item.course_name || `Course #${item.course_id}`}
                       </span>
-                      <span className="flex items-center gap-1 font-bold text-sky-600 dark:text-sky-400">
-                        <User className="h-3 w-3 text-sky-500" />
-                        <span>{item.teacher_name || `Supervisor #${item.teacher_id}`}</span>
+                      <span className="text-muted-foreground/40">•</span>
+                      <span className="text-sky-600 dark:text-sky-400 font-sans">
+                        {item.teacher_name || `Supervisor #${item.teacher_id}`}
                       </span>
-                      <span className="flex items-center gap-1 text-amber-600">
-                        <Clock className="h-3 w-3" />
-                        <span>
-                          Deadline: {new Intl.DateTimeFormat("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          }).format(new Date(item.due_date))}
-                        </span>
+                      <span className="text-muted-foreground/40">•</span>
+                      <span className="text-amber-600 font-sans">
+                        Deadline: {new Intl.DateTimeFormat("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        }).format(new Date(item.due_date))}
                       </span>
                     </div>
                   </div>
                 </div>
 
                 {/* Right Side Actions and Completion tracking */}
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 z-10">
                   {/* Dynamic actions for admins/teachers */}
                   {(role === "admin" || role === "teacher") && (
                     <div className="flex items-center gap-1 select-none opacity-40 group-hover:opacity-100 transition-opacity">
@@ -170,7 +165,7 @@ const AssignmentListPage = async ({
                   )}
 
                   <Link href={`/list/assignments`}>
-                    <button className="px-3.5 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-700 dark:text-amber-400 font-bold text-[9px] rounded-lg shadow-sm transition-colors active:scale-[0.98]">
+                    <button className="px-4 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/25 text-amber-700 dark:text-amber-400 font-extrabold text-[9px] rounded-lg shadow-sm transition-colors active:scale-[0.98] uppercase tracking-wider">
                       Add Submission
                     </button>
                   </Link>

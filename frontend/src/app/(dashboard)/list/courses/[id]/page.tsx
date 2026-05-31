@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -26,6 +25,8 @@ import {
   FileSpreadsheet,
   CheckCircle2,
   Lock,
+  Users,
+  BarChart2,
 } from "lucide-react";
 import { api } from "@/lib/api";
 
@@ -36,6 +37,9 @@ export default function CourseDetailPage() {
   const courseId = params.id as string;
   const activeModuleIdParam = searchParams.get("expandedModuleId");
 
+  // Tab state
+  const [activeTab, setActiveTab] = useState<"course" | "participants" | "grades">("course");
+
   // Role State
   const [role, setRole] = useState<string>("");
   
@@ -45,7 +49,6 @@ export default function CourseDetailPage() {
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("Computer Science");
   const [difficulty, setDifficulty] = useState("beginner");
-  const [price, setPrice] = useState<number>(0);
   const [thumbnail, setThumbnail] = useState("https://images.unsplash.com/photo-1610962381137-50ef93055125?auto=format&fit=crop&q=80&w=800");
   const [instructorName, setInstructorName] = useState("");
   
@@ -53,6 +56,12 @@ export default function CourseDetailPage() {
   const [modules, setModules] = useState<any[]>([]);
   const [expandedSyllabus, setExpandedSyllabus] = useState<Record<number, boolean>>({});
   const [loading, setLoading] = useState(true);
+
+  // Participants & Grades
+  const [participants, setParticipants] = useState<any[]>([]);
+  const [grades, setGrades] = useState<any[]>([]);
+  const [tabLoading, setTabLoading] = useState(false);
+
 
   useEffect(() => {
     // Retrieve role from localStorage safely on client side
@@ -72,7 +81,6 @@ export default function CourseDetailPage() {
           setDescription(data.description || "");
           setCategory(data.category || "Computer Science");
           setDifficulty(data.difficulty || "beginner");
-          setPrice(data.price || 0);
           setInstructorName(data.instructor_name || "Faculty Staff");
           if (data.thumbnail) {
             setThumbnail(data.thumbnail);
@@ -98,7 +106,6 @@ export default function CourseDetailPage() {
           );
           setCategory("Computer Science");
           setDifficulty("intermediate");
-          setPrice(499.0);
           setInstructorName("Dr. Sarah Chen");
           const fallbackModules = [
             {
@@ -131,7 +138,6 @@ export default function CourseDetailPage() {
           );
           setCategory("Computer Science");
           setDifficulty("beginner");
-          setPrice(299.0);
           setInstructorName("Prof. Michael Johnson");
           const fallbackModules = [
             {
@@ -155,6 +161,28 @@ export default function CourseDetailPage() {
 
     fetchCourseDetails();
   }, [courseId]);
+
+  // Fetch participants & grades when tab is switched
+  useEffect(() => {
+    if (activeTab === "course") return;
+    const fetchTabData = async () => {
+      setTabLoading(true);
+      try {
+        if (activeTab === "participants") {
+          const { data } = await api.get(`/courses/${courseId}/students`);
+          setParticipants(Array.isArray(data) ? data : data?.data ?? []);
+        } else if (activeTab === "grades") {
+          const { data } = await api.get(`/courses/${courseId}/grades`);
+          setGrades(Array.isArray(data) ? data : data?.data ?? []);
+        }
+      } catch (err) {
+        console.error("Failed to load tab data", err);
+      } finally {
+        setTabLoading(false);
+      }
+    };
+    fetchTabData();
+  }, [activeTab, courseId]);
 
   const toggleSyllabusExpand = (id: number) => {
     setExpandedSyllabus({
@@ -229,16 +257,178 @@ export default function CourseDetailPage() {
 
         {/* MOODLE BOOST TAB-BAR NAVIGATION */}
         <div className="flex border-b border-border/60 gap-6 select-none text-xs font-extrabold text-muted-foreground pt-2">
-          <button className="pb-3 border-b-2 border-[#0038A8] text-foreground">Course</button>
-          <Link href={`/list/students?courseId=${courseId}`} className="pb-3 hover:text-foreground transition-colors">Participants</Link>
-          <Link href="/list/results" className="pb-3 hover:text-foreground transition-colors">Grades</Link>
-          <button className="pb-3 hover:text-foreground transition-colors opacity-60 cursor-not-allowed">Competencies</button>
-          <button className="pb-3 hover:text-foreground transition-colors opacity-60 cursor-not-allowed">Reports</button>
+          <button
+            onClick={() => setActiveTab("course")}
+            className={`pb-3 border-b-2 transition-colors ${
+              activeTab === "course"
+                ? "border-[#0038A8] text-foreground"
+                : "border-transparent hover:text-foreground"
+            }`}
+          >
+            Course
+          </button>
+          <button
+            onClick={() => setActiveTab("participants")}
+            className={`pb-3 border-b-2 transition-colors flex items-center gap-1.5 ${
+              activeTab === "participants"
+                ? "border-[#0038A8] text-foreground"
+                : "border-transparent hover:text-foreground"
+            }`}
+          >
+            {/* <Users className="h-3.5 w-3.5" /> */}
+            Participants
+          </button>
+          <button
+            onClick={() => setActiveTab("grades")}
+            className={`pb-3 border-b-2 transition-colors flex items-center gap-1.5 ${
+              activeTab === "grades"
+                ? "border-[#0038A8] text-foreground"
+                : "border-transparent hover:text-foreground"
+            }`}
+          >
+            {/* <BarChart2 className="h-3.5 w-3.5" /> */}
+            Grades
+          </button>
+          <button className="pb-3 border-b-2 border-transparent hover:text-foreground opacity-60 cursor-not-allowed">Competencies</button>
+          <button className="pb-3 border-b-2 border-transparent hover:text-foreground opacity-60 cursor-not-allowed">Reports</button>
         </div>
       </div>
 
+      {/* ── PARTICIPANTS TAB ─────────────────────────────────────────────── */}
+      {activeTab === "participants" && (
+        <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-sm">
+          <h2 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-wider mb-4 flex items-center gap-2">
+            {/* <Users className="h-4 w-4 text-[#0038A8]" /> */}
+            Course Participants
+          </h2>
+
+          {tabLoading ? (
+            <div className="flex justify-center py-10">
+              <div className="h-8 w-8 border-4 border-[#0038A8] border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : participants.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground">
+              <Users className="h-8 w-8 mx-auto mb-2 opacity-30" />
+              <p className="text-sm font-semibold">No participants enrolled in this course yet.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border/60 text-[10px] uppercase tracking-wider text-muted-foreground font-black">
+                    <th className="text-left py-2 px-3">Name</th>
+                    <th className="text-left py-2 px-3">Username</th>
+                    <th className="text-left py-2 px-3">Email</th>
+                    <th className="text-left py-2 px-3">Enrolled Date</th>
+                    <th className="text-left py-2 px-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/40">
+                  {participants.map((p: any) => (
+                    <tr key={p.id ?? p.student_id} className="hover:bg-muted/30 transition-colors">
+                      <td className="py-3 px-3 font-bold text-foreground">
+                        {p.full_name || p.name || "—"}
+                      </td>
+                      <td className="py-3 px-3 text-muted-foreground font-mono text-xs">
+                        {p.username || "—"}
+                      </td>
+                      <td className="py-3 px-3 text-muted-foreground text-xs">
+                        {p.email || "—"}
+                      </td>
+                      <td className="py-3 px-3 text-muted-foreground text-xs">
+                        {p.enrolled_date || "—"}
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className={`px-2 py-0.5 text-[10px] font-bold rounded border uppercase ${
+                          p.is_active !== false
+                            ? "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border-emerald-100"
+                            : "bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 border-red-100"
+                        }`}>
+                          {p.is_active !== false ? "Enrolled" : "Dropped"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── GRADES TAB ───────────────────────────────────────────────────── */}
+      {activeTab === "grades" && (
+        <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-sm">
+          <h2 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-wider mb-4 flex items-center gap-2">
+            {/* <BarChart2 className="h-4 w-4 text-[#0038A8]" /> */}
+            Course Grades
+          </h2>
+
+          {tabLoading ? (
+            <div className="flex justify-center py-10">
+              <div className="h-8 w-8 border-4 border-[#0038A8] border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : grades.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground">
+              <BarChart2 className="h-8 w-8 mx-auto mb-2 opacity-30" />
+              <p className="text-sm font-semibold">No grades recorded for this course yet.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border/60 text-[10px] uppercase tracking-wider text-muted-foreground font-black">
+                    <th className="text-left py-2 px-3">Student</th>
+                    <th className="text-left py-2 px-3">Assessment</th>
+                    <th className="text-left py-2 px-3">Score</th>
+                    <th className="text-left py-2 px-3">Grade</th>
+                    <th className="text-left py-2 px-3">Status</th>
+                    <th className="text-left py-2 px-3">Graded By</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/40">
+                  {grades.map((g: any) => (
+                    <tr key={g.id} className="hover:bg-muted/30 transition-colors">
+                      <td className="py-3 px-3 font-bold text-foreground">
+                        {g.student_name || "—"}
+                      </td>
+                      <td className="py-3 px-3 text-muted-foreground text-xs">
+                        {g.assessment_title || "—"}
+                      </td>
+                      <td className="py-3 px-3 font-bold">
+                        {g.score ?? "—"} / {g.total_marks ?? "—"}
+                        {g.percentage != null && (
+                          <span className="ml-1 text-[10px] text-muted-foreground">({g.percentage.toFixed(1)}%)</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className="px-2.5 py-0.5 bg-indigo-50 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-400 text-xs font-black rounded border border-indigo-100 dark:border-indigo-900/30">
+                          {g.grade || "—"}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className={`px-2 py-0.5 text-[10px] font-bold rounded border uppercase ${
+                          g.is_passed
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                            : "bg-red-50 text-red-600 border-red-100"
+                        }`}>
+                          {g.is_passed ? "Passed" : "Failed"}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-muted-foreground text-xs">
+                        {g.grader_name || "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* MAIN LAYOUT GRID (Moodle standard two-column layout) */}
-      <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 text-left">
+      {activeTab === "course" && <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 text-left">
         
         {/* LEFT COLUMN: CURRICULUM & SYLLABUS (7 Columns) */}
         <div className="lg:col-span-7 space-y-6">
@@ -652,7 +842,7 @@ export default function CourseDetailPage() {
           </div>
         </div>
 
-      </div>
+      </div>}
 
     </div>
   );

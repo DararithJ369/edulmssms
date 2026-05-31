@@ -26,3 +26,9 @@ class Subject(Base):
     instructor = relationship("User", back_populates="subjects", lazy="selectin")
     courses = relationship("Course", back_populates="subject", lazy="selectin")
     curriculums = relationship("Curriculum", back_populates="subject")
+
+    @property
+    def instructor_name(self) -> str:
+        if self.instructor and self.instructor.profile:
+            return self.instructor.profile.full_name or self.instructor.username
+        return self.instructor.username if self.instructor else f"Faculty #{self.instructor_id[:8]}"

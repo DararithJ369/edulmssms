@@ -50,6 +50,7 @@ class UserResponse(UserBase):
     role_id: int
     role: RoleNested
     image: Optional[str] = None
+    profile_image: Optional[str] = None   # from UserProfile.image
     is_superuser: bool = False
     
     model_config = {"from_attributes": True}

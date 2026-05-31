@@ -25,3 +25,10 @@ class User(Base):
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    @property
+    def profile_image(self):
+        """Return the profile picture from UserProfile (used in list responses)."""
+        if self.profile and self.profile.image:
+            return self.profile.image
+        return self.image  # fall back to user-level image if set

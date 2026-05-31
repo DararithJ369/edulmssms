@@ -10,7 +10,8 @@ class SubjectService:
     
     @staticmethod
     def setup_form(db: Session) -> dict:
-        teachers = db.query(User).filter(User.role.has(name="teacher"), User.is_active == True).all()
+        from app.models.role import Role
+        teachers = db.query(User).join(Role).filter(Role.name.in_(["teacher", "instructor"]), User.is_active == True).all()
         teacher_options = [{"value": t.id, "label": f"{t.username} ({t.email})"} for t in teachers]
         return {
             "fields": {
@@ -48,7 +49,8 @@ class SubjectService:
 
     @staticmethod
     def setup_form(db: Session) -> dict:
-        teachers = db.query(User).filter(User.role.has(name="teacher"), User.is_active == True).all()
+        from app.models.role import Role
+        teachers = db.query(User).join(Role).filter(Role.name.in_(["teacher", "instructor"]), User.is_active == True).all()
         teacher_options = [{"value": t.id, "label": f"{t.username} ({t.email})"} for t in teachers]
         return {
             "fields": {

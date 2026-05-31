@@ -162,4 +162,24 @@ class CourseService:
             .filter(Enrollment.course_id == course_id, Enrollment.is_active == True)
             .all()
         )
-        return [UserResponse.model_validate(e.student) for e in enrollments]
+        result = []
+        for e in enrollments:
+            sp = e.student_profile          # StudentProfile
+            if not sp:
+                continue
+            up = sp.profile                 # UserProfile
+            if not up:
+                continue
+            user = up.user                  # User
+            if not user:
+                continue
+            result.append({
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "full_name": up.full_name or user.username,
+                "role": "Student",
+                "is_active": user.is_active,
+                "enrolled_date": str(e.enrolled_date) if e.enrolled_date else None,
+            })
+        return result

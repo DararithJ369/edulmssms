@@ -1,23 +1,79 @@
 import Announcements from "@/components/Announcements";
 import BigCalendarContainer from "@/components/BigCalendarContainer";
-import FormContainer from "@/components/FormContainer";
 import Performance from "@/components/Performance";
 import StudentAttendanceCard from "@/components/StudentAttendanceCard";
+import StudentEditModal from "@/components/StudentEditModal";
 import { serverFetch } from "@/lib/server-api";
-import Image from "next/image";
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { StudentProfileResponse, UserResponse, ClassResponse } from "@/types";
+import {
+  Globe, GraduationCap, Calendar, Mail, Phone, ShieldAlert,
+  MapPin, Flag, BookOpen, Users, AlertCircle, Hash, Building2,
+  ChevronRight, CheckCircle2, XCircle, Clock,
+} from "lucide-react";
+import { getImageUrl } from "@/lib/image-url";
+
+// ── Initials avatar helpers ──────────────────────────────────────────────────
+const AVATAR_PALETTE = [
+  { bg: "#E8EDF5", text: "#4A6FA5" },
+  { bg: "#EAF0FB", text: "#3B5FBE" },
+  { bg: "#EDF5EE", text: "#3A7D44" },
+  { bg: "#F5EDF5", text: "#7D3A7D" },
+  { bg: "#FDF3E7", text: "#B06820" },
+  { bg: "#F0F0F5", text: "#5A5A8A" },
+  { bg: "#F5EDEA", text: "#8A3A2A" },
+  { bg: "#EAF5F5", text: "#2A7A7D" },
+];
+function getInitialsColor(name: string) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_PALETTE[Math.abs(hash) % AVATAR_PALETTE.length];
+}
+function getInitials(name: string) {
+  const parts = name.trim().split(/[._ -]+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 const normalizeRole = (role: string | null | undefined) => {
-  if (role === "instructor") {
-    return "teacher";
-  }
-
+  if (role === "instructor") return "teacher";
   return role ?? "";
 };
+
+const getOrdinal = (n: number | string | null | undefined) => {
+  if (n === null || n === undefined) return "-";
+  const num = parseInt(String(n));
+  if (isNaN(num)) return String(n);
+  const s = ["th", "st", "nd", "rd"];
+  const v = num % 100;
+  return num + (s[(v - 20) % 10] || s[v] || s[0]);
+};
+
+const fmtDate = (v?: string | null) => {
+  if (!v) return "-";
+  try { return new Intl.DateTimeFormat("en-GB").format(new Date(v)); }
+  catch { return v; }
+};
+
+// ── tiny reusable info row ────────────────────────────────────────────────────
+const MetaRow = ({
+  icon, label, value,
+}: {
+  icon: React.ReactNode;
+  label?: string;
+  value?: string | null;
+}) => (
+  <div className="flex items-start gap-2 select-none">
+    <span className="mt-0.5 shrink-0 text-sky-500">{icon}</span>
+    <span className="text-[11px] font-semibold text-slate-600 break-words min-w-0">
+      {label && <span className="font-extrabold text-slate-400">{label}: </span>}
+      {value || "-"}
+    </span>
+  </div>
+);
 
 const SingleStudentPage = async ({
   params: { id },
@@ -31,20 +87,18 @@ const SingleStudentPage = async ({
   let profileError: string | null = null;
   let userError: string | null = null;
 
-  // Fetch student profile (StudentProfileResponse) and user details (UserResponse)
-  const [student, user] = await Promise.all([
+  const [student, user, overview] = await Promise.all([
     serverFetch<StudentProfileResponse>(
       `/students/${id}/profile${token ? `?token=${token}` : ""}`
     ).catch((err) => {
-      console.error("FAILED to fetch student profile:", err);
       profileError = err instanceof Error ? err.message : String(err);
       return null;
     }),
     serverFetch<UserResponse>(`/users/${id}`).catch((err) => {
-      console.error("FAILED to fetch user record:", err);
       userError = err instanceof Error ? err.message : String(err);
       return null;
     }),
+    serverFetch<any>(`/students/${id}/overview`).catch(() => null),
   ]);
 
   if (!student || !user) {
@@ -53,10 +107,9 @@ const SingleStudentPage = async ({
         <h1 className="text-xl font-semibold">Unable to View Student Profile</h1>
         <p className="text-sm">We encountered an issue fetching data from the backend API for ID: <code>{id}</code></p>
         <div className="mt-2 text-xs font-mono bg-white p-3 border border-red-100 rounded">
-          <p><strong>Student Profile API Status:</strong> {student ? "LOADED" : (profileError || "Unknown API Error")}</p>
-          <p className="mt-1"><strong>User Account API Status:</strong> {user ? "LOADED" : (userError || "Unknown API Error")}</p>
+          <p><strong>Student Profile:</strong> {student ? "LOADED" : (profileError || "Unknown Error")}</p>
+          <p className="mt-1"><strong>User Account:</strong> {user ? "LOADED" : (userError || "Unknown Error")}</p>
         </div>
-        <p className="text-sm mt-2 text-gray-500">Please make sure the backend server is running and the session cookies/token are valid.</p>
         <Link href="/list/students" className="mt-4 inline-block text-sm text-blue-600 underline font-semibold">
           Back to Students List
         </Link>
@@ -69,189 +122,361 @@ const SingleStudentPage = async ({
   const sessions = classId ? await serverFetch<any[]>(`/classes/${classId}/sessions`).catch(() => []) : [];
   const lessonsCount = sessions.length;
 
-  const studentUpdateData = {
-    id: user.id,
+  // Data from overview endpoint (parents, courses, attendance)
+  const parents: any[] = overview?.parents ?? [];
+  const courses: any[] = overview?.courses ?? [];
+  const att = overview?.attendance ?? {};
+
+  const sp = student.student_profile;
+
+  const editData = {
+    userId: user.id,
     username: user.username,
     email: user.email,
-    name: student.full_name ? student.full_name.split(" ")[0] : "",
-    surname: student.full_name ? student.full_name.split(" ").slice(1).join(" ") : "",
+    full_name: student.full_name || "",
     phone: student.phone || "",
     address: student.address || "",
-    bloodType: student.blood_type || "",
-    birthday: student.date_of_birth || "",
-    parentId: student.student_profile?.parents?.[0]?.profile?.user_id || "",
-    sex: student.gender?.toLowerCase() === "female" || student.gender === "FEMALE" || student.gender === "F" ? "female" : "male",
+    bio: student.bio || "",
+    date_of_birth: student.date_of_birth || "",
+    gender: student.gender || "",
+    nationality: student.nationality || "",
+    pfp: student.pfp || "",
+    blood_type: student.blood_type || "",
+    medical_conditions: student.medical_conditions || "",
+    emergency_contact_name: student.emergency_contact_name || "",
+    emergency_contact_phone: student.emergency_contact_phone || "",
+    emergency_contact_relationship: student.emergency_contact_relationship || "",
+    student_id: sp?.student_id || "",
+    department: sp?.department || "",
+    enrolment_date: sp?.enrolment_date ? String(sp.enrolment_date) : "",
+    previous_school: sp?.previous_school || "",
+    scholarship_status: sp?.scholarship_status || "",
+    special_needs: sp?.special_needs || "",
   };
 
+  const displayName = student.full_name || user.username;
+  const photoUrl = getImageUrl(student.pfp || user.image);
+  const { bg, text: textColor } = getInitialsColor(displayName);
+
   return (
-    <div className="flex-1 p-4 flex flex-col gap-4 xl:flex-row">
-      {/* LEFT */}
-      <div className="w-full xl:w-2/3">
-        {/* TOP */}
-        <div className="flex flex-col lg:flex-row gap-4">
-          {/* USER INFO CARD */}
-          <div className="bg-lamaSky py-6 px-4 rounded-md flex-1 flex gap-4">
-            <div className="w-1/3">
-              <Image
-                src={student.pfp || "/noAvatar.png"}
-                alt=""
-                width={144}
-                height={144}
-                className="w-36 h-36 rounded-full object-cover"
-              />
-            </div>
-            <div className="w-2/3 flex flex-col justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <h1 className="text-xl font-semibold">
-                  {student.full_name || user.username}
-                </h1>
-                {role === "admin" && (
-                  <FormContainer table="student" type="update" data={studentUpdateData} />
-                )}
-              </div>
-              <p className="text-sm text-gray-500">
-                {student.bio || "No biography available."}
-              </p>
-              <div className="flex items-center justify-between gap-2 flex-wrap text-xs font-medium">
-                <div className="w-full md:w-1/3 lg:w-full 2xl:w-1/3 flex items-center gap-2">
-                  <Image src="/blood.png" alt="" width={14} height={14} />
-                  <span>{student.blood_type || "-"}</span>
-                </div>
-                <div className="w-full md:w-1/3 lg:w-full 2xl:w-1/3 flex items-center gap-2">
-                  <Image src="/date.png" alt="" width={14} height={14} />
-                  <span>
-                    {student.date_of_birth
-                      ? new Intl.DateTimeFormat("en-GB").format(new Date(student.date_of_birth))
-                      : "-"}
-                  </span>
-                </div>
-                <div className="w-full md:w-1/3 lg:w-full 2xl:w-1/3 flex items-center gap-2">
-                  <Image src="/mail.png" alt="" width={14} height={14} />
-                  <span>{user.email || "-"}</span>
-                </div>
-                <div className="w-full md:w-1/3 lg:w-full 2xl:w-1/3 flex items-center gap-2">
-                  <Image src="/phone.png" alt="" width={14} height={14} />
-                  <span>{student.phone || "-"}</span>
-                </div>
-              </div>
-            </div>
+    <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left">
+
+      {/* BREADCRUMB */}
+      <div className="flex items-center gap-1 text-[11px] font-extrabold text-muted-foreground uppercase tracking-wider mb-2 select-none">
+        <Link href="/" className="hover:text-foreground flex items-center gap-1">
+          <Globe className="h-3 w-3" />Home
+        </Link>
+        <span>/</span>
+        <Link href="/list/students" className="hover:text-foreground">Users</Link>
+        <span>/</span>
+        <Link href="/list/students" className="hover:text-foreground">Students</Link>
+        <span>/</span>
+        <span className="text-foreground">Profile</span>
+      </div>
+
+      {/* HEADER */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 select-none mb-6">
+        <div>
+          <span className="text-xs font-extrabold text-[#0038A8] uppercase tracking-wider font-mono">
+            Student Profile Details
+          </span>
+          <div className="flex items-center gap-3 mt-0.5">
+            <h1 className="text-xl md:text-3xl font-black text-gray-900 tracking-tight leading-tight">
+              {displayName}
+            </h1>
+            {/* Active / Inactive badge */}
+            <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border select-none ${
+              user.is_active
+                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                : "bg-red-50 text-red-600 border-red-200"
+            }`}>
+              {user.is_active ? "Active" : "Inactive"}
+            </span>
           </div>
-          {/* SMALL CARDS */}
-          <div className="flex-1 flex gap-4 justify-between flex-wrap">
-            {/* CARD */}
-            <div className="bg-white p-4 rounded-md flex gap-4 w-full md:w-[48%] xl:w-[45%] 2xl:w-[48%]">
-              <Image
-                src="/singleAttendance.png"
-                alt=""
-                width={24}
-                height={24}
-                className="w-6 h-6"
-              />
-              <Suspense fallback="loading...">
-                <StudentAttendanceCard id={student.user_id} />
-              </Suspense>
-            </div>
-            {/* CARD */}
-            <div className="bg-white p-4 rounded-md flex gap-4 w-full md:w-[48%] xl:w-[45%] 2xl:w-[48%]">
-              <Image
-                src="/singleBranch.png"
-                alt=""
-                width={24}
-                height={24}
-                className="w-6 h-6"
-              />
-              <div className="">
-                <h1 className="text-xl font-semibold">
-                  {classData?.name ? `${classData.name.charAt(0)}th` : "-"}
-                </h1>
-                <span className="text-sm text-gray-400">Grade</span>
-              </div>
-            </div>
-            {/* CARD */}
-            <div className="bg-white p-4 rounded-md flex gap-4 w-full md:w-[48%] xl:w-[45%] 2xl:w-[48%]">
-              <Image
-                src="/singleLesson.png"
-                alt=""
-                width={24}
-                height={24}
-                className="w-6 h-6"
-              />
-              <div className="">
-                <h1 className="text-xl font-semibold">
-                  {lessonsCount}
-                </h1>
-                <span className="text-sm text-gray-400">Lessons</span>
-              </div>
-            </div>
-            {/* CARD */}
-            <div className="bg-white p-4 rounded-md flex gap-4 w-full md:w-[48%] xl:w-[45%] 2xl:w-[48%]">
-              <Image
-                src="/singleClass.png"
-                alt=""
-                width={24}
-                height={24}
-                className="w-6 h-6"
-              />
-              <div className="">
-                <h1 className="text-xl font-semibold">{classData?.name || "-"}</h1>
-                <span className="text-sm text-gray-400">Class</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        {/* BOTTOM */}
-        <div className="mt-4 bg-white rounded-md p-4 h-[800px]">
-          <h1>Student&apos;s Schedule</h1>
-          {classId ? (
-            <BigCalendarContainer type="classId" id={classId} />
-          ) : (
-            <div className="p-4 text-gray-500">No class assigned.</div>
-          )}
         </div>
       </div>
-      {/* RIGHT */}
-      <div className="w-full xl:w-1/3 flex flex-col gap-4">
-        <div className="bg-white p-4 rounded-md">
-          <h1 className="text-xl font-semibold">Shortcuts</h1>
-          <div className="mt-4 flex gap-4 flex-wrap text-xs text-gray-500">
-            {classId ? (
-              <>
-                <Link
-                  className="p-3 rounded-md bg-lamaSkyLight"
-                  href={`/list/lessons?classId=${classId}`}
+
+      <div className="flex gap-6 flex-col xl:flex-row">
+
+        {/* ── LEFT COLUMN (2/3) ─────────────────────────────────────────── */}
+        <div className="w-full xl:w-2/3 flex flex-col gap-6">
+
+          {/* TOP ROW: profile card + metric cards */}
+          <div className="flex flex-col lg:flex-row gap-6">
+
+            {/* SKY BLUE PROFILE CARD */}
+            <div className="bg-[#E6F6FD] border border-sky-100 p-6 rounded-3xl flex-1 flex flex-col sm:flex-row gap-6 shadow-sm relative overflow-hidden">
+              <span className="absolute left-0 top-0 bottom-0 w-[4px] bg-sky-400" />
+
+              {/* Avatar */}
+              <div className="w-full sm:w-1/3 flex justify-center sm:justify-start items-start pt-1">
+                <div
+                  className="h-28 w-28 sm:h-32 sm:w-32 rounded-full overflow-hidden border border-sky-100 flex items-center justify-center shrink-0 shadow-sm"
+                  style={photoUrl ? { background: "white" } : { backgroundColor: bg }}
                 >
-                  Student&apos;s Lessons
-                </Link>
-                <Link
-                  className="p-3 rounded-md bg-lamaPurpleLight"
-                  href={`/list/teachers?classId=${classId}`}
-                >
-                  Student&apos;s Teachers
-                </Link>
-                <Link
-                  className="p-3 rounded-md bg-pink-50"
-                  href={`/list/exams?classId=${classId}`}
-                >
-                  Student&apos;s Exams
-                </Link>
-                <Link
-                  className="p-3 rounded-md bg-lamaSkyLight"
-                  href={`/list/assignments?classId=${classId}`}
-                >
-                  Student&apos;s Assignments
-                </Link>
-              </>
-            ) : null}
-            <Link
-              className="p-3 rounded-md bg-lamaYellowLight"
-              href={`/list/results?studentId=${student.user_id}`}
-            >
-              Student&apos;s Results
-            </Link>
+                  {photoUrl ? (
+                    <img src={photoUrl} alt={displayName} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-3xl font-black tracking-wide select-none" style={{ color: textColor }}>
+                      {getInitials(displayName)}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Info */}
+              <div className="w-full sm:w-2/3 flex flex-col justify-between gap-3">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-800 leading-tight">
+                      {displayName}
+                    </h1>
+                    <div className="flex items-center gap-2 flex-wrap mt-1.5">
+                      <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-sky-500/10 text-sky-700 border border-sky-200 flex items-center gap-1 select-none">
+                        <GraduationCap className="h-3 w-3" />Student
+                      </span>
+                      {sp?.student_id && (
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1 select-none">
+                          <Hash className="h-2.5 w-2.5" />{sp.student_id}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {role === "admin" && (
+                    <StudentEditModal data={editData} />
+                  )}
+                </div>
+
+                <p className="text-xs text-slate-600 italic leading-relaxed">
+                  {student.bio || "No biography available."}
+                </p>
+
+                {/* Metadata grid — row 1: original 4 */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-1.5 gap-x-4 border-t border-sky-100 pt-3">
+                  <MetaRow icon={<span className="h-4 w-4 rounded bg-sky-50 border border-sky-200 flex items-center justify-center text-red-500 text-[9px] font-black">B</span>} value={`Blood: ${student.blood_type || "-"}`} />
+                  <MetaRow icon={<Calendar className="h-3.5 w-3.5" />} value={fmtDate(student.date_of_birth)} />
+                  <MetaRow icon={<Mail className="h-3.5 w-3.5" />} value={user.email} />
+                  <MetaRow icon={<Phone className="h-3.5 w-3.5" />} value={student.phone} />
+                  {/* ── NEW fields ── */}
+                  {student.address && (
+                    <MetaRow icon={<MapPin className="h-3.5 w-3.5" />} value={student.address} />
+                  )}
+                  {student.nationality && (
+                    <MetaRow icon={<Flag className="h-3.5 w-3.5" />} value={student.nationality} />
+                  )}
+                  {sp?.department && (
+                    <MetaRow icon={<Building2 className="h-3.5 w-3.5" />} label="Dept" value={sp.department} />
+                  )}
+                  {sp?.enrolment_date && (
+                    <MetaRow icon={<BookOpen className="h-3.5 w-3.5" />} label="Enrolled" value={fmtDate(String(sp.enrolment_date))} />
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* METRIC SMALL CARDS */}
+            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4 select-none">
+
+              {/* ATTENDANCE */}
+              <div className="bg-white border border-slate-100 hover:border-emerald-500/25 p-5 rounded-3xl flex items-center gap-4 shadow-sm hover:shadow-md hover:-translate-y-[0.5px] transition-all duration-300 group">
+                <div className="h-11 w-11 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 shadow-sm">
+                  <CheckCircle2 className="h-5 w-5" />
+                </div>
+                <Suspense fallback={<span className="text-xs text-muted-foreground">Loading…</span>}>
+                  <StudentAttendanceCard id={student.user_id} />
+                </Suspense>
+              </div>
+
+              {/* GRADE LEVEL */}
+              <div className="bg-white border border-slate-100 hover:border-indigo-500/25 p-5 rounded-3xl flex items-center gap-4 shadow-sm hover:shadow-md hover:-translate-y-[0.5px] transition-all duration-300 group">
+                <div className="h-11 w-11 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 shadow-sm">
+                  <GraduationCap className="h-5 w-5" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-extrabold text-slate-800 leading-tight">
+                    {sp?.grade_level_name || (classData?.name ? getOrdinal(classData.name.charAt(0)) : "-")}
+                  </h1>
+                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mt-0.5">Grade Level</span>
+                </div>
+              </div>
+
+              {/* LESSONS */}
+              <div className="bg-white border border-slate-100 hover:border-sky-500/25 p-5 rounded-3xl flex items-center gap-4 shadow-sm hover:shadow-md hover:-translate-y-[0.5px] transition-all duration-300 group">
+                <div className="h-11 w-11 rounded-2xl bg-sky-50 border border-sky-100 text-sky-600 flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 shadow-sm">
+                  <Calendar className="h-5 w-5" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-extrabold text-slate-800 leading-tight">{lessonsCount}</h1>
+                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mt-0.5">Assigned Lessons</span>
+                </div>
+              </div>
+
+              {/* CLASS */}
+              <div className="bg-white border border-slate-100 hover:border-violet-500/25 p-5 rounded-3xl flex items-center gap-4 shadow-sm hover:shadow-md hover:-translate-y-[0.5px] transition-all duration-300 group">
+                <div className="h-11 w-11 rounded-2xl bg-violet-50 border border-violet-100 text-violet-600 flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 shadow-sm">
+                  <BookOpen className="h-5 w-5" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-extrabold text-slate-800 leading-tight">
+                    {classData?.name ? `Class ${classData.name}` : "-"}
+                  </h1>
+                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mt-0.5">Syllabus Class</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── ENROLLED COURSES ─────────────────────────────────────────── */}
+          <div className="bg-white border border-border/60 rounded-3xl p-6 shadow-sm text-left">
+            <h3 className="text-base font-bold text-gray-900 mb-4 select-none flex items-center gap-2">
+              <BookOpen className="h-4 w-4 text-[#0038A8]" />
+              Enrolled Courses
+              <span className="ml-auto text-[10px] font-black text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                {courses.length}
+              </span>
+            </h3>
+            {courses.length > 0 ? (
+              <div className="space-y-2">
+                {courses.map((c: any) => (
+                  <Link key={c.enrollment_id} href={`/list/courses/${c.course_id}`}>
+                    <div className="flex items-center justify-between p-3.5 rounded-2xl border border-border/50 hover:border-[#0038A8]/30 hover:bg-[#0038A8]/5 transition-all group">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="h-9 w-9 rounded-xl bg-[#0038A8]/10 text-[#0038A8] flex items-center justify-center shrink-0">
+                          <BookOpen className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-foreground truncate">{c.course_name}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            {c.course_code && <span className="font-mono mr-2">{c.course_code}</span>}
+                            {c.instructor_name && <span>· {c.instructor_name}</span>}
+                          </p>
+                        </div>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-[#0038A8] transition-colors shrink-0" />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="py-8 text-center text-muted-foreground/50 select-none">
+                <BookOpen className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                <p className="text-xs font-semibold">Not enrolled in any courses yet.</p>
+              </div>
+            )}
+          </div>
+
+          {/* SCHEDULE */}
+          <div className="bg-white border border-border/60 rounded-3xl p-6 shadow-sm text-left">
+            <h3 className="text-base font-bold text-gray-900 mb-4 select-none">Student&apos;s Schedule</h3>
+            <div className="h-[750px] relative overflow-hidden rounded-2xl border border-border/50">
+              {classId ? (
+                <BigCalendarContainer type="classId" id={classId} />
+              ) : (
+                <div className="p-12 text-center text-muted-foreground flex flex-col items-center justify-center h-full select-none">
+                  <ShieldAlert className="h-10 w-10 text-muted-foreground/30 mb-3" />
+                  <p className="text-sm font-bold">No class assigned — schedule unavailable.</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-        <Performance />
-        <Announcements />
+
+        {/* ── RIGHT COLUMN (1/3) ────────────────────────────────────────── */}
+        <div className="w-full xl:w-1/3 flex flex-col gap-6 select-none">
+
+          {/* SHORTCUT LINKS */}
+          <div className="bg-white border border-border/60 p-6 rounded-3xl shadow-sm text-left">
+            <h3 className="text-base font-bold text-gray-900 mb-4 select-none">Shortcut Links</h3>
+            <div className="flex gap-3 flex-wrap text-xs text-gray-500">
+              {classId && (
+                <>
+                  <Link className="px-3.5 py-2 bg-sky-50 hover:bg-sky-100 border border-sky-100 text-sky-700 font-extrabold text-[10px] rounded-xl shadow-sm transition-all active:scale-[0.98] uppercase tracking-wider" href={`/list/lessons?classId=${classId}`}>Lessons</Link>
+                  <Link className="px-3.5 py-2 bg-violet-50 hover:bg-violet-100 border border-violet-100 text-violet-700 font-extrabold text-[10px] rounded-xl shadow-sm transition-all active:scale-[0.98] uppercase tracking-wider" href={`/list/teachers?classId=${classId}`}>Teachers</Link>
+                  <Link className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 border border-rose-100 text-rose-700 font-extrabold text-[10px] rounded-xl shadow-sm transition-all active:scale-[0.98] uppercase tracking-wider" href={`/list/exams?classId=${classId}`}>Exams</Link>
+                  <Link className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 border border-amber-100 text-amber-700 font-extrabold text-[10px] rounded-xl shadow-sm transition-all active:scale-[0.98] uppercase tracking-wider" href={`/list/assignments?classId=${classId}`}>Assignments</Link>
+                </>
+              )}
+              <Link className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 text-emerald-700 font-extrabold text-[10px] rounded-xl shadow-sm transition-all active:scale-[0.98] uppercase tracking-wider" href={`/list/results?studentId=${student.user_id}`}>Gradebook Results</Link>
+            </div>
+          </div>
+
+          {/* ── PARENTS / GUARDIANS (NEW) ─────────────────────────────── */}
+          <div className="bg-white border border-border/60 p-6 rounded-3xl shadow-sm text-left">
+            <h3 className="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <Users className="h-4 w-4 text-[#0038A8]" />
+              Parents / Guardians
+            </h3>
+            {parents.length > 0 ? (
+              <div className="space-y-3">
+                {parents.map((par: any) => (
+                  <div key={par.id} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-extrabold text-slate-800">{par.full_name || "Unknown"}</span>
+                      {par.relationship && (
+                        <span className="px-2 py-0.5 bg-sky-50 text-sky-700 text-[9px] font-black rounded-full border border-sky-100 uppercase tracking-wider shrink-0">
+                          {par.relationship}
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 gap-1">
+                      {par.phone && (
+                        <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
+                          <Phone className="h-3 w-3 text-sky-400 shrink-0" />{par.phone}
+                        </div>
+                      )}
+                      {par.emergency_phone && par.emergency_phone !== par.phone && (
+                        <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
+                          <AlertCircle className="h-3 w-3 text-red-400 shrink-0" />
+                          Emergency: {par.emergency_phone}
+                        </div>
+                      )}
+                      {par.email && (
+                        <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
+                          <Mail className="h-3 w-3 text-sky-400 shrink-0" />{par.email}
+                        </div>
+                      )}
+                      {par.occupation && (
+                        <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
+                          <Building2 className="h-3 w-3 text-sky-400 shrink-0" />{par.occupation}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-6 text-center text-muted-foreground/50">
+                <Users className="h-7 w-7 mx-auto mb-2 opacity-30" />
+                <p className="text-xs font-semibold">No parent / guardian linked yet.</p>
+              </div>
+            )}
+          </div>
+
+          {/* ── EMERGENCY CONTACT (NEW — only shown if set) ──────────── */}
+          {(student.emergency_contact_name || student.emergency_contact_phone) && (
+            <div className="bg-red-50 border border-red-100 p-5 rounded-3xl shadow-sm text-left">
+              <h3 className="text-sm font-extrabold text-red-700 mb-3 flex items-center gap-2">
+                <AlertCircle className="h-4 w-4" />Emergency Contact
+              </h3>
+              <div className="space-y-1.5">
+                {student.emergency_contact_name && (
+                  <p className="text-xs font-bold text-slate-700">{student.emergency_contact_name}</p>
+                )}
+                {student.emergency_contact_relationship && (
+                  <p className="text-[11px] text-slate-500">{student.emergency_contact_relationship}</p>
+                )}
+                {student.emergency_contact_phone && (
+                  <div className="flex items-center gap-1.5 text-[11px] text-slate-600 font-semibold">
+                    <Phone className="h-3 w-3 text-red-400" />{student.emergency_contact_phone}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <Performance />
+          <Announcements />
+        </div>
       </div>
     </div>
   );

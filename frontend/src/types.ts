@@ -31,6 +31,7 @@ export interface UserResponse {
   role_id: number;
   role: RoleNested;
   image?: string | null;
+  is_active?: boolean;
   is_superuser?: boolean;
 }
 

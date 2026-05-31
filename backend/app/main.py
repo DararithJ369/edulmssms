@@ -11,6 +11,7 @@ from app.routes import (
     user_router,
     grade_router,
     grade_level_router,
+    grade_level_alias_router,
     academic_year_router,
     class_router,
     subject_router,
@@ -29,6 +30,8 @@ from app.routes import (
     role_router,
     permission_router,
     role_permissions_router,
+    announcement_router,
+    progress_router,
 )
 from app.routes.profiles import profiles_router
 
@@ -73,6 +76,7 @@ router.include_router(router=profiles_router)
 router.include_router(router=dashboard_router)
 router.include_router(router=grade_router)  
 router.include_router(router=grade_level_router)
+router.include_router(router=grade_level_alias_router)
 router.include_router(router=academic_year_router)
 router.include_router(router=class_router)
 router.include_router(router=course_router)
@@ -90,6 +94,8 @@ router.include_router(router=finance_router)
 router.include_router(router=role_router)
 router.include_router(router=permission_router)
 router.include_router(router=role_permissions_router)
+router.include_router(router=announcement_router)
+router.include_router(router=progress_router)
 
 
 # Serve static files from the "uploads" directory

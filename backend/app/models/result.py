@@ -36,12 +36,19 @@ class Result(Base):
     assignment = relationship("Assignment", foreign_keys=[assignment_id], lazy="selectin")
     exam = relationship("Exam", foreign_keys=[exam_id], lazy="selectin")
     quiz = relationship("Quiz", foreign_keys=[quiz_id], lazy="selectin")
+    grader = relationship("User", foreign_keys=[graded_by], lazy="selectin")
 
     @property
     def student_name(self) -> str:
         if self.student and self.student.profile:
             return self.student.profile.full_name or self.student.username
         return self.student.username if self.student else f"Student #{self.student_id}"
+
+    @property
+    def grader_name(self) -> str:
+        if self.grader and self.grader.profile:
+            return self.grader.profile.full_name or self.grader.username
+        return self.grader.username if self.grader else f"Faculty #{self.graded_by[:8]}"
 
     @property
     def assessment_title(self) -> str:

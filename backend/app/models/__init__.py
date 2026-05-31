@@ -25,4 +25,5 @@ from .certificate import Certificate
 from .finance import FeeCollection, Expense, Salary
 from .permission import Permission
 from .role_permission import RolePermission
+from .progress import StudentCourseProgress, StudentLessonProgress, StudentModuleProgress
 
