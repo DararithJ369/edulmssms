@@ -2,11 +2,36 @@ import FormContainer from "@/components/FormContainer";
 import Pagination from "@/components/Pagination";
 import TableSearch from "@/components/TableSearch";
 import { serverFetch } from "@/lib/server-api";
-import Image from "next/image";
 import Link from "next/link";
 import { ITEM_PER_PAGE } from "@/lib/settings";
 import { cookies } from "next/headers";
-import { Globe, GraduationCap, ListFilter, ArrowUpDown } from "lucide-react";
+import { Globe, ListFilter, ArrowUpDown } from "lucide-react";
+import { getImageUrl } from "@/lib/image-url";
+
+// ── Default avatar helpers ────────────────────────────────────────────────────
+const AVATAR_PALETTE = [
+  { bg: "#E8EDF5", text: "#4A6FA5" },
+  { bg: "#EAF0FB", text: "#3B5FBE" },
+  { bg: "#EDF5EE", text: "#3A7D44" },
+  { bg: "#F5EDF5", text: "#7D3A7D" },
+  { bg: "#FDF3E7", text: "#B06820" },
+  { bg: "#F0F0F5", text: "#5A5A8A" },
+  { bg: "#F5EDEA", text: "#8A3A2A" },
+  { bg: "#EAF5F5", text: "#2A7A7D" },
+];
+
+function getInitialsColor(name: string) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_PALETTE[Math.abs(hash) % AVATAR_PALETTE.length];
+}
+
+function getInitials(name: string) {
+  const parts = name.trim().split(/[._ -]+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 const normalizeRole = (role: string | null | undefined) => {
   if (role === "instructor") {
@@ -21,6 +46,7 @@ type TeacherList = {
   username: string;
   email: string;
   image?: string | null;
+  profile_image?: string | null;
   role?: { name: string };
 };
 
@@ -106,19 +132,28 @@ const TeacherListPage = async ({
 
               <div className="flex items-center gap-4 max-w-[70%] z-10">
                 {/* Profile Image Squircle Container */}
-                <div className="h-10 w-10 rounded-2xl bg-orange-50 border border-orange-100 dark:bg-orange-950/20 dark:border-orange-950/30 text-orange-600 dark:text-orange-400 flex items-center justify-center shrink-0 shadow-sm transition-all duration-300 group-hover:scale-105 overflow-hidden">
-                  {item.image ? (
-                    <Image
-                      src={item.image}
-                      alt={item.username}
-                      width={40}
-                      height={40}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <GraduationCap className="h-5 w-5" />
-                  )}
-                </div>
+                {(() => {
+                  const resolvedUrl = getImageUrl(item.profile_image || item.image);
+                  const { bg, text } = getInitialsColor(item.username);
+                  return (
+                    <div
+                      className="h-10 w-10 rounded-2xl shrink-0 shadow-sm transition-all duration-300 group-hover:scale-105 overflow-hidden flex items-center justify-center select-none"
+                      style={resolvedUrl ? undefined : { backgroundColor: bg }}
+                    >
+                      {resolvedUrl ? (
+                        <img
+                          src={resolvedUrl}
+                          alt={item.username}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-xs font-black tracking-wide leading-none" style={{ color: text }}>
+                          {getInitials(item.username)}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 <div className="flex flex-col text-left gap-1">
                   <Link
@@ -156,7 +191,12 @@ const TeacherListPage = async ({
         </div>
       ) : (
         <div className="bg-card border border-border/60 rounded-3xl p-12 text-center text-muted-foreground select-none">
-          <GraduationCap className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+          <div
+            className="h-12 w-12 rounded-2xl mx-auto mb-3 flex items-center justify-center text-sm font-black"
+            style={{ backgroundColor: "#E8EDF5", color: "#4A6FA5" }}
+          >
+            TE
+          </div>
           <p className="text-sm font-bold">No academic instructors registered in database.</p>
         </div>
       )}

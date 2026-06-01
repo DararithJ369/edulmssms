@@ -24,20 +24,31 @@ frontend/  # NextJS app
 ### Backend
 ```zsh
 cd backend
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-# configure env (see backend/.env.example if present)
+# configure env (create `backend/.env` or copy from `backend/.env.example` if present)
 python -m alembic upgrade head
 uvicorn app.main:app --reload
 ```
+
+Required backend env keys (minimum):
+- `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_HOST`, `POSTGRES_PORT`
+- `SECRET_KEY` (JWT signing)
+- `JWT_ALGORITHM` (default `HS256`)
+- `ACCESS_TOKEN_EXPIRE_MINUTES`, `REFRESH_TOKEN_EXPIRE_MINUTES`
+- `BACKEND_CORS_ORIGINS`
 
 ### Frontend
 ```zsh
 cd frontend
 npm install
+# configure env (create `frontend/.env` or `frontend/.env.local` if required)
 npm run dev
 ```
+
+Required frontend env keys (minimum):
+- `NEXT_PUBLIC_API_URL` (e.g. `http://localhost:8000/api/v1`)
 
 ## Notes
 - Lessons are accessed through Courses (no standalone Lessons page).

@@ -1,6 +1,10 @@
 # OS
 .DS_Store
 
+# Docker (root)
+docker-compose.yml
+Dockerfile
+
 # Python
 .venv/
 __pycache__/
@@ -49,6 +53,13 @@ lms-fastapi.code-workspace
 summary.md
 
 b_jNqq25s42Ya/
+
+backend/inspect_quizzes.py
+backend/live_staging_tests.py
+backend/populate_quiz_questions.py
+backend/test_learn_hub_api.py
+backend/test_progress_query.py
+backend/test_quiz_submission.py
 
 # frontend(2)/
 frontend(2)/
