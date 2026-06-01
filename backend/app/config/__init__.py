@@ -2,7 +2,6 @@ import importlib
 
 from app.config.config import settings
 from app.config.session import get_db, local_session
-from app.config.security import get_password_hash
 
 security_logger = None
 
