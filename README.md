@@ -22,13 +22,42 @@ frontend/  # NextJS app
 ## Getting Started
 
 ### Backend
+#### Option A: Docker (recommened)
+*Prerequisites: Docker Desktop installed and running.*
+
+```zsh
+# Clone and enter the project
+git clone <repo-url>
+cd edulmssms
+
+# Create the backend env file
+cp backend/.env.example backend/.env
+# Edit backend/.env — at minimum fill in:
+#   POSTGRES_PASSWORD, SECRET_KEY, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SMTP_PASSWORD
+
+# Generate a secure SECRET_KEY
+openssl rand -hex 32
+
+# Start everything
+docker compose up --build
+
+# Seed the database
+docker compose exec backend python app/db/seed/run_seeder.py seed
+```
+
+API is live at http://localhost:8000 · Docs at http://localhost:8000/docs
+
+> **Note:** If you've run this project before under a different name, stale volumes can cause auth failures. Run `docker volume ls | grep postgres` and remove any leftover volumes with `docker volume rm <name>` before starting.
+
+#### Option B: Local development
+*Prerequisites: Python 3.11+, a running PostgreSQL instance, Node.js 18+.*
+
 ```zsh
 cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-# configure env (create `backend/.env` or copy from `backend/.env.example` if present)
-# python -m alembic upgrade head
+# Create and fill in backend/.env (see required keys below)
 uvicorn app.main:app --reload
 ```
 
@@ -49,6 +78,31 @@ npm run dev
 
 Required frontend env keys (minimum):
 - `NEXT_PUBLIC_API_URL` (e.g. `http://localhost:8000/api/v1`)
+
+### Seed the database
+
+After the containers are up and healthy, run:
+
+```bash
+# First-time setup — seed all data
+docker compose exec backend python app/db/seed/run_seeder.py seed
+
+# Reset the database and re-seed from scratch
+docker compose exec backend python app/db/seed/run_seeder.py reset-seed
+
+# Reset only (wipes all data, no re-seed)
+docker compose exec backend python app/db/seed/run_seeder.py reset
+```
+
+This seeds the following data:
+
+- **Roles** — admin, instructor, student, parent
+- **Users** — 1 admin, 5 instructors, 20 students, 5 parents (with profiles)
+- **Academic** — academic years, grade levels, subjects, courses, modules, lessons
+- **Activity** — enrollments, assignments, quizzes, exams, attendance, submissions, results
+- **Other** — announcements, finance records
+
+Default admin credentials are set via `FIRST_SUPERUSER_EMAIL` and `FIRST_SUPERUSER_PASSWORD` in your `.env`.
 
 ## Notes
 - Lessons are accessed through Courses (no standalone Lessons page).

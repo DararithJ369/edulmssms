@@ -104,3 +104,4 @@ backend/test_*.py
 backend/inspect_quizzes.py
 backend/live_staging_tests.py
 backend/populate_quiz_questions.py
+backend/db/seeds/
