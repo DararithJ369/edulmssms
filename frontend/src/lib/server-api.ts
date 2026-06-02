@@ -36,7 +36,7 @@ export const serverFetch = async <T>(path: string, options: FetchOptions = {}): 
       const message = await res.text();
       // If the token is invalid or the user is not found (e.g. after a database reset),
       // redirect to the login page cleanly instead of throwing a runtime crash error.
-      if (res.status === 401 || message.includes("User not found") || message.includes("404")) {
+      if (res.status === 401 || message.includes("User not found")) {
         redirect("/login?clear=1");
       }
       throw new Error(message || `Request failed: ${res.status}`);

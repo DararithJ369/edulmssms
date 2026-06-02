@@ -3,7 +3,7 @@
 
 # Docker (root)
 docker-compose.yml
-Dockerfile
+# Dockerfile
 
 # Python
 .venv/

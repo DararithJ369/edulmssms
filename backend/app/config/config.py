@@ -39,8 +39,8 @@ class Settings(BaseSettings):
     SMTP_TLS: bool = True
     SMTP_PORT: Optional[int] = 587
     SMTP_HOST: Optional[str] = "smtp.gmail.com"
-    SMTP_USER: Optional[EmailStr] = ""
-    SMTP_PASSWORD: Optional[str] = ""
+    SMTP_USER: Optional[EmailStr] = None
+    SMTP_PASSWORD: Optional[str] = None
 
     EMAILS_FROM_EMAIL: Optional[EmailStr] = "info@example.com"
     EMAILS_FROM_NAME: Optional[str] = "LMS Support"
