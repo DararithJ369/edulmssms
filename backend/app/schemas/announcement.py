@@ -8,9 +8,7 @@ class AnnouncementBase(BaseModel):
     message: str
     type: str  # general, course-specific, etc.
     
-    class Config:
-        orm_mode = True
-        
+    model_config = {"from_attributes": True}      
         
 class AnnouncementCreate(AnnouncementBase):
     recipient_id: Optional[str] = None  # e.g., course_id for course-specific announcements
