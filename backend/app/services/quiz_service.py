@@ -5,6 +5,7 @@ from app.models.quiz import Quiz, QuizQuestion, QuizOption
 from app.models.result import Result
 from app.schemas.quiz import QuizCreate, QuizUpdate, QuizResponse, QuizSubmitPayload
 from app.schemas.result import ResultResponse
+from app.services.base_service import get_or_404, paginate, apply_update, delete_and_commit
 
 
 class QuizService:
@@ -12,31 +13,19 @@ class QuizService:
     @staticmethod
     def get_quizzes(db: Session, page: int = 1, limit: int = 10, search: str = "") -> dict:
         query = db.query(Quiz)
-        
+
         if search:
             query = query.filter(
                 (Quiz.title.ilike(f"%{search}%")) |
                 (Quiz.description.ilike(f"%{search}%")) |
                 (Quiz.module_name.ilike(f"%{search}%"))
             )
-        
-        total = query.with_entities(func.count(Quiz.id)).scalar()
-        quizzes = (
-            query.order_by(Quiz.created_at.desc())
-            .offset((page - 1) * limit)
-            .limit(limit)
-            .all()
-        )
-        return {
-            "data": [QuizResponse.model_validate(q) for q in quizzes],
-            "meta": {"page": page, "total": total, "limit": limit},
-        }
+
+        return paginate(db, Quiz, QuizResponse, Quiz.created_at.desc(), page, limit, query=query)
 
     @staticmethod
     def get_quiz_by_id(db: Session, quiz_id: int) -> QuizResponse:
-        obj = db.query(Quiz).filter(Quiz.id == quiz_id).first()
-        if not obj:
-            raise HTTPException(status_code=404, detail="Quiz not found")
+        obj = get_or_404(db, Quiz, quiz_id, "Quiz")
         return QuizResponse.model_validate(obj)
 
     @staticmethod
@@ -66,23 +55,15 @@ class QuizService:
 
     @staticmethod
     def update_quiz(db: Session, quiz_id: int, quiz_in: QuizUpdate) -> QuizResponse:
-        obj = db.query(Quiz).filter(Quiz.id == quiz_id).first()
-        if not obj:
-            raise HTTPException(status_code=404, detail="Quiz not found")
-        for field, value in quiz_in.model_dump(exclude_unset=True, exclude={"questions"}).items():
-            setattr(obj, field, value)
+        obj = get_or_404(db, Quiz, quiz_id, "Quiz")
+        apply_update(obj, quiz_in, exclude={"questions"})
         db.commit()
         db.refresh(obj)
         return QuizResponse.model_validate(obj)
 
     @staticmethod
     def delete_quiz(db: Session, quiz_id: int) -> dict:
-        obj = db.query(Quiz).filter(Quiz.id == quiz_id).first()
-        if not obj:
-            raise HTTPException(status_code=404, detail="Quiz not found")
-        db.delete(obj)
-        db.commit()
-        return {"detail": "Quiz deleted successfully"}
+        return delete_and_commit(db, Quiz, quiz_id, "Quiz")
 
     # ── Submission & results ──────────────────────────────────────────────────
 
@@ -90,9 +71,7 @@ class QuizService:
     def submit_quiz(
         db: Session, quiz_id: int, student_id: str, payload: QuizSubmitPayload
     ) -> ResultResponse:
-        quiz = db.query(Quiz).filter(Quiz.id == quiz_id).first()
-        if not quiz:
-            raise HTTPException(status_code=404, detail="Quiz not found")
+        quiz = get_or_404(db, Quiz, quiz_id, "Quiz")
 
         # Check if already submitted
         existing = db.query(Result).filter(Result.quiz_id == quiz_id, Result.student_id == student_id).first()

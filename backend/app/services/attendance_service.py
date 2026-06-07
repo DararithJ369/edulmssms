@@ -5,6 +5,8 @@ from app.models.attendance import Attendance
 from app.models.class_session import ClassSession
 from app.models.user import User
 from app.schemas.attendance import AttendanceBulkCreate, AttendanceUpdate, AttendanceResponse, AttendanceCreate
+from app.services.base_service import get_or_404, paginate, apply_update, delete_and_commit
+from app.services.role_filter import apply_student_role_filter
 
 
 class AttendanceService:
@@ -78,11 +80,8 @@ class AttendanceService:
     def update_attendance(
         db: Session, attendance_id: int, attendance_in: AttendanceUpdate
     ) -> AttendanceResponse:
-        record = db.query(Attendance).filter(Attendance.id == attendance_id).first()
-        if not record:
-            raise HTTPException(status_code=404, detail="Attendance record not found")
-        for field, value in attendance_in.model_dump(exclude_unset=True).items():
-            setattr(record, field, value)
+        record = get_or_404(db, Attendance, attendance_id, "Attendance record")
+        apply_update(record, attendance_in)
         db.commit()
         db.refresh(record)
         return AttendanceResponse.model_validate(record)
@@ -95,53 +94,23 @@ class AttendanceService:
 
         if course_id is not None:
             query = query.filter(Attendance.course_id == course_id)
-        
-        # Role-based filtering
-        if current_user:
-            role = current_user.role.name.lower()
-            if role == "student":
-                query = query.filter(Attendance.student_id == current_user.id)
-            elif role == "parent":
-                if current_user.profile and current_user.profile.parent_profile:
-                    student_user_ids = [
-                        s.profile.user_id for s in current_user.profile.parent_profile.students 
-                        if s.profile
-                    ]
-                    query = query.filter(Attendance.student_id.in_(student_user_ids))
-                else:
-                    return {
-                        "data": [],
-                        "meta": {"page": page, "total": 0, "limit": limit},
-                    }
-        
+
+        query, early = apply_student_role_filter(query, Attendance.student_id, current_user, page, limit)
+        if early is not None:
+            return early
+
         if search:
             from app.models.user_profile import UserProfile
             query = query.join(UserProfile, Attendance.student_id == UserProfile.user_id).filter(
                 (UserProfile.full_name.ilike(f"%{search}%")) |
                 (Attendance.status.ilike(f"%{search}%"))
             )
-        
-        total = query.with_entities(func.count(Attendance.id)).scalar()
-        records = (
-            query.order_by(Attendance.created_at.desc())
-            .offset((page - 1) * limit)
-            .limit(limit)
-            .all()
-        )
-        
-        return {
-            "data": [AttendanceResponse.model_validate(r) for r in records],
-            "meta": {"page": page, "total": total, "limit": limit},
-        }
+
+        return paginate(db, Attendance, AttendanceResponse, Attendance.created_at.desc(), page, limit, query=query)
 
     @staticmethod
     def delete_attendance(db: Session, attendance_id: int) -> dict:
-        record = db.query(Attendance).filter(Attendance.id == attendance_id).first()
-        if not record:
-            raise HTTPException(status_code=404, detail="Attendance record not found")
-        db.delete(record)
-        db.commit()
-        return {"message": "Attendance record deleted successfully"}
+        return delete_and_commit(db, Attendance, attendance_id, "Attendance record")
 
     @staticmethod
     def create_attendance(

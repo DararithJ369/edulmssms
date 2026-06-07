@@ -1,14 +1,14 @@
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from app.models.academic_year import AcademicYear
 from app.models.term import Term
 from app.schemas.academic_year import AcademicYearCreate, AcademicYearUpdate, AcademicYearResponse
 from app.schemas.term import TermCreate, TermUpdate, TermResponse
+from app.services.base_service import get_or_404, paginate, apply_update
 
 
 class AcademicYearService:
-    
+
     @staticmethod
     def setup_form(db: Session) -> dict:
         return {
@@ -23,24 +23,11 @@ class AcademicYearService:
 
     @staticmethod
     def get_academic_years(db: Session, page: int = 1, limit: int = 10) -> dict:
-        total = db.query(func.count(AcademicYear.id)).scalar()
-        years = (
-            db.query(AcademicYear)
-            .order_by(AcademicYear.start_date.desc())
-            .offset((page - 1) * limit)
-            .limit(limit)
-            .all()
-        )
-        return {
-            "data": [AcademicYearResponse.model_validate(y) for y in years],
-            "meta": {"page": page, "total": total, "limit": limit},
-        }
+        return paginate(db, AcademicYear, AcademicYearResponse, AcademicYear.start_date.desc(), page, limit)
 
     @staticmethod
     def get_academic_year_by_id(db: Session, year_id: int) -> AcademicYearResponse:
-        obj = db.query(AcademicYear).filter(AcademicYear.id == year_id).first()
-        if not obj:
-            raise HTTPException(status_code=404, detail="Academic year not found")
+        obj = get_or_404(db, AcademicYear, year_id, "Academic year")
         return AcademicYearResponse.model_validate(obj)
 
     @staticmethod
@@ -51,23 +38,10 @@ class AcademicYearService:
         return AcademicYearResponse.model_validate(obj)
 
     @staticmethod
-    def setup_form(db: Session) -> dict:
-        return {
-            "fields": {
-                "name":       {"type": "string", "required": True,  "hint": "e.g. 2024-2025"},
-                "start_date": {"type": "date",   "required": True},
-                "end_date":   {"type": "date",   "required": True},
-                "is_current": {"type": "boolean","required": False},
-                "is_active":  {"type": "boolean","required": False},
-            }
-        }
-
-    @staticmethod
     def create_academic_year(db: Session, year_in: AcademicYearCreate) -> AcademicYearResponse:
         if db.query(AcademicYear).filter(AcademicYear.name == year_in.name).first():
             raise HTTPException(status_code=400, detail="Academic year name already exists")
 
-        # Only one current year allowed at a time
         if year_in.is_current:
             db.query(AcademicYear).filter(AcademicYear.is_current == True).update({"is_current": False})
 
@@ -81,28 +55,21 @@ class AcademicYearService:
     def update_academic_year(
         db: Session, year_id: int, year_in: AcademicYearUpdate
     ) -> AcademicYearResponse:
-        obj = db.query(AcademicYear).filter(AcademicYear.id == year_id).first()
-        if not obj:
-            raise HTTPException(status_code=404, detail="Academic year not found")
+        obj = get_or_404(db, AcademicYear, year_id, "Academic year")
 
-        # Setting this as current → unset all others
         if year_in.is_current:
             db.query(AcademicYear).filter(
                 AcademicYear.is_current == True, AcademicYear.id != year_id
             ).update({"is_current": False})
 
-        for field, value in year_in.model_dump(exclude_unset=True).items():
-            setattr(obj, field, value)
-
+        apply_update(obj, year_in)
         db.commit()
         db.refresh(obj)
         return AcademicYearResponse.model_validate(obj)
 
     @staticmethod
     def delete_academic_year(db: Session, year_id: int) -> dict:
-        obj = db.query(AcademicYear).filter(AcademicYear.id == year_id).first()
-        if not obj:
-            raise HTTPException(status_code=404, detail="Academic year not found")
+        obj = get_or_404(db, AcademicYear, year_id, "Academic year")
         if obj.enrollments:
             raise HTTPException(
                 status_code=400,
@@ -116,8 +83,7 @@ class AcademicYearService:
 
     @staticmethod
     def get_terms(db: Session, year_id: int) -> list:
-        if not db.query(AcademicYear).filter(AcademicYear.id == year_id).first():
-            raise HTTPException(status_code=404, detail="Academic year not found")
+        get_or_404(db, AcademicYear, year_id, "Academic year")
         terms = (
             db.query(Term)
             .filter(Term.academic_year_id == year_id)
@@ -128,10 +94,8 @@ class AcademicYearService:
 
     @staticmethod
     def create_term(db: Session, year_id: int, term_in: TermCreate) -> TermResponse:
-        if not db.query(AcademicYear).filter(AcademicYear.id == year_id).first():
-            raise HTTPException(status_code=404, detail="Academic year not found")
+        get_or_404(db, AcademicYear, year_id, "Academic year")
 
-        # Only one current term per year
         if term_in.is_current:
             db.query(Term).filter(
                 Term.academic_year_id == year_id, Term.is_current == True
@@ -145,9 +109,7 @@ class AcademicYearService:
 
     @staticmethod
     def update_term(db: Session, term_id: int, term_in: TermUpdate) -> TermResponse:
-        term = db.query(Term).filter(Term.id == term_id).first()
-        if not term:
-            raise HTTPException(status_code=404, detail="Term not found")
+        term = get_or_404(db, Term, term_id, "Term")
 
         if term_in.is_current:
             db.query(Term).filter(
@@ -156,18 +118,14 @@ class AcademicYearService:
                 Term.id != term_id,
             ).update({"is_current": False})
 
-        for field, value in term_in.model_dump(exclude_unset=True).items():
-            setattr(term, field, value)
-
+        apply_update(term, term_in)
         db.commit()
         db.refresh(term)
         return TermResponse.model_validate(term)
 
     @staticmethod
     def delete_term(db: Session, term_id: int) -> dict:
-        term = db.query(Term).filter(Term.id == term_id).first()
-        if not term:
-            raise HTTPException(status_code=404, detail="Term not found")
+        term = get_or_404(db, Term, term_id, "Term")
         if term.enrollments:
             raise HTTPException(
                 status_code=400, detail="Cannot delete term with existing enrollments"

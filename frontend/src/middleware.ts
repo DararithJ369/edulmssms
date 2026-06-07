@@ -1,18 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { routeAccessMap } from "./lib/settings";
+import { normalizeRole } from "@/lib/auth";
 
 const matchers = Object.keys(routeAccessMap).map((route) => ({
   matcher: (pathname: string) => new RegExp(`^${route}$`).test(pathname),
   allowedRoles: routeAccessMap[route],
 }));
-
-const normalizeRole = (role: string) => {
-  if (role === "instructor") {
-    return "teacher";
-  }
-
-  return role;
-};
 
 export default function middleware(req: NextRequest) {
   const url = new URL(req.url);

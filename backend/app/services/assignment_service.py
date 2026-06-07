@@ -7,6 +7,8 @@ from app.models.submission import Submission
 from app.schemas.assignment import AssignmentCreate, AssignmentUpdate, AssignmentResponse
 from app.schemas.submission import SubmissionCreate, SubmissionResponse
 from app.utils.get_image import get_image
+from app.services.base_service import get_or_404, paginate, apply_update, delete_and_commit
+from app.services.notification_helpers import notify_enrolled_students
 
 
 class AssignmentService:
@@ -14,30 +16,18 @@ class AssignmentService:
     @staticmethod
     def get_assignments(db: Session, page: int = 1, limit: int = 10, search: str = "") -> dict:
         query = db.query(Assignment)
-        
+
         if search:
             query = query.filter(
                 (Assignment.title.ilike(f"%{search}%")) |
                 (Assignment.description.ilike(f"%{search}%"))
             )
-        
-        total = query.with_entities(func.count(Assignment.id)).scalar()
-        assignments = (
-            query.order_by(Assignment.created_at.desc())
-            .offset((page - 1) * limit)
-            .limit(limit)
-            .all()
-        )
-        return {
-            "data": [AssignmentResponse.model_validate(a) for a in assignments],
-            "meta": {"page": page, "total": total, "limit": limit},
-        }
+
+        return paginate(db, Assignment, AssignmentResponse, Assignment.created_at.desc(), page, limit, query=query)
 
     @staticmethod
     def get_assignment_by_id(db: Session, assignment_id: int) -> AssignmentResponse:
-        obj = db.query(Assignment).filter(Assignment.id == assignment_id).first()
-        if not obj:
-            raise HTTPException(status_code=404, detail="Assignment not found")
+        obj = get_or_404(db, Assignment, assignment_id, "Assignment")
         return AssignmentResponse.model_validate(obj)
 
     @staticmethod
@@ -53,31 +43,15 @@ class AssignmentService:
         db.commit()
         db.refresh(obj)
 
-        # Notify enrolled students
-        try:
-            from app.models.enrollment import Enrollment
-            from app.services.notification_service import NotificationService
-            
-            enrollments = db.query(Enrollment).filter(
-                Enrollment.course_id == obj.course_id,
-                Enrollment.is_active == True
-            ).all()
-
-            for enrollment in enrollments:
-                if enrollment.student_profile and enrollment.student_profile.profile:
-                    student_user_id = enrollment.student_profile.profile.user_id
-                    if student_user_id:
-                        due_str = obj.due_date.strftime('%Y-%m-%d %H:%M') if obj.due_date else "N/A"
-                        NotificationService.create_notification(
-                            db=db,
-                            user_id=student_user_id,
-                            title="New Assignment Released",
-                            message=f"A new assignment '{obj.title}' has been released for course '{obj.course_name}'. Due date: {due_str}.",
-                            type="assignment",
-                            reference_id=obj.id
-                        )
-        except Exception as e:
-            print(f"Failed to send assignment creation notifications: {e}")
+        due_str = obj.due_date.strftime('%Y-%m-%d %H:%M') if obj.due_date else "N/A"
+        notify_enrolled_students(
+            db=db,
+            course_id=obj.course_id,
+            title="New Assignment Released",
+            message=f"A new assignment '{obj.title}' has been released for course '{obj.course_name}'. Due date: {due_str}.",
+            notification_type="assignment",
+            reference_id=obj.id,
+        )
 
         return AssignmentResponse.model_validate(obj)
 
@@ -88,11 +62,8 @@ class AssignmentService:
         assignment_in: AssignmentUpdate,
         file: Optional[UploadFile] = None,
     ) -> AssignmentResponse:
-        obj = db.query(Assignment).filter(Assignment.id == assignment_id).first()
-        if not obj:
-            raise HTTPException(status_code=404, detail="Assignment not found")
-        for field, value in assignment_in.model_dump(exclude_unset=True).items():
-            setattr(obj, field, value)
+        obj = get_or_404(db, Assignment, assignment_id, "Assignment")
+        apply_update(obj, assignment_in)
         if file:
             obj.file_url = get_image(file)
         db.commit()
@@ -101,19 +72,13 @@ class AssignmentService:
 
     @staticmethod
     def delete_assignment(db: Session, assignment_id: int) -> dict:
-        obj = db.query(Assignment).filter(Assignment.id == assignment_id).first()
-        if not obj:
-            raise HTTPException(status_code=404, detail="Assignment not found")
-        db.delete(obj)
-        db.commit()
-        return {"detail": "Assignment deleted successfully"}
+        return delete_and_commit(db, Assignment, assignment_id, "Assignment")
 
     # ── Submissions ───────────────────────────────────────────────────────────
 
     @staticmethod
     def get_submissions(db: Session, assignment_id: int) -> list:
-        if not db.query(Assignment).filter(Assignment.id == assignment_id).first():
-            raise HTTPException(status_code=404, detail="Assignment not found")
+        get_or_404(db, Assignment, assignment_id, "Assignment")
         submissions = (
             db.query(Submission)
             .filter(Submission.assignment_id == assignment_id)
@@ -129,8 +94,7 @@ class AssignmentService:
         submission_in: SubmissionCreate,
         file: Optional[UploadFile] = None,
     ) -> SubmissionResponse:
-        if not db.query(Assignment).filter(Assignment.id == assignment_id).first():
-            raise HTTPException(status_code=404, detail="Assignment not found")
+        get_or_404(db, Assignment, assignment_id, "Assignment")
 
         existing = (
             db.query(Submission)
@@ -151,7 +115,7 @@ class AssignmentService:
         if file:
             submission.file_url = get_image(file)
         db.add(submission)
-        # Record streak activity
+
         try:
             from app.services.streak_service import StreakService
             StreakService.record_activity(db, str(student_id))

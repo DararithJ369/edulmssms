@@ -10,6 +10,7 @@ from app.schemas.user import (
     ParentProfileResponse,
     ParentFullResponse,
 )
+from app.services.base_service import paginate, apply_update
 
 
 class ParentProfileService:
@@ -48,33 +49,12 @@ class ParentProfileService:
 
     @staticmethod
     def get_parent_profiles(db: Session, page: int = 1, limit: int = 10) -> dict:
-        total = db.query(func.count(ParentProfile.id)).scalar()
-        parents = (
-            db.query(ParentProfile)
-            .order_by(ParentProfile.created_at.desc())
-            .offset((page - 1) * limit)
-            .limit(limit)
-            .all()
-        )
-        return {
-            "data": [ParentProfileResponse.model_validate(p) for p in parents],
-            "meta": {"page": page, "total": total, "limit": limit},
-        }
+        return paginate(db, ParentProfile, ParentProfileResponse, ParentProfile.created_at.desc(), page, limit)
 
     @staticmethod
     def get_parent_profile(db: Session, user_id: str) -> ParentFullResponse:
         profile = ParentProfileService._get_base(db, user_id)
         return ParentFullResponse.model_validate(profile)
-
-    @staticmethod
-    def setup_form(db: Session) -> dict:
-        return {
-            "fields": {
-                "relationship":    {"type": "string", "required": False, "hint": "e.g. Father, Mother, Guardian"},
-                "occupation":      {"type": "string", "required": False},
-                "emergency_phone": {"type": "string", "required": False},
-            }
-        }
 
     @staticmethod
     def create_parent_profile(
@@ -106,8 +86,7 @@ class ParentProfileService:
     ) -> ParentFullResponse:
         parent = ParentProfileService._get_parent_extension(db, user_id)
 
-        for field, value in parent_in.model_dump(exclude_unset=True).items():
-            setattr(parent, field, value)
+        apply_update(parent, parent_in)
 
         db.commit()
         db.refresh(parent.profile)

@@ -17,13 +17,7 @@ import {
   Users,
   UserCheck
 } from "lucide-react";
-
-const normalizeRole = (role: string | null | undefined) => {
-  if (role === "instructor") {
-    return "teacher";
-  }
-  return role ?? "";
-};
+import { normalizeRole } from "@/lib/auth";
 
 type LessonList = {
   id: number;
