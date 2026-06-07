@@ -64,10 +64,10 @@ export const removeToken = () => {
   removeCookie("user_id");
 };
 
-export const normalizeRole = (role: string) => {
+export const normalizeRole = (role: string | null | undefined): string => {
   if (role === "instructor") {
     return "teacher";
   }
 
-  return role;
+  return role ?? "";
 };

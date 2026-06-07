@@ -8,6 +8,7 @@ import { ITEM_PER_PAGE } from "@/lib/settings";
 import { cookies } from "next/headers";
 import { Globe, ListFilter, ArrowUpDown } from "lucide-react";
 import { getImageUrl } from "@/lib/image-url";
+import { normalizeRole } from "@/lib/auth";
 
 // ── Default avatar helpers ────────────────────────────────────────────────────
 const AVATAR_PALETTE = [
@@ -33,14 +34,6 @@ function getInitials(name: string) {
   return name.slice(0, 2).toUpperCase();
 }
 // ─────────────────────────────────────────────────────────────────────────────
-
-const normalizeRole = (role: string | null | undefined) => {
-  if (role === "instructor") {
-    return "teacher";
-  }
-
-  return role ?? "";
-};
 
 type TeacherList = {
   id: string;

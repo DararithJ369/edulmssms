@@ -10,11 +10,8 @@ import {
   ArrowUpDown,
   CalendarDays,
 } from "lucide-react";
+import { normalizeRole } from "@/lib/auth";
 
-const normalizeRole = (role: string | null | undefined) => {
-  if (role === "instructor") return "teacher";
-  return role ?? "";
-};
 
 type EventItem = {
   id: number;

@@ -18,6 +18,7 @@ import {
   ChevronRight, CheckCircle2,
 } from "lucide-react";
 import { getImageUrl } from "@/lib/image-url";
+import { normalizeRole } from "@/lib/auth";
 
 // ── Initials avatar helpers ──────────────────────────────────────────────────
 const AVATAR_PALETTE = [
@@ -42,10 +43,6 @@ function getInitials(name: string) {
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
-const normalizeRole = (role: string | null | undefined) => {
-  if (role === "instructor") return "teacher";
-  return role ?? "";
-};
 
 const getOrdinal = (n: number | string | null | undefined) => {
   if (n === null || n === undefined) return "-";

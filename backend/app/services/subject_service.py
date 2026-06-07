@@ -4,10 +4,11 @@ from fastapi import HTTPException
 from app.models.subject import Subject
 from app.models.user import User
 from app.schemas.subject import SubjectCreate, SubjectUpdate, SubjectResponse
+from app.services.base_service import get_or_404, paginate, apply_update
 
 
 class SubjectService:
-    
+
     @staticmethod
     def setup_form(db: Session) -> dict:
         from app.models.role import Role
@@ -27,42 +28,12 @@ class SubjectService:
 
     @staticmethod
     def get_subjects(db: Session, page: int = 1, limit: int = 10) -> dict:
-        total = db.query(func.count(Subject.id)).scalar()
-        subjects = (
-            db.query(Subject)
-            .order_by(Subject.name.asc())
-            .offset((page - 1) * limit)
-            .limit(limit)
-            .all()
-        )
-        return {
-            "data": [SubjectResponse.model_validate(s) for s in subjects],
-            "meta": {"page": page, "total": total, "limit": limit},
-        }
+        return paginate(db, Subject, SubjectResponse, Subject.name.asc(), page, limit)
 
     @staticmethod
     def get_subject_by_id(db: Session, subject_id: int) -> SubjectResponse:
-        obj = db.query(Subject).filter(Subject.id == subject_id).first()
-        if not obj:
-            raise HTTPException(status_code=404, detail="Subject not found")
+        obj = get_or_404(db, Subject, subject_id, "Subject")
         return SubjectResponse.model_validate(obj)
-
-    @staticmethod
-    def setup_form(db: Session) -> dict:
-        from app.models.role import Role
-        teachers = db.query(User).join(Role).filter(Role.name.in_(["teacher", "instructor"]), User.is_active == True).all()
-        teacher_options = [{"value": t.id, "label": f"{t.username} ({t.email})"} for t in teachers]
-        return {
-            "fields": {
-                "teacher_id": {"type": "select", "options": teacher_options, "required": True},
-                "name": {"type": "string", "required": True},
-                "code": {"type": "string", "required": False, "hint": "e.g. MTH101"},
-                "description": {"type": "text", "required": False},
-                "credits": {"type": "number", "required": False, "default": 3},
-                "hours_per_week": {"type": "number", "required": False},
-                "is_active": {"type": "boolean", "required": False},
-            }
-        }
 
     @staticmethod
     def create_subject(db: Session, subject_in: SubjectCreate) -> SubjectResponse:
@@ -81,9 +52,7 @@ class SubjectService:
 
     @staticmethod
     def update_subject(db: Session, subject_id: int, subject_in: SubjectUpdate) -> SubjectResponse:
-        obj = db.query(Subject).filter(Subject.id == subject_id).first()
-        if not obj:
-            raise HTTPException(status_code=404, detail="Subject not found")
+        obj = get_or_404(db, Subject, subject_id, "Subject")
 
         if subject_in.name:
             conflict = (
@@ -98,18 +67,14 @@ class SubjectService:
             if not db.query(User).filter(User.id == subject_in.instructor_id).first():
                 raise HTTPException(status_code=400, detail="Teacher not found")
 
-        for field, value in subject_in.model_dump(exclude_unset=True).items():
-            setattr(obj, field, value)
-
+        apply_update(obj, subject_in)
         db.commit()
         db.refresh(obj)
         return SubjectResponse.model_validate(obj)
 
     @staticmethod
     def delete_subject(db: Session, subject_id: int) -> dict:
-        obj = db.query(Subject).filter(Subject.id == subject_id).first()
-        if not obj:
-            raise HTTPException(status_code=404, detail="Subject not found")
+        obj = get_or_404(db, Subject, subject_id, "Subject")
 
         if obj.courses:
             raise HTTPException(
@@ -123,8 +88,6 @@ class SubjectService:
 
     @staticmethod
     def get_subject_courses(db: Session, subject_id: int) -> list:
-        obj = db.query(Subject).filter(Subject.id == subject_id).first()
-        if not obj:
-            raise HTTPException(status_code=404, detail="Subject not found")
+        obj = get_or_404(db, Subject, subject_id, "Subject")
         from app.schemas.course import CourseResponse
         return [CourseResponse.model_validate(c) for c in obj.courses]

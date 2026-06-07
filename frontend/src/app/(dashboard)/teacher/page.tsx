@@ -5,13 +5,7 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { Globe, Plus } from "lucide-react";
 import { CalendarSkeleton } from "@/components/student/WidgetSkeleton";
-
-const normalizeRole = (role: string | null | undefined) => {
-  if (role === "instructor") {
-    return "teacher";
-  }
-  return role ?? "";
-};
+import { normalizeRole } from "@/lib/auth";
 
 const TeacherPage = () => {
   const userId = cookies().get("user_id")?.value || null;

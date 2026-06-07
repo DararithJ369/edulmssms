@@ -1,63 +1,38 @@
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from app.models.exam import Exam
 from app.models.result import Result
 from app.schemas.exam import ExamCreate, ExamUpdate, ExamResponse, ExamSubmitPayload
 from app.schemas.result import ResultResponse
+from app.services.base_service import get_or_404, paginate, apply_update, create_and_commit, delete_and_commit
 
 
 class ExamService:
 
     @staticmethod
     def get_exams(db: Session, page: int = 1, limit: int = 10) -> dict:
-        total = db.query(func.count(Exam.id)).scalar()
-        exams = (
-            db.query(Exam)
-            .order_by(Exam.created_at.desc())
-            .offset((page - 1) * limit)
-            .limit(limit)
-            .all()
-        )
-        return {
-            "data": [ExamResponse.model_validate(e) for e in exams],
-            "meta": {"page": page, "total": total, "limit": limit},
-        }
+        return paginate(db, Exam, ExamResponse, Exam.created_at.desc(), page, limit)
 
     @staticmethod
     def get_exam_by_id(db: Session, exam_id: int) -> ExamResponse:
-        obj = db.query(Exam).filter(Exam.id == exam_id).first()
-        if not obj:
-            raise HTTPException(status_code=404, detail="Exam not found")
+        obj = get_or_404(db, Exam, exam_id, "Exam")
         return ExamResponse.model_validate(obj)
 
     @staticmethod
     def create_exam(db: Session, exam_in: ExamCreate) -> ExamResponse:
-        obj = Exam(**exam_in.model_dump())
-        db.add(obj)
-        db.commit()
-        db.refresh(obj)
-        return ExamResponse.model_validate(obj)
+        return create_and_commit(db, Exam, exam_in, ExamResponse)
 
     @staticmethod
     def update_exam(db: Session, exam_id: int, exam_in: ExamUpdate) -> ExamResponse:
-        obj = db.query(Exam).filter(Exam.id == exam_id).first()
-        if not obj:
-            raise HTTPException(status_code=404, detail="Exam not found")
-        for field, value in exam_in.model_dump(exclude_unset=True).items():
-            setattr(obj, field, value)
+        obj = get_or_404(db, Exam, exam_id, "Exam")
+        apply_update(obj, exam_in)
         db.commit()
         db.refresh(obj)
         return ExamResponse.model_validate(obj)
 
     @staticmethod
     def delete_exam(db: Session, exam_id: int) -> dict:
-        obj = db.query(Exam).filter(Exam.id == exam_id).first()
-        if not obj:
-            raise HTTPException(status_code=404, detail="Exam not found")
-        db.delete(obj)
-        db.commit()
-        return {"detail": "Exam deleted successfully"}
+        return delete_and_commit(db, Exam, exam_id, "Exam")
 
     # ── Submissions & results ─────────────────────────────────────────────────
 
@@ -65,13 +40,11 @@ class ExamService:
     def submit_exam(
         db: Session, exam_id: int, student_id: int, payload: ExamSubmitPayload
     ) -> ResultResponse:
-        if not db.query(Exam).filter(Exam.id == exam_id).first():
-            raise HTTPException(status_code=404, detail="Exam not found")
+        get_or_404(db, Exam, exam_id, "Exam")
 
         if db.query(Result).filter(Result.exam_id == exam_id, Result.student_id == student_id).first():
             raise HTTPException(status_code=400, detail="Exam already submitted")
 
-        # Score is None until manually graded by teacher
         result = Result(
             exam_id=exam_id,
             student_id=student_id,
@@ -79,10 +52,9 @@ class ExamService:
             notes=getattr(payload, "notes", None),
         )
         db.add(result)
-        # Record streak activity
+
         try:
             from app.services.streak_service import StreakService
-            # student_id might be a string UUID from current_user.id
             StreakService.record_activity(db, str(student_id))
         except Exception as e:
             print(f"Failed to record streak activity on exam submit: {e}")
@@ -93,8 +65,7 @@ class ExamService:
 
     @staticmethod
     def get_exam_results(db: Session, exam_id: int) -> list:
-        if not db.query(Exam).filter(Exam.id == exam_id).first():
-            raise HTTPException(status_code=404, detail="Exam not found")
+        get_or_404(db, Exam, exam_id, "Exam")
         results = db.query(Result).filter(Result.exam_id == exam_id).all()
         return [ResultResponse.model_validate(r) for r in results]
 
@@ -102,9 +73,7 @@ class ExamService:
     def grade_result(
         db: Session, result_id: int, score: float, notes: str = ""
     ) -> ResultResponse:
-        result = db.query(Result).filter(Result.id == result_id).first()
-        if not result:
-            raise HTTPException(status_code=404, detail="Result not found")
+        result = get_or_404(db, Result, result_id, "Result")
         result.score = score
         result.notes = notes
         db.commit()

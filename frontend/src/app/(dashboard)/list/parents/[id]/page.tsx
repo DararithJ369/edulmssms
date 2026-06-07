@@ -14,11 +14,8 @@ import {
 } from "lucide-react";
 import { getImageUrl } from "@/lib/image-url";
 import { getInitials, getInitialsColor } from "@/lib/avatar";
+import { normalizeRole } from "@/lib/auth";
 
-const normalizeRole = (role: string | null | undefined) => {
-  if (role === "instructor") return "teacher";
-  return role ?? "";
-};
 
 const fmtDate = (v?: string | null) => {
   if (!v) return "-";
