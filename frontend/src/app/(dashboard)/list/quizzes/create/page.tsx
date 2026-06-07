@@ -17,7 +17,7 @@ import {
   ChevronUp,
   AlertTriangle,
 } from "lucide-react";
-import toast from "react-hot-toast";
+import { toast } from "react-toastify";
 
 type QuizOptionDraft = {
   option_text: string;
