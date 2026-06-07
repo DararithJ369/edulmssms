@@ -66,7 +66,9 @@ export default function QuizAttemptPage() {
 
   const [quiz, setQuiz] = useState<QuizDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [phase, setPhase] = useState<"intro" | "attempt" | "submitted">("intro");
+  const [phase, setPhase] = useState<"intro" | "attempt" | "submitted" | "manage">("intro");
+  const [userRole, setUserRole] = useState<string>("");
+  const [quizAttempts, setQuizAttempts] = useState<any[]>([]);
 
   // Answers: question_id → selected option_id (as string) or option_ids list (as string[]) or text string
   const [answers, setAnswers] = useState<Record<number, string | string[]>>({});
@@ -82,6 +84,10 @@ export default function QuizAttemptPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
+    const role = localStorage.getItem("user_role") || "";
+    const normalized = role === "instructor" ? "teacher" : role;
+    setUserRole(normalized);
+
     const load = async () => {
       setLoading(true);
       try {
@@ -89,6 +95,37 @@ export default function QuizAttemptPage() {
         setQuiz(data);
         if (data.time_limit) {
           setTimeLeft(data.time_limit * 60);
+        }
+
+        // Teachers/admins see management view
+        if (normalized === "teacher" || normalized === "admin") {
+          try {
+            const attemptsRes = await api.get(`/quizzes/${quizId}/results`);
+            setQuizAttempts(Array.isArray(attemptsRes.data) ? attemptsRes.data : attemptsRes.data?.data || []);
+          } catch {
+            setQuizAttempts([]);
+          }
+          setPhase("manage");
+        } else {
+          // Students: check if already submitted
+          try {
+            const resultsRes = await api.get(`/results?type=quiz&limit=1000`);
+            const results = resultsRes.data?.data || [];
+            const existing = results.find(
+              (r: any) => r.quiz_id === Number(quizId)
+            );
+            if (existing) {
+              setResult({
+                score: existing.score,
+                total: existing.total_marks,
+                percentage: existing.percentage,
+                is_passed: existing.is_passed,
+              });
+              setPhase("submitted");
+            }
+          } catch {
+            // Results check failed — allow attempt
+          }
         }
       } catch (err) {
         console.error("Failed to load quiz:", err);
@@ -307,6 +344,135 @@ export default function QuizAttemptPage() {
             <Link href="/list/results" className="flex-1">
               <button className="w-full px-4 py-2.5 bg-[#0038A8] text-white font-bold text-xs rounded-xl hover:bg-[#002D86] transition-colors flex items-center justify-center gap-1.5">
                 <BarChart2 className="h-3.5 w-3.5" />View Gradebook
+              </button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── MANAGE PHASE (Teacher/Admin) ────────────────────────────────────────
+  if (phase === "manage" && quiz) {
+    const avgScore = quizAttempts.length > 0
+      ? (quizAttempts.reduce((sum: number, a: any) => sum + (a.percentage || 0), 0) / quizAttempts.length).toFixed(1)
+      : "—";
+    const passCount = quizAttempts.filter((a: any) => a.is_passed).length;
+    const failCount = quizAttempts.length - passCount;
+
+    return (
+      <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen font-sans text-left">
+        {/* Breadcrumb */}
+        <div className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase tracking-wider font-bold select-none">
+          <Link href="/" className="hover:text-foreground flex items-center gap-1"><Globe className="h-3 w-3" />Home</Link>
+          <span>/</span>
+          <Link href="/list/quizzes" className="hover:text-foreground">Quizzes</Link>
+          <span>/</span>
+          <span className="text-foreground">{quiz.title} — Management</span>
+        </div>
+
+        <div className="max-w-4xl mx-auto space-y-6">
+          <div>
+            <span className="text-xs font-extrabold text-[#0038A8] uppercase tracking-wider font-mono">Quiz Management</span>
+            <h1 className="text-2xl font-black text-gray-900 tracking-tight mt-0.5">{quiz.title}</h1>
+            {quiz.description && <p className="text-sm text-muted-foreground mt-1">{quiz.description}</p>}
+          </div>
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { label: "Total Attempts", value: quizAttempts.length, color: "text-[#0038A8]" },
+              { label: "Avg Score", value: `${avgScore}%`, color: "text-amber-600" },
+              { label: "Passed", value: passCount, color: "text-emerald-600" },
+              { label: "Failed", value: failCount, color: "text-red-500" },
+            ].map(({ label, value, color }) => (
+              <div key={label} className="bg-card border border-border/60 rounded-2xl p-4 text-center">
+                <p className={`text-2xl font-black ${color}`}>{value}</p>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-1">{label}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Questions Preview */}
+          <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-sm">
+            <h2 className="text-sm font-black text-foreground uppercase tracking-wider mb-4">
+              Questions ({quiz.questions?.length || 0})
+            </h2>
+            <div className="space-y-3">
+              {(quiz.questions || []).map((q, idx) => (
+                <div key={q.id} className="flex items-start gap-3 p-3 bg-muted/30 rounded-xl">
+                  <span className="text-xs font-black text-[#0038A8] shrink-0 mt-0.5">Q{idx + 1}</span>
+                  <div>
+                    <p className="text-sm font-bold text-foreground">{q.question_text || (q as any).question}</p>
+                    <div className="flex flex-wrap gap-2 mt-1.5">
+                      {(q.options || []).map((opt) => (
+                        <span
+                          key={opt.id}
+                          className={`text-xs px-2 py-0.5 rounded-lg border ${
+                            (opt as any).is_correct
+                              ? "bg-emerald-50 border-emerald-200 text-emerald-700 font-bold"
+                              : "bg-white border-border text-muted-foreground"
+                          }`}
+                        >
+                          {opt.option_text}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Attempts Table */}
+          <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-sm">
+            <h2 className="text-sm font-black text-foreground uppercase tracking-wider mb-4">
+              Student Attempts ({quizAttempts.length})
+            </h2>
+            {quizAttempts.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">No attempts yet.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-2 px-3 text-xs font-black text-muted-foreground uppercase">Student</th>
+                      <th className="text-left py-2 px-3 text-xs font-black text-muted-foreground uppercase">Score</th>
+                      <th className="text-left py-2 px-3 text-xs font-black text-muted-foreground uppercase">Percentage</th>
+                      <th className="text-left py-2 px-3 text-xs font-black text-muted-foreground uppercase">Grade</th>
+                      <th className="text-left py-2 px-3 text-xs font-black text-muted-foreground uppercase">Result</th>
+                      <th className="text-left py-2 px-3 text-xs font-black text-muted-foreground uppercase">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {quizAttempts.map((a: any, idx: number) => (
+                      <tr key={idx} className="border-b border-border/40 hover:bg-muted/20">
+                        <td className="py-2.5 px-3 font-bold">{a.student_name || `Student`}</td>
+                        <td className="py-2.5 px-3">{a.score ?? "—"} / {a.total_marks ?? "—"}</td>
+                        <td className="py-2.5 px-3">{a.percentage != null ? `${a.percentage.toFixed(1)}%` : "—"}</td>
+                        <td className="py-2.5 px-3 font-bold">{a.grade || "—"}</td>
+                        <td className="py-2.5 px-3">
+                          <span className={`text-xs font-black px-2 py-0.5 rounded-lg ${
+                            a.is_passed ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"
+                          }`}>
+                            {a.is_passed ? "PASSED" : "FAILED"}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 text-muted-foreground">
+                          {a.graded_at ? new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(a.graded_at)) : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-3 pb-8">
+            <Link href="/list/quizzes">
+              <button className="px-5 py-2.5 border border-border rounded-xl text-sm font-bold text-muted-foreground hover:bg-accent transition-colors">
+                Back to Quizzes
               </button>
             </Link>
           </div>

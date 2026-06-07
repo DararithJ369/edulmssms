@@ -18,6 +18,7 @@ import {
   Sliders,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { useDialog } from "@/hooks/DialogProvider";
 
 type ScheduleSlot = {
   id: number;
@@ -47,6 +48,7 @@ const DAYS_OF_WEEK = [
 ];
 
 export default function TimetableSchedulesPage() {
+  const dialog = useDialog();
   const [slots, setSlots] = useState<ScheduleSlot[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -176,7 +178,8 @@ export default function TimetableSchedulesPage() {
 
   // Delete slot handler
   const handleDeleteSlot = async (id: number) => {
-    if (!confirm("Delete this weekly schedule slot? generated class occurrences will remain, but no future ones will be scheduled from it.")) return;
+    const confirmed = await dialog.confirm({ title: "Delete Schedule Slot", description: "Delete this weekly schedule slot? Generated class occurrences will remain, but no future ones will be scheduled from it.", variant: "destructive" });
+    if (!confirmed) return;
     try {
       await api.delete(`/schedule-slots/${id}`);
       await loadData();

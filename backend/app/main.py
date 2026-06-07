@@ -38,6 +38,7 @@ from app.routes import (
     audit_log_router,
     event_router,
     storage_router,
+    analytics_router,
 )
 
 from app.routes.profiles import profiles_router
@@ -109,6 +110,7 @@ router.include_router(router=video_learning_router)
 router.include_router(router=audit_log_router)
 router.include_router(router=event_router)
 router.include_router(router=storage_router)
+router.include_router(router=analytics_router)
 
 
 

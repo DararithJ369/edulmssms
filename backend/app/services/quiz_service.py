@@ -47,8 +47,12 @@ class QuizService:
         db.flush()
 
         for q in (quiz_in.questions or []):
-            options = q.pop("options", []) if isinstance(q, dict) else getattr(q, "options", [])
-            question_data = q if isinstance(q, dict) else q.model_dump(exclude={"options"})
+            if isinstance(q, dict):
+                options = q.pop("options", [])
+                question_data = q
+            else:
+                options = q.options or []
+                question_data = q.model_dump(exclude={"options"})
             question = QuizQuestion(quiz_id=obj.id, **question_data)
             db.add(question)
             db.flush()

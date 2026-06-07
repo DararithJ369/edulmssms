@@ -47,6 +47,23 @@ const QuizListPage = async ({
   const exactToken = cookieStore.get("access_token")?.value || cookieStore.get("token")?.value || "";
   const fetchOptions = { token: exactToken };
 
+  // Fetch real completion status for students
+  let completedQuizIds = new Set<number>();
+  if (role === "student") {
+    const resultsResponse = await serverFetch<{
+      data: Array<{ quiz_id: number | null }>;
+      meta: { total: number };
+    }>(`/results?type=quiz&limit=1000`, fetchOptions).catch(() => ({
+      data: [],
+      meta: { total: 0 },
+    }));
+    completedQuizIds = new Set(
+      (resultsResponse.data || [])
+        .filter((r) => r.quiz_id != null)
+        .map((r) => r.quiz_id as number)
+    );
+  }
+
   let data: QuizList[] = [];
   let count = 0;
 
@@ -111,6 +128,14 @@ const QuizListPage = async ({
             Quizzes & Automated Feedback
           </h1>
         </div>
+        {(role === "admin" || role === "teacher") && (
+          <Link href="/list/quizzes/create">
+            <button className="flex items-center gap-1.5 px-4 py-2 bg-[#0038A8] text-white rounded-xl text-xs font-black hover:bg-[#0038A8]/90 transition-colors">
+              <GraduationCap className="h-4 w-4" />
+              Create Quiz
+            </button>
+          </Link>
+        )}
       </div>
 
       {/* FILTER & SEARCH UTILITY */}
@@ -136,8 +161,7 @@ const QuizListPage = async ({
       {data.length > 0 ? (
         <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.01)] space-y-3">
           {data.map((item) => {
-            // Mock completion check: even IDs are marked completed
-            const isDone = item.id % 2 === 0;
+            const isDone = role === "student" ? completedQuizIds.has(item.id) : false;
             return (
               <div 
                 key={item.id} 

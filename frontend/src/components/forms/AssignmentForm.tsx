@@ -41,7 +41,10 @@ const AssignmentForm = ({
     }
   );
 
+  const [saving, setSaving] = useState(false);
+
   const onSubmit = handleSubmit((data) => {
+    setSaving(true);
     formAction({ ...data, attachmentFile: uploadedFile?.secure_url });
   });
 
@@ -49,10 +52,14 @@ const AssignmentForm = ({
 
   useEffect(() => {
     if (state.success) {
-      toast(`Assignment has been ${type === "create" ? "created" : "updated"}!`);
+      toast.success(`Assignment has been ${type === "create" ? "created" : "updated"}!`);
       setOpen(false);
       router.refresh();
     }
+    if (state.error) {
+      toast.error("Failed to save assignment.");
+    }
+    setSaving(false);
   }, [state, router, type, setOpen]);
 
   const { lessons = [] } = relatedData;
@@ -148,8 +155,8 @@ const AssignmentForm = ({
       {state.error && (
         <span className="text-red-500">Something went wrong!</span>
       )}
-      <button type="submit" className="bg-blue-400 text-white p-2 rounded-md">
-        {type === "create" ? "Create" : "Update"}
+      <button type="submit" disabled={saving} className="bg-blue-400 text-white p-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed">
+        {saving ? "Saving..." : type === "create" ? "Create" : "Update"}
       </button>
     </form>
   );

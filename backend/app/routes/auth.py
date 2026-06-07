@@ -1,4 +1,6 @@
 import os
+import time
+from collections import defaultdict
 from datetime import timedelta
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -12,6 +14,25 @@ from app.config.logger import security_logger
 from app.utils.device_tracker import DeviceTracker
 from app.services.audit_log_service import AuditLogService
 from pydantic import BaseModel
+
+# Simple in-memory rate limiter for login endpoint
+_login_attempts: dict[str, list[float]] = defaultdict(list)
+_LOGIN_RATE_LIMIT = 5  # max attempts
+_LOGIN_RATE_WINDOW = 60  # per 60 seconds
+
+
+def _check_login_rate_limit(request: Request) -> None:
+    client_ip = DeviceTracker.get_client_ip(request)
+    now = time.time()
+    attempts = _login_attempts[client_ip]
+    # Prune old attempts outside the window
+    _login_attempts[client_ip] = [t for t in attempts if now - t < _LOGIN_RATE_WINDOW]
+    if len(_login_attempts[client_ip]) >= _LOGIN_RATE_LIMIT:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many login attempts. Try again in {_LOGIN_RATE_WINDOW} seconds.",
+        )
+    _login_attempts[client_ip].append(now)
 
 load_dotenv()
 
@@ -37,6 +58,7 @@ class RefreshRequest(BaseModel):
 
 @auth_router.post("/login", response_model=Token)
 def login(request: Request, data: LoginRequest, db: Session = Depends(get_db)):
+    _check_login_rate_limit(request)
     user = UserService.login(db, data)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid email or password")

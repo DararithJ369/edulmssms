@@ -29,10 +29,11 @@ def get_all_attendance(
     page: int = 1,
     limit: int = 10,
     search: str = "",
+    course_id: Optional[int] = None,
     current_user = Depends(PermissionGuard.get_current_user),
     db: Session = Depends(get_db),
 ):
-    return AttendanceService.get_all_attendance(db, page, limit, search, current_user)
+    return AttendanceService.get_all_attendance(db, page, limit, search, current_user, course_id=course_id)
 
 
 @attendance_router.delete("/attendance/{attendance_id}", dependencies=[Depends(PermissionGuard.admin_or_instructor)])
