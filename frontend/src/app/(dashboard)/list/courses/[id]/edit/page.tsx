@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { getImageUrl } from "@/lib/image-url";
+import { useDialog } from "@/hooks/DialogProvider";
 import LessonForm from "@/components/forms/LessonForm"; 
 import BackButton from "@/components/BackButton"; 
 import {
@@ -280,6 +281,7 @@ function SortableModuleItem({
 }
 
 export default function CourseDetailEditorPage() {
+  const dialog = useDialog();
   const router = useRouter();
   const params = useParams();
   const courseId = params.id as string;
@@ -536,7 +538,8 @@ export default function CourseDetailEditorPage() {
   };
 
   const handleDeleteSyllabusSection = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this module section and its tracking history?")) return;
+    const moduleConfirmed = await dialog.confirm({ title: "Delete Module", description: "Are you sure you want to delete this module section and its tracking history?", variant: "destructive" });
+    if (!moduleConfirmed) return;
     try {
       await api.delete(`/courses-management/modules/${id}`);
       await fetchCourseDetails();
@@ -596,7 +599,8 @@ export default function CourseDetailEditorPage() {
   };
 
   const handleDeleteLesson = async (id: number) => {
-    if (!confirm("Are you sure you want to drop this lesson?")) return;
+    const lessonConfirmed = await dialog.confirm({ title: "Delete Lesson", description: "Are you sure you want to drop this lesson?", variant: "destructive" });
+    if (!lessonConfirmed) return;
     try {
       await api.delete(`/courses-management/lessons/${id}`);
       await fetchCourseDetails();

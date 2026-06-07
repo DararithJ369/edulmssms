@@ -110,6 +110,21 @@ export default async function ParentDashboardPage({ searchParams }: ParentDashbo
         )}
       </div>
 
+      {/* Risk Alert for low attendance */}
+      {activeStudent && attendancePercentage < 75 && totalAtt > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center gap-3 animate-in fade-in">
+          <ShieldAlert className="h-5 w-5 text-red-500 shrink-0" />
+          <div>
+            <p className="text-sm font-black text-red-700">
+              Attendance Alert: {activeStudent.name} {activeStudent.surname}
+            </p>
+            <p className="text-xs text-red-600 mt-0.5">
+              Attendance is at {attendancePercentage}% — below the 75% threshold. Please contact the school.
+            </p>
+          </div>
+        </div>
+      )}
+
       {activeStudent ? (
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           {/* LEFT COLUMN: ACADEMIC CALENDAR & GRADES */}

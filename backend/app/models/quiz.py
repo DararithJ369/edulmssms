@@ -41,6 +41,7 @@ class QuizQuestion(Base):
     id = Column(Integer, primary_key=True, index=True)
     quiz_id = Column(Integer, ForeignKey("quizzes.id"), nullable=False)
     question_text = Column(Text, nullable=False)
+    question_type = Column(String, nullable=True, default="multiple_choice")
     
     # Relationships
     quiz = relationship("Quiz", back_populates="questions")

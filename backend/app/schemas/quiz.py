@@ -1,6 +1,18 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
+
+
+class QuizOptionCreate(BaseModel):
+    option_text: str
+    is_correct: int = 0  # 1 for correct, 0 for incorrect
+
+
+class QuizQuestionCreate(BaseModel):
+    question_text: str
+    question_type: Optional[str] = "multiple_choice"
+    options: List[QuizOptionCreate] = []
+
 
 class QuizBase(BaseModel):
     course_id: int
@@ -12,7 +24,7 @@ class QuizBase(BaseModel):
     lesson_id: Optional[int] = None
 
 class QuizCreate(QuizBase):
-    pass
+    questions: Optional[List[QuizQuestionCreate]] = None
 
 class QuizUpdate(BaseModel):
     title: Optional[str] = None
@@ -33,6 +45,7 @@ class QuizQuestionResponse(BaseModel):
     id: int
     quiz_id: int
     question_text: str
+    question_type: Optional[str] = "multiple_choice"
     options: list[QuizOptionResponse] = []
 
     model_config = {"from_attributes": True}

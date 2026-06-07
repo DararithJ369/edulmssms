@@ -16,7 +16,7 @@ import {
   updateSubject,
 } from "@/lib/actions";
 import { useFormState } from "react-dom";
-import { Dispatch, SetStateAction, useEffect } from "react";
+import { Dispatch, SetStateAction, useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { useRouter } from "next/navigation";
 
@@ -49,8 +49,10 @@ const ClassForm = ({
     }
   );
 
+  const [saving, setSaving] = useState(false);
+
   const onSubmit = handleSubmit((data) => {
-    console.log(data);
+    setSaving(true);
     formAction(data);
   });
 
@@ -58,10 +60,14 @@ const ClassForm = ({
 
   useEffect(() => {
     if (state.success) {
-      toast(`Subject has been ${type === "create" ? "created" : "updated"}!`);
+      toast.success(`Class has been ${type === "create" ? "created" : "updated"}!`);
       setOpen(false);
       router.refresh();
     }
+    if (state.error) {
+      toast.error("Failed to save class.");
+    }
+    setSaving(false);
   }, [state, router, type, setOpen]);
 
   const { teachers = [], grades = [] } = relatedData || {};
@@ -149,8 +155,8 @@ const ClassForm = ({
       {state.error && (
         <span className="text-red-500">Something went wrong!</span>
       )}
-      <button className="bg-blue-400 text-white p-2 rounded-md">
-        {type === "create" ? "Create" : "Update"}
+      <button type="submit" disabled={saving} className="bg-blue-400 text-white p-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed">
+        {saving ? "Saving..." : type === "create" ? "Create" : "Update"}
       </button>
     </form>
   );

@@ -16,6 +16,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { useDialog } from "@/hooks/DialogProvider";
 
 type Term = {
   id: number;
@@ -37,6 +38,7 @@ type AcademicYear = {
 };
 
 export default function AcademicYearsPage() {
+  const dialog = useDialog();
   const [years, setYears] = useState<AcademicYear[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedYear, setExpandedYear] = useState<number | null>(null);
@@ -128,7 +130,8 @@ export default function AcademicYearsPage() {
 
   // Delete year
   const deleteYear = async (id: number) => {
-    if (!confirm("Delete this academic year? This cannot be undone.")) return;
+    const confirmed = await dialog.confirm({ title: "Delete Academic Year", description: "Delete this academic year? This cannot be undone.", variant: "destructive" });
+    if (!confirmed) return;
     setDeletingYear(id);
     try {
       await api.delete(`/academic-years/${id}`);
@@ -182,7 +185,8 @@ export default function AcademicYearsPage() {
 
   // Delete term
   const deleteTerm = async (id: number) => {
-    if (!confirm("Delete this term?")) return;
+    const termConfirmed = await dialog.confirm({ title: "Delete Term", description: "Delete this term?", variant: "destructive" });
+    if (!termConfirmed) return;
     setDeletingTerm(id);
     try {
       await api.delete(`/academic-years/term/${id}`);

@@ -70,15 +70,15 @@ export default function CourseDetailPage() {
   const courseId = params.id as string;
   const activeModuleIdParam = searchParams.get("expandedModuleId");
 
-  const tabParam = searchParams.get("tab") as "course" | "participants" | "grades" | null;
-  const [activeTab, setActiveTab] = useState<"course" | "participants" | "grades">(
-    tabParam && ["course", "participants", "grades"].includes(tabParam) ? tabParam : "course"
+  const tabParam = searchParams.get("tab") as "course" | "participants" | "grades" | "analytics" | null;
+  const [activeTab, setActiveTab] = useState<"course" | "participants" | "grades" | "analytics">(
+    tabParam && ["course", "participants", "grades", "analytics"].includes(tabParam) ? tabParam : "course"
   );
   const [role, setRole] = useState<string>("");
 
   useEffect(() => {
-    const currentTab = searchParams.get("tab") as "course" | "participants" | "grades" | null;
-    if (currentTab && ["course", "participants", "grades"].includes(currentTab)) {
+    const currentTab = searchParams.get("tab") as "course" | "participants" | "grades" | "analytics" | null;
+    if (currentTab && ["course", "participants", "grades", "analytics"].includes(currentTab)) {
       setActiveTab(currentTab);
     }
   }, [searchParams]);
@@ -103,6 +103,7 @@ export default function CourseDetailPage() {
   // Tab data
   const [participants, setParticipants] = useState<any[]>([]);
   const [grades, setGrades] = useState<any[]>([]);
+  const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [tabLoading, setTabLoading] = useState(false);
 
   // Inline grade edit state (teacher/admin)
@@ -163,6 +164,9 @@ export default function CourseDetailPage() {
         } else if (activeTab === "grades") {
           const { data } = await api.get(`/courses/${courseId}/grades`);
           setGrades(Array.isArray(data) ? data : data?.data ?? []);
+        } else if (activeTab === "analytics") {
+          const { data } = await api.get(`/analytics/course/${courseId}`);
+          setAnalyticsData(data);
         }
       } catch (err) {
         console.error("Failed to load tab data", err);
@@ -256,10 +260,10 @@ export default function CourseDetailPage() {
 
         {/* TAB BAR */}
         <div className="flex border-b border-border/60 gap-6 select-none text-xs font-extrabold text-muted-foreground pt-2">
-          {(["course", "participants", "grades"] as const).map((tab) => (
+          {(["course", "participants", "grades", ...(role === "teacher" || role === "admin" ? ["analytics" as const] : [])] as const).map((tab) => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => setActiveTab(tab as any)}
               className={`pb-3 border-b-2 transition-colors capitalize flex items-center gap-1.5 ${
                 activeTab === tab ? "border-[#0038A8] text-foreground" : "border-transparent hover:text-foreground"
               }`}
@@ -267,6 +271,7 @@ export default function CourseDetailPage() {
               {tab === "course" && <BookOpen className="h-3 w-3" />}
               {tab === "participants" && <Users className="h-3 w-3" />}
               {tab === "grades" && <BarChart2 className="h-3 w-3" />}
+              {tab === "analytics" && <BarChart2 className="h-3 w-3" />}
               <span>{tab === "course" ? "Course" : tab.charAt(0).toUpperCase() + tab.slice(1)}</span>
             </button>
           ))}
@@ -513,6 +518,122 @@ export default function CourseDetailPage() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* ── ANALYTICS TAB (Teacher/Admin) ────────────────────────────── */}
+      {activeTab === "analytics" && (
+        <div className="space-y-6">
+          {tabLoading ? (
+            <div className="text-center py-12 text-muted-foreground text-sm font-bold">Loading analytics...</div>
+          ) : analyticsData ? (
+            <>
+              {/* Summary Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { label: "Enrolled", value: analyticsData.enrolled_students, color: "text-[#0038A8]" },
+                  { label: "Attendance", value: `${analyticsData.attendance_rate}%`, color: "text-emerald-600" },
+                  { label: "Avg Grade", value: `${analyticsData.avg_grade_percentage}%`, color: "text-amber-600" },
+                  { label: "Pass / Fail", value: `${analyticsData.pass_count} / ${analyticsData.fail_count}`, color: "text-foreground" },
+                ].map(({ label, value, color }) => (
+                  <div key={label} className="bg-card border border-border/60 rounded-2xl p-4 text-center">
+                    <p className={`text-2xl font-black ${color}`}>{value}</p>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-1">{label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Grade Distribution */}
+              <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-sm">
+                <h3 className="text-sm font-black text-foreground uppercase tracking-wider mb-4">Grade Distribution</h3>
+                <div className="flex items-end gap-3 h-40">
+                  {Object.entries(analyticsData.grade_distribution || {}).map(([grade, count]) => {
+                    const total = Object.values(analyticsData.grade_distribution || {}).reduce((s: number, v: any) => s + (v as number), 0) as number;
+                    const pct = total > 0 ? ((count as number) / total) * 100 : 0;
+                    const colors: Record<string, string> = { A: "bg-emerald-500", B: "bg-blue-500", C: "bg-amber-500", D: "bg-orange-500", F: "bg-red-500" };
+                    return (
+                      <div key={grade} className="flex-1 flex flex-col items-center gap-1">
+                        <span className="text-xs font-black text-muted-foreground">{count as number}</span>
+                        <div className="w-full rounded-t-lg transition-all" style={{ height: `${Math.max(pct, 4)}%` }}>
+                          <div className={`w-full h-full rounded-t-lg ${colors[grade] || "bg-muted"}`} />
+                        </div>
+                        <span className="text-xs font-black">{grade}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Quiz Performance */}
+              {analyticsData.quiz_stats?.length > 0 && (
+                <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-sm">
+                  <h3 className="text-sm font-black text-foreground uppercase tracking-wider mb-4">Quiz Performance</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border">
+                          <th className="text-left py-2 px-3 text-xs font-black text-muted-foreground uppercase">Quiz</th>
+                          <th className="text-left py-2 px-3 text-xs font-black text-muted-foreground uppercase">Attempts</th>
+                          <th className="text-left py-2 px-3 text-xs font-black text-muted-foreground uppercase">Avg Score</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {analyticsData.quiz_stats.map((q: any) => (
+                          <tr key={q.quiz_id} className="border-b border-border/40">
+                            <td className="py-2.5 px-3 font-bold">{q.title}</td>
+                            <td className="py-2.5 px-3">{q.attempts}</td>
+                            <td className="py-2.5 px-3">{q.avg_percentage != null ? `${q.avg_percentage}%` : "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Assignment Completion */}
+              {analyticsData.assignment_stats?.length > 0 && (
+                <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-sm">
+                  <h3 className="text-sm font-black text-foreground uppercase tracking-wider mb-4">Assignment Completion</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border">
+                          <th className="text-left py-2 px-3 text-xs font-black text-muted-foreground uppercase">Assignment</th>
+                          <th className="text-left py-2 px-3 text-xs font-black text-muted-foreground uppercase">Submissions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {analyticsData.assignment_stats.map((a: any) => (
+                          <tr key={a.assignment_id} className="border-b border-border/40">
+                            <td className="py-2.5 px-3 font-bold">{a.title}</td>
+                            <td className="py-2.5 px-3">{a.submissions}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* At-Risk Students */}
+              {analyticsData.at_risk_students?.length > 0 && (
+                <div className="bg-card border border-red-200/60 rounded-3xl p-6 shadow-sm">
+                  <h3 className="text-sm font-black text-red-600 uppercase tracking-wider mb-4">At-Risk Students (Attendance &lt; 80%)</h3>
+                  <div className="space-y-2">
+                    {analyticsData.at_risk_students.map((s: any) => (
+                      <div key={s.student_id} className="flex items-center justify-between p-3 bg-red-50/50 rounded-xl border border-red-100">
+                        <span className="text-sm font-bold text-foreground">{s.student_name}</span>
+                        <span className="text-xs font-black text-red-600">{s.attendance_rate}% attendance</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-center py-12 text-muted-foreground text-sm">No analytics data available.</div>
+          )}
         </div>
       )}
 

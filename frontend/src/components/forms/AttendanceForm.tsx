@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import InputField from "../InputField";
-import { Dispatch, SetStateAction, useEffect } from "react";
+import { Dispatch, SetStateAction, useEffect, useState } from "react";
 import { attendanceSchema, AttendanceSchema } from "@/lib/formValidationSchemas";
 import { useFormState } from "react-dom";
 import { createAttendance, updateAttendance } from "@/lib/actions";
@@ -37,7 +37,10 @@ const AttendanceForm = ({
     }
   );
 
+  const [saving, setSaving] = useState(false);
+
   const onSubmit = handleSubmit((data) => {
+    setSaving(true);
     formAction(data);
   });
 
@@ -45,10 +48,14 @@ const AttendanceForm = ({
 
   useEffect(() => {
     if (state.success) {
-      toast(`Attendance record has been ${type === "create" ? "created" : "updated"}!`);
+      toast.success(`Attendance record has been ${type === "create" ? "created" : "updated"}!`);
       setOpen(false);
       router.refresh();
     }
+    if (state.error) {
+      toast.error("Failed to save attendance record.");
+    }
+    setSaving(false);
   }, [state, router, type, setOpen]);
 
   const { students = [], classes = [] } = relatedData;
@@ -157,8 +164,8 @@ const AttendanceForm = ({
       {state.error && (
         <span className="text-red-500">Something went wrong!</span>
       )}
-      <button type="submit" className="bg-blue-400 text-white p-2 rounded-md">
-        {type === "create" ? "Record" : "Update"}
+      <button type="submit" disabled={saving} className="bg-blue-400 text-white p-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed">
+        {saving ? "Saving..." : type === "create" ? "Record" : "Update"}
       </button>
     </form>
   );

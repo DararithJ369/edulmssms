@@ -89,9 +89,12 @@ class AttendanceService:
 
     @staticmethod
     def get_all_attendance(
-        db: Session, page: int = 1, limit: int = 10, search: str = "", current_user = None
+        db: Session, page: int = 1, limit: int = 10, search: str = "", current_user = None, course_id: int = None
     ) -> dict:
         query = db.query(Attendance)
+
+        if course_id is not None:
+            query = query.filter(Attendance.course_id == course_id)
         
         # Role-based filtering
         if current_user:

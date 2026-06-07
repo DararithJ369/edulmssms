@@ -13,6 +13,7 @@ import ResumeLearningWidget from "@/components/student/ResumeLearningWidget";
 import ContinueLearningWidget from "@/components/student/ContinueLearningWidget";
 import RecommendedCoursesWidget from "@/components/student/RecommendedCoursesWidget";
 import RecentlyViewedWidget from "@/components/student/RecentlyViewedWidget";
+import StatsOverviewWidget from "@/components/student/StatsOverviewWidget";
 
 // Skeletons
 import {
@@ -73,6 +74,11 @@ const StudentPage = async () => {
           <StreakWidget />
         </Suspense>
       </div>
+
+      {/* STATS OVERVIEW */}
+      <Suspense fallback={<div className="grid grid-cols-2 md:grid-cols-4 gap-4"><div className="h-24 bg-slate-100 rounded-2xl animate-pulse" /><div className="h-24 bg-slate-100 rounded-2xl animate-pulse" /><div className="h-24 bg-slate-100 rounded-2xl animate-pulse" /><div className="h-24 bg-slate-100 rounded-2xl animate-pulse" /></div>}>
+        <StatsOverviewWidget />
+      </Suspense>
 
       {/* RESUME LEARNING HERO CARD */}
       <Suspense fallback={<HeroSkeleton />}>

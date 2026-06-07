@@ -51,6 +51,19 @@ const AssignmentListPage = async ({
   const exactToken = cookieStore.get("access_token")?.value || cookieStore.get("token")?.value || "";
   const fetchOptions = { token: exactToken };
 
+  // Fetch real submission status for students
+  let submittedAssignmentIds = new Set<number>();
+  if (role === "student") {
+    const submissions = await serverFetch<Array<{ submission_type: string; reference_id: number }>>(
+      `/submissions/my`, fetchOptions
+    ).catch(() => []);
+    submittedAssignmentIds = new Set(
+      (submissions || [])
+        .filter((s) => s.submission_type === "assignment")
+        .map((s) => s.reference_id)
+    );
+  }
+
   let data: AssignmentList[] = [];
   let count = 0;
 
@@ -146,8 +159,7 @@ const AssignmentListPage = async ({
       {data.length > 0 ? (
         <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.01)] space-y-3">
           {data.map((item) => {
-            // Mock completion check: even IDs are marked completed
-            const isDone = item.id % 2 === 0;
+            const isDone = role === "student" ? submittedAssignmentIds.has(item.id) : false;
             return (
               <div 
                 key={item.id} 

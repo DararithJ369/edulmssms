@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Boolean, Float, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, Boolean, Float, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.db.base import Base
@@ -7,6 +7,10 @@ from app.db.base import Base
 
 class Result(Base):
     __tablename__ = "results"
+    __table_args__ = (
+        UniqueConstraint('student_id', 'quiz_id', name='uq_result_student_quiz'),
+        UniqueConstraint('student_id', 'assignment_id', name='uq_result_student_assignment'),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
 
