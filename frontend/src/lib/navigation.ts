@@ -503,11 +503,9 @@ export const getRouteAccessMap = (): Record<string, string[]> => {
       });
       if (roles.length > 0) {
         const path = item.href;
-        if (item.exact) {
-          map[path] = roles;
-        } else {
-          map[`${path}(.*)`] = roles;
-        }
+        const key = item.exact ? path : `${path}(.*)`;
+        const existing = map[key] || [];
+        map[key] = [...new Set([...existing, ...roles])];
       }
     }
   };

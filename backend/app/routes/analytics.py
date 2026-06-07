@@ -13,6 +13,7 @@ from app.models.quiz import Quiz
 from app.models.assignment import Assignment
 from app.models.submission import Submission
 from app.models.student_profile import StudentProfile
+from app.models.user_profile import UserProfile
 
 analytics_router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
@@ -173,8 +174,9 @@ def get_student_analytics(
                 "graded_at": r.graded_at.isoformat() if r.graded_at else None,
             })
 
-    # Enrolled courses
-    profile = db.query(StudentProfile).filter(StudentProfile.user_id == student_id).first()
+    # Enrolled courses — StudentProfile links via UserProfile, not directly to user_id
+    user_profile = db.query(UserProfile).filter(UserProfile.user_id == student_id).first()
+    profile = user_profile.student_profile if user_profile else None
     enrolled_courses = []
     if profile:
         enrollments = db.query(Enrollment).filter(
