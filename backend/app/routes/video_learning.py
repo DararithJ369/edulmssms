@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Header, BackgroundTasks
 from fastapi.responses import StreamingResponse, FileResponse
 from sqlalchemy.orm import Session
@@ -14,6 +15,8 @@ from app.models.video_progress import StudentVideoProgress
 from app.models.lesson_note import StudentLessonNote
 from app.models.progress import StudentLessonProgress
 from app.routes.progress import recalculate_course_progress
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/lessons", tags=["Video Learning"])
 
@@ -181,8 +184,8 @@ def save_video_progress(
             try:
                 from app.services.streak_service import StreakService
                 StreakService.record_activity(db, current_user.id)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Failed to record streak activity on video completion: %s", e)
 
             # Recalculate course progress
             lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()

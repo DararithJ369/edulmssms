@@ -143,7 +143,9 @@ export default function ClassDetailPage() {
       try {
         const sessRes = await api.get(`/classes/${classId}/sessions`);
         setSessions(Array.isArray(sessRes.data) ? sessRes.data : sessRes.data?.data ?? []);
-      } catch { /* sessions optional */ }
+      } catch (err) {
+        console.warn("Failed to load class sessions:", err);
+      }
     } catch (err) {
       console.error("Failed to load class:", err);
     } finally {

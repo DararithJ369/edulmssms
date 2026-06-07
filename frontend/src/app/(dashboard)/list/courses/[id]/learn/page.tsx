@@ -333,7 +333,9 @@ export default function CourseLearnHub({ params }: { params: { id: string } }) {
       try {
         const streakRes = await api.get("/progress/streak");
         setStreak(streakRes.data);
-      } catch (err) {}
+      } catch (err) {
+        console.warn("Failed to refresh streak data:", err);
+      }
       setSubmittingQuiz(false);
     } catch (err: any) {
       console.error(err);
@@ -360,7 +362,9 @@ export default function CourseLearnHub({ params }: { params: { id: string } }) {
       try {
         const streakRes = await api.get("/progress/streak");
         setStreak(streakRes.data);
-      } catch (err) {}
+      } catch (err) {
+        console.warn("Failed to refresh streak data:", err);
+      }
       setMutating(null);
     } catch (err) {
       console.error("Failed to toggle completion status:", err);
@@ -378,7 +382,9 @@ export default function CourseLearnHub({ params }: { params: { id: string } }) {
       try {
         const streakRes = await api.get("/progress/streak");
         setStreak(streakRes.data);
-      } catch (err) {}
+      } catch (err) {
+        console.warn("Failed to refresh streak data:", err);
+      }
       setMutating(null);
     } catch (err) {
       console.error("Failed to toggle completion status:", err);

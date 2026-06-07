@@ -141,7 +141,9 @@ export default function CourseDetailPage() {
         try {
           const { data: asgn } = await api.get(`/assignments?course_id=${courseId}&limit=50`);
           setCourseAssignments(Array.isArray(asgn) ? asgn : asgn?.data ?? []);
-        } catch { /* non-critical */ }
+        } catch (err) {
+          console.warn("Failed to pre-fetch course assignments:", err);
+        }
       } catch (err) {
         console.error("Failed to load course:", err);
         setModules([]);

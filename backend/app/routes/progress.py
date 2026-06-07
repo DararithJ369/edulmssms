@@ -1,3 +1,4 @@
+import logging
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -11,6 +12,8 @@ from app.models.progress import StudentCourseProgress, StudentLessonProgress, St
 from app.schemas.progress import ToggleProgressRequest, CourseProgressAggregate, StudentCourseProgressResponse
 from app.models.streak import StudentStreak
 from app.services.streak_service import StreakService
+
+logger = logging.getLogger(__name__)
 
 progress_router = APIRouter(prefix="/progress", tags=["Learning Progress"])
 
@@ -192,7 +195,7 @@ def toggle_lesson_progress(
         try:
             StreakService.record_activity(db, student_id)
         except Exception as e:
-            print(f"Failed to record streak activity for lesson completion: {e}")
+            logger.warning("Failed to record streak activity for lesson completion: %s", e)
 
     # Recalculate
     recalculate_course_progress(db, student_id, module.course_id)
@@ -248,7 +251,7 @@ def toggle_module_progress(
         try:
             StreakService.record_activity(db, student_id)
         except Exception as e:
-            print(f"Failed to record streak activity for module completion: {e}")
+            logger.warning("Failed to record streak activity for module completion: %s", e)
 
     # Recalculate
     recalculate_course_progress(db, student_id, module.course_id)

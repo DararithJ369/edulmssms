@@ -1,3 +1,4 @@
+import logging
 from typing import Optional, List
 from fastapi import APIRouter, Depends, Form, UploadFile, File, HTTPException, status
 from sqlalchemy.orm import Session
@@ -14,6 +15,8 @@ from app.models.quiz import Quiz
 from app.models.exam import Exam
 from app.services.file_manager import FileManager
 from app.schemas.submission import SubmissionResponse, SubmissionUpdate
+
+logger = logging.getLogger(__name__)
 
 submission_router = APIRouter(prefix="/submissions", tags=["Submissions"])
 
@@ -128,7 +131,7 @@ async def submit_homework(
             from app.services.streak_service import StreakService
             StreakService.record_activity(db, student_id)
         except Exception as e:
-            print(f"Failed to record streak activity on homework submit: {e}")
+            logger.warning("Failed to record streak activity on homework submit: %s", e)
 
     db.commit()
     db.refresh(sub)
@@ -212,7 +215,7 @@ def grade_submission(
             reference_id=sub.id
         )
     except Exception as e:
-        print(f"Failed to send grade notification: {e}")
+        logger.warning("Failed to send grade notification: %s", e)
 
     return sub
 
