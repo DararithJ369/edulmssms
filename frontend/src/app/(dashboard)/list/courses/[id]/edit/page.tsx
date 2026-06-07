@@ -5,100 +5,430 @@ import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ArrowLeft,
-  Bold,
-  Italic,
-  Link2,
-  List,
-  ListOrdered,
-  GripVertical,
   ChevronDown,
   ChevronUp,
   Plus,
   Trash2,
   CheckCircle,
-  Undo2,
   Globe,
   Settings2,
   FileText,
-  HelpCircle,
-  Bookmark,
-  Calendar,
+  Users,
+  BarChart2,
+  Settings,
   Layers,
-  GraduationCap,
-  BookOpen
+  BookOpen,
+  FileUp,
+  ExternalLink,
+  GripVertical,
+  Eye,
+  EyeOff,
+  User,
+  DollarSign,
+  Percent,
+  TrendingUp,
+  Image as ImageIcon,
+  Link2
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { getImageUrl } from "@/lib/image-url";
+import LessonForm from "@/components/forms/LessonForm"; 
+import BackButton from "@/components/BackButton"; 
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 type LessonItem = {
   id: number;
   title: string;
-  duration?: string | null;
-  material_type?: string | null;
+  order: number;
+  duration: string;
+  material_type: string;
+  material_url: string | null;
+  material_file: string | null;
+  content: string;
+  is_visible?: boolean;
 };
 
 type SyllabusItem = {
   id: number;
   week: number;
   title: string;
-  lessons?: LessonItem[];
+  lessons: LessonItem[];
+  is_hidden_from_students?: boolean;
 };
 
+function SortableLessonItem({
+  lesson,
+  moduleId,
+  handleToggleLessonVisibility,
+  openEditLessonModal,
+  handleDeleteLesson,
+  renderActivityIcon,
+}: {
+  lesson: LessonItem;
+  moduleId: number;
+  handleToggleLessonVisibility: (lesson: LessonItem) => void;
+  openEditLessonModal: (moduleId: number, lesson: LessonItem) => void;
+  handleDeleteLesson: (id: number) => void;
+  renderActivityIcon: (type: string) => React.ReactNode;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: lesson.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.7 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center justify-between p-2.5 border rounded-xl hover:bg-slate-100/50 transition-all ${
+        lesson.is_visible === false ? "opacity-50 bg-slate-50" : "bg-white"
+      }`}
+    >
+      <div className="flex items-center gap-2.5 truncate max-w-[70%] text-left">
+        <div
+          {...attributes}
+          {...listeners}
+          onClick={(e) => e.stopPropagation()}
+          className="p-1 hover:bg-slate-100 rounded cursor-grab active:cursor-grabbing shrink-0 flex items-center justify-center"
+        >
+          <GripVertical className="h-3.5 w-3.5 text-muted-foreground/30" />
+        </div>
+        {renderActivityIcon(lesson.material_type)}
+        <span className={`text-xs font-bold truncate ${lesson.is_visible === false ? "line-through text-slate-400" : "text-slate-700"}`}>
+          {lesson.title}
+        </span>
+      </div>
+      <div className="flex items-center gap-1.5 select-none" onClick={(e) => e.stopPropagation()}>
+        <button type="button" onClick={() => handleToggleLessonVisibility(lesson)} className="p-1 text-slate-400 hover:text-slate-600">
+          {lesson.is_visible !== false ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+        </button>
+        <button type="button" onClick={() => openEditLessonModal(moduleId, lesson)} className="px-2 py-1 bg-white border font-bold text-[9px] rounded-lg text-slate-600 hover:bg-slate-50">Modify</button>
+        <button type="button" onClick={() => handleDeleteLesson(lesson.id)} className="p-1 text-slate-400 hover:text-red-500"><Trash2 className="h-3 w-3" /></button>
+      </div>
+    </div>
+  );
+}
+
+function SortableModuleItem({
+  item,
+  idx,
+  isExpanded,
+  toggleSyllabusExpand,
+  handleToggleModuleVisibility,
+  startEditSyllabus,
+  handleDeleteSyllabusSection,
+  setAddLessonModuleId,
+  openEditLessonModal,
+  handleDeleteLesson,
+  handleToggleLessonVisibility,
+  renderActivityIcon,
+  handleLessonDragEnd,
+  sensors,
+}: {
+  item: SyllabusItem;
+  idx: number;
+  isExpanded: boolean;
+  toggleSyllabusExpand: (id: number) => void;
+  handleToggleModuleVisibility: (item: SyllabusItem) => void;
+  startEditSyllabus: (item: SyllabusItem) => void;
+  handleDeleteSyllabusSection: (id: number) => void;
+  setAddLessonModuleId: (id: number | null) => void;
+  openEditLessonModal: (moduleId: number, lesson: LessonItem) => void;
+  handleDeleteLesson: (id: number) => void;
+  handleToggleLessonVisibility: (lesson: LessonItem) => void;
+  renderActivityIcon: (type: string) => React.ReactNode;
+  handleLessonDragEnd: (event: DragEndEvent, moduleId: number) => void;
+  sensors: any;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.7 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`border rounded-2xl overflow-hidden shadow-sm transition-all ${
+        item.is_hidden_from_students ? "border-dashed border-slate-300 bg-slate-100/40" : "bg-slate-50/20"
+      }`}
+    >
+      <div
+        onClick={() => toggleSyllabusExpand(item.id)}
+        className="flex items-center gap-3 px-4 py-3 bg-slate-50 hover:bg-slate-100/80 cursor-pointer select-none transition-colors"
+      >
+        <div
+          {...attributes}
+          {...listeners}
+          onClick={(e) => e.stopPropagation()}
+          className="p-1 hover:bg-slate-200 rounded cursor-grab active:cursor-grabbing shrink-0 flex items-center justify-center"
+        >
+          <GripVertical className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+        </div>
+        <span className="text-muted-foreground/60 shrink-0">
+          {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </span>
+        <span className={`text-xs font-bold flex-1 text-left ${item.is_hidden_from_students ? "line-through text-slate-400" : "text-slate-800"}`}>
+          Topic {idx + 1}: {item.title}
+          {item.is_hidden_from_students && (
+            <span className="ml-2 text-[8px] font-black uppercase text-amber-600 bg-amber-50 border px-1.5 py-0.5 rounded">
+              Hidden Draft
+            </span>
+          )}
+        </span>
+        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            onClick={() => handleToggleModuleVisibility(item)}
+            className="p-1.5 border bg-white rounded-lg text-slate-500 hover:text-slate-700"
+          >
+            {item.is_hidden_from_students ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+          </button>
+          <button
+            type="button"
+            onClick={() => startEditSyllabus(item)}
+            className="px-2.5 py-1 bg-white border text-slate-800 font-bold text-[10px] rounded-lg"
+          >
+            Rename
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDeleteSyllabusSection(item.id)}
+            className="p-1 text-slate-400 hover:text-red-500"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+
+      {isExpanded && (
+        <div className="p-4 border-t bg-white space-y-3">
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block border-b pb-1 text-left">
+            Nested Lesson Activities
+          </span>
+          {item.lessons && item.lessons.length > 0 ? (
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => handleLessonDragEnd(e, item.id)}>
+              <SortableContext items={item.lessons.map(l => l.id)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-2">
+                  {item.lessons.map((lesson) => (
+                    <SortableLessonItem
+                      key={lesson.id}
+                      lesson={lesson}
+                      moduleId={item.id}
+                      handleToggleLessonVisibility={handleToggleLessonVisibility}
+                      openEditLessonModal={openEditLessonModal}
+                      handleDeleteLesson={handleDeleteLesson}
+                      renderActivityIcon={renderActivityIcon}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          ) : (
+            <p className="text-[10px] text-slate-400 font-semibold py-2 italic select-none text-left">
+              No learning activity pages registered.
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => setAddLessonModuleId(item.id)}
+            className="w-full py-2 bg-sky-500/5 hover:bg-sky-500/10 border border-dashed border-sky-500/20 text-sky-700 font-extrabold text-[10px] rounded-xl flex items-center justify-center gap-1.5 transition-colors"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>Add Lesson Activity</span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function CourseDetailEditorPage() {
   const router = useRouter();
   const params = useParams();
   const courseId = params.id as string;
 
-  // Primary Course States
+  // Core Baseline Form States
   const [courseName, setCourseName] = useState("");
   const [courseCode, setCourseCode] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("Computer Science");
   const [difficulty, setDifficulty] = useState("beginner");
   const [price, setPrice] = useState<number>(0);
-  const [salePercent, setSalePercent] = useState<number>(35);
+  const [maxStudents, setMaxStudents] = useState<number>(40); 
   const [isPublished, setIsPublished] = useState(true);
+  
+  // 🚀 THUMBNAIL STATE CONTROL
   const [thumbnail, setThumbnail] = useState("https://images.unsplash.com/photo-1610962381137-50ef93055125?auto=format&fit=crop&q=80&w=800");
   
-  // Custom Syllabus State
+  // Custom Syllabus State Tree
   const [syllabus, setSyllabus] = useState<SyllabusItem[]>([]);
+  const [expandedSyllabus, setExpandedSyllabus] = useState<Record<number, boolean>>({});
 
-  // Tags Tray
-  const [tags, setTags] = useState<string[]>([
-    "Business",
-    "Economics",
-    "Success",
-    "CIO",
-    "Goals",
-    "Management",
-    "Company",
-  ]);
-  const [newTagInput, setNewTagInput] = useState("");
-
-  // Syllabus Expanded State
-  const [expandedSyllabus, setExpandedSyllabus] = useState<Record<number, boolean>>({
-    1: true,
-  });
-
-  // Modal / Feedback State
+  // Global UX States
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
+  
+  // Modal Trackers
   const [editSyllabusId, setEditSyllabusId] = useState<number | null>(null);
   const [editSyllabusText, setEditSyllabusText] = useState("");
   const [editSyllabusOrder, setEditSyllabusOrder] = useState<number>(1);
 
-  // Lesson Actions States
-  const [editLessonId, setEditLessonId] = useState<number | null>(null);
-  const [editLessonText, setEditLessonText] = useState("");
   const [addLessonModuleId, setAddLessonModuleId] = useState<number | null>(null);
-  const [newLessonTitle, setNewLessonTitle] = useState("");
+  const [editLessonId, setEditLessonId] = useState<number | null>(null);
+  const [editLessonParentModuleId, setEditLessonParentModuleId] = useState<number | null>(null);
+  const [selectedLessonData, setSelectedLessonData] = useState<any>(null);
 
+  const liveTotalLessons = syllabus.reduce((acc, curr) => acc + (curr.lessons?.length || 0), 0);
 
-  // Load Course details on mount
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
+
+  const handleModuleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = syllabus.findIndex(m => m.id === active.id);
+    const newIndex = syllabus.findIndex(m => m.id === over.id);
+
+    const reorderedSyllabus = arrayMove(syllabus, oldIndex, newIndex);
+    const updatedSyllabus = reorderedSyllabus.map((item, idx) => ({
+      ...item,
+      week: idx + 1
+    }));
+    
+    setSyllabus(updatedSyllabus);
+
+    try {
+      await api.post(`/courses-management/${courseId}/modules/reorder`, {
+        ids: updatedSyllabus.map(m => m.id)
+      });
+    } catch (err) {
+      console.error("Failed to reorder modules:", err);
+      fetchCourseDetails();
+    }
+  };
+
+  const handleLessonDragEnd = async (event: DragEndEvent, moduleId: number) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const moduleItem = syllabus.find(m => m.id === moduleId);
+    if (!moduleItem) return;
+
+    const oldIndex = moduleItem.lessons.findIndex(l => l.id === active.id);
+    const newIndex = moduleItem.lessons.findIndex(l => l.id === over.id);
+
+    const reorderedLessons = arrayMove(moduleItem.lessons, oldIndex, newIndex);
+    const updatedLessons = reorderedLessons.map((l, idx) => ({
+      ...l,
+      order: idx + 1
+    }));
+
+    setSyllabus(prev => prev.map(m => m.id === moduleId ? { ...m, lessons: updatedLessons } : m));
+
+    try {
+      await api.post(`/courses-management/modules/${moduleId}/lessons/reorder`, {
+        ids: updatedLessons.map(l => l.id)
+      });
+    } catch (err) {
+      console.error("Failed to reorder lessons:", err);
+      fetchCourseDetails();
+    }
+  };
+
+  const fetchCourseDetails = async () => {
+    try {
+      setLoading(true);
+      const { data } = await api.get(`/courses/${courseId}`);
+      if (data) {
+        setCourseName(data.course_name || "");
+        setCourseCode(data.course_code || "");
+        setDescription(data.description || "");
+        setCategory(data.category || "Computer Science");
+        setDifficulty(data.difficulty || "beginner");
+        setPrice(data.price || 0);
+        setMaxStudents(data.max_students || 40);
+        setIsPublished(data.is_published ?? true);
+        if (data.thumbnail) setThumbnail(data.thumbnail);
+      }
+
+      const { data: modulesData } = await api.get(`/courses/${courseId}/modules`);
+      if (modulesData && modulesData.length > 0) {
+        setSyllabus(modulesData.map((m: any, idx: number) => ({
+          id: m.id,
+          week: m.order || idx + 1,
+          title: m.title,
+          is_hidden_from_students: m.description === "STATUS_DRAFT_HIDDEN",
+          lessons: (m.lessons || []).map((l: any) => ({
+            id: l.id,
+            title: l.title,
+            order: l.order || 1,
+            duration: l.duration || "15min",
+            material_type: l.material_type || "article",
+            material_url: l.material_url || null,
+            material_file: l.material_file || null,
+            content: l.content || l.description || "",
+            is_visible: l.description !== "VISIBILITY_DISABLED_STUDENT"
+          }))
+        })));
+
+        const initialExpanded: Record<number, boolean> = {};
+        modulesData.forEach((m: any) => { initialExpanded[m.id] = true; });
+        setExpandedSyllabus(initialExpanded);
+      } else {
+        setSyllabus([]);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    // Guard: Check role to make sure only admin/teacher are allowed
     if (typeof window !== "undefined") {
       const role = localStorage.getItem("user_role") || "student";
       if (role !== "admin" && role !== "instructor" && role !== "teacher") {
@@ -106,78 +436,9 @@ export default function CourseDetailEditorPage() {
         return;
       }
     }
-
-    const fetchCourseDetails = async () => {
-      try {
-        setLoading(true);
-        const { data } = await api.get(`/courses/${courseId}`);
-        if (data) {
-          setCourseName(data.course_name || "");
-          setCourseCode(data.course_code || "");
-          setDescription(data.description || "");
-          setCategory(data.category || "Computer Science");
-          setDifficulty(data.difficulty || "beginner");
-          setPrice(data.price || 0);
-          setIsPublished(data.is_published ?? true);
-          if (data.thumbnail) {
-            setThumbnail(data.thumbnail);
-          }
-        }
-
-        // Fetch Course modules & nested lessons dynamically
-        const { data: modulesData } = await api.get(`/courses/${courseId}/modules`);
-        if (modulesData && modulesData.length > 0) {
-          setSyllabus(modulesData.map((m: any, idx: number) => ({
-            id: m.id,
-            week: m.order || idx + 1,
-            title: m.title,
-            lessons: m.lessons || []
-          })));
-
-          // Auto-expand all loaded modules by default
-          const initialExpanded: Record<number, boolean> = {};
-          modulesData.forEach((m: any) => {
-            initialExpanded[m.id] = true;
-          });
-          setExpandedSyllabus(initialExpanded);
-        } else {
-          setSyllabus([]);
-        }
-      } catch (err) {
-        console.error("Failed to load course details from API, using realistic seed fallback.");
-        if (courseId === "1" || courseId.includes("205")) {
-          setCourseName("Full-Stack Web Development");
-          setCourseCode("CS-205");
-          setDescription(
-            "Comprehensive journey in building full-stack web applications. Covers semantic HTML5, modern CSS3 (Flexbox/Grid), client-side JS DOM APIs, Next.js dashboard routing, and FastAPI backend servers with SQLAlchemy ORM."
-          );
-          setCategory("Computer Science");
-          setDifficulty("intermediate");
-          setSyllabus([
-            { id: 1, week: 1, title: "HTML5 & CSS3 Essentials" },
-            { id: 2, week: 2, title: "Client-Side Javascript & DOM Manipulation" }
-          ]);
-        } else {
-          setCourseName("Introduction to Python and Web Programming");
-          setCourseCode("CS-101");
-          setDescription(
-            "Perfect introduction to programming for beginners. Master Python's clean syntax, control flow statements, data structures (lists, dicts), function structures, and fetch APIs."
-          );
-          setCategory("Computer Science");
-          setDifficulty("beginner");
-          setSyllabus([
-            { id: 10, week: 1, title: "Python Basics & Control Flow" }
-          ]);
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchCourseDetails();
   }, [courseId, router]);
 
-  // Handle Save (PUT request)
   const handleSave = async () => {
     try {
       setSaving(true);
@@ -187,7 +448,9 @@ export default function CourseDetailEditorPage() {
         description: description,
         category: category,
         difficulty: difficulty,
-        price: price,
+        price: Number(price),
+        max_students: Number(maxStudents),
+        thumbnail: thumbnail, // 🚀 Saves the modified media thumbnail string link accurately
         is_published: isPublished,
       });
 
@@ -197,87 +460,56 @@ export default function CourseDetailEditorPage() {
         router.push(`/list/courses/${courseId}`);
       }, 1500);
     } catch (err) {
-      console.error("Failed to update course:", err);
-      setShowSuccessToast(true);
-      setTimeout(() => {
-        setShowSuccessToast(false);
-        router.push(`/list/courses/${courseId}`);
-      }, 1500);
+      console.error(err);
     } finally {
       setSaving(false);
     }
   };
 
-  const refreshModules = async () => {
+  const handleToggleModuleVisibility = async (moduleItem: SyllabusItem) => {
     try {
-      const { data: modulesData } = await api.get(`/courses/${courseId}/modules`);
-      if (modulesData && modulesData.length > 0) {
-        setSyllabus(modulesData.map((m: any, idx: number) => ({
-          id: m.id,
-          week: m.order || idx + 1,
-          title: m.title,
-          lessons: m.lessons || []
-        })));
-
-        // Auto-expand newly loaded or created modules while retaining old ones
-        setExpandedSyllabus((prev) => {
-          const next = { ...prev };
-          modulesData.forEach((m: any) => {
-            if (next[m.id] === undefined) {
-              next[m.id] = true;
-            }
-          });
-          return next;
-        });
-      } else {
-        setSyllabus([]);
-      }
+      const toggledStatus = !moduleItem.is_hidden_from_students;
+      await api.put(`/courses-management/modules/${moduleItem.id}`, {
+        title: moduleItem.title,
+        description: toggledStatus ? "STATUS_DRAFT_HIDDEN" : "",
+        order: Number(moduleItem.week)
+      });
+      await fetchCourseDetails();
     } catch (err) {
-      console.error("Failed to refresh modules:", err);
+      console.error(err);
+    }
+  };
+
+  const handleToggleLessonVisibility = async (lessonItem: LessonItem) => {
+    try {
+      const currentVisibility = lessonItem.is_visible !== false;
+      await api.put(`/courses-management/lessons/${lessonItem.id}`, {
+        title: lessonItem.title,
+        description: currentVisibility ? "VISIBILITY_DISABLED_STUDENT" : "ACTIVE",
+        content: lessonItem.content,
+        duration: lessonItem.duration,
+        material_type: lessonItem.material_type,
+        material_url: lessonItem.material_url,
+        material_file: lessonItem.material_file,
+        order: Number(lessonItem.order)
+      });
+      await fetchCourseDetails();
+    } catch (err) {
+      console.error(err);
     }
   };
 
   const handleAddSyllabusSection = async () => {
     try {
       const nextWeek = syllabus.length + 1;
-      const title = `Topic Section ${nextWeek}`;
-      const { data } = await api.post(`/courses-management/${courseId}/modules`, {
-        title,
-        description: ""
+      await api.post(`/courses-management/${courseId}/modules`, {
+        title: `Topic Section ${nextWeek}`,
+        description: "",
+        order: nextWeek
       });
-      await refreshModules();
-      if (data && data.data) {
-        setExpandedSyllabus({ ...expandedSyllabus, [data.data.id]: true });
-      }
+      await fetchCourseDetails();
     } catch (err) {
-      console.error("Failed to create syllabus module:", err);
-      const nextWeek = syllabus.length + 1;
-      const newItem: SyllabusItem = {
-        id: Date.now(),
-        week: nextWeek,
-        title: `Week ${nextWeek} - Beginner - Syllabus Module Topics`,
-      };
-      setSyllabus([...syllabus, newItem]);
-      setExpandedSyllabus({ ...expandedSyllabus, [newItem.id]: true });
-    }
-  };
-
-  const toggleSyllabusExpand = (id: number) => {
-    setExpandedSyllabus({
-      ...expandedSyllabus,
-      [id]: !expandedSyllabus[id],
-    });
-  };
-
-  const handleRemoveTag = (tagToRemove: string) => {
-    setTags(tags.filter((t) => t !== tagToRemove));
-  };
-
-  const handleAddTag = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newTagInput.trim() && !tags.includes(newTagInput.trim())) {
-      setTags([...tags, newTagInput.trim()]);
-      setNewTagInput("");
+      console.error(err);
     }
   };
 
@@ -293,81 +525,106 @@ export default function CourseDetailEditorPage() {
         await api.put(`/courses-management/modules/${editSyllabusId}`, {
           title: editSyllabusText,
           description: "",
-          order: editSyllabusOrder
+          order: Number(editSyllabusOrder)
         });
-        await refreshModules();
+        await fetchCourseDetails();
       } catch (err) {
-        console.error("Failed to update module:", err);
-        setSyllabus(
-          syllabus.map((s) => (s.id === editSyllabusId ? { ...s, title: editSyllabusText, week: editSyllabusOrder } : s))
-        );
+        console.error(err);
       }
       setEditSyllabusId(null);
     }
   };
 
   const handleDeleteSyllabusSection = async (id: number) => {
+    if (!confirm("Are you sure you want to delete this module section and its tracking history?")) return;
     try {
       await api.delete(`/courses-management/modules/${id}`);
-      await refreshModules();
+      await fetchCourseDetails();
     } catch (err) {
-      console.error("Failed to delete module:", err);
-      setSyllabus(syllabus.filter((s) => s.id !== id));
+      console.error(err);
     }
   };
 
-  const handleAddLesson = async () => {
-    if (addLessonModuleId && newLessonTitle.trim()) {
-      try {
-        await api.post(`/courses-management/modules/${addLessonModuleId}/lessons`, {
-          title: newLessonTitle,
-          description: "Syllabus topic learning session content outline."
-        });
-        await refreshModules();
-      } catch (err) {
-        console.error("Failed to add lesson:", err);
-      }
-      setAddLessonModuleId(null);
-      setNewLessonTitle("");
-    }
+  const toggleSyllabusExpand = (id: number) => {
+    setExpandedSyllabus({ ...expandedSyllabus, [id]: !expandedSyllabus[id] });
   };
 
-  const handleUpdateLesson = async () => {
-    if (editLessonId && editLessonText.trim()) {
-      try {
-        await api.put(`/courses-management/lessons/${editLessonId}`, {
-          title: editLessonText,
-          description: ""
-        });
-        await refreshModules();
-      } catch (err) {
-        console.error("Failed to update lesson:", err);
+  const handleCloseLessonModal = () => {
+    setAddLessonModuleId(null);
+    setEditLessonId(null);
+    setEditLessonParentModuleId(null);
+    setSelectedLessonData(null);
+  };
+
+  const handleInlineLessonFormSubmit = async (values: any) => {
+    try {
+      const computedDuration = String(values.duration).endsWith("min") ? values.duration : `${values.duration || 15}min`;
+      const lessonPayload = {
+        title: values.title,
+        order: Number(values.order) || 1,
+        duration: computedDuration,
+        material_type: values.material_type || "article",
+        material_url: values.material_url || null,
+        material_file: values.material_file || null,
+        content: values.content || ""
+      };
+
+      if (addLessonModuleId) {
+        await api.post(`/courses-management/modules/${addLessonModuleId}/lessons`, lessonPayload);
+      } else if (editLessonId) {
+        await api.put(`/courses-management/lessons/${editLessonId}`, lessonPayload);
       }
-      setEditLessonId(null);
-      setEditLessonText("");
+      await fetchCourseDetails();
+    } catch (err) {
+      console.error(err);
     }
+    handleCloseLessonModal();
+  };
+
+  const openEditLessonModal = (moduleId: number, lesson: LessonItem) => {
+    setEditLessonParentModuleId(moduleId);
+    setEditLessonId(lesson.id);
+    setSelectedLessonData({
+      title: lesson.title,
+      order: lesson.order,
+      duration: parseInt(lesson.duration) || 15,
+      material_type: lesson.material_type,
+      material_url: lesson.material_url,
+      material_file: lesson.material_file,
+      content: lesson.content
+    }); 
   };
 
   const handleDeleteLesson = async (id: number) => {
+    if (!confirm("Are you sure you want to drop this lesson?")) return;
     try {
       await api.delete(`/courses-management/lessons/${id}`);
-      await refreshModules();
+      await fetchCourseDetails();
     } catch (err) {
-      console.error("Failed to delete lesson:", err);
+      console.error(err);
+    }
+  };
+
+  const renderActivityIcon = (type: string) => {
+    switch (type) {
+      case "file": return <FileUp className="h-4 w-4 text-emerald-600 shrink-0" />;
+      case "url": return <ExternalLink className="h-4 w-4 text-amber-600 shrink-0" />;
+      default: return <BookOpen className="h-4 w-4 text-sky-600 shrink-0" />;
     }
   };
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-[#F7F8FA] text-foreground">
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#F7F8FA] text-slate-600">
         <div className="h-10 w-10 border-4 border-[#0038A8] border-t-transparent rounded-full animate-spin mb-3" />
-        <p className="text-sm font-semibold select-none">Retrieving Course Syllabus...</p>
+        <p className="text-sm font-semibold select-none">Syncing Advanced Syllabus Editor Workspace...</p>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 p-6 pb-24 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left">
+    <div className="flex-1 p-6 pb-24 space-y-6 bg-[#F7F8FA] min-h-screen text-left font-sans">
+      
       {/* Toast Notification */}
       <AnimatePresence>
         {showSuccessToast && (
@@ -375,527 +632,251 @@ export default function CourseDetailEditorPage() {
             initial={{ opacity: 0, y: -50, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -50, scale: 0.9 }}
-            className="fixed top-8 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2.5 px-6 py-4 bg-white/80 dark:bg-[#1c1c1c]/80 backdrop-blur-xl border border-[#0038A8]/30 shadow-[0_20px_50px_rgba(0,0,0,0.1)] rounded-2xl"
+            className="fixed top-8 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2.5 px-6 py-4 bg-white/90 backdrop-blur-xl border border-[#0038A8]/20 shadow-2xl rounded-2xl"
           >
             <CheckCircle className="h-5 w-5 text-[#0038A8]" />
-            <div className="text-left">
-              <p className="text-sm font-black text-foreground">Changes Saved Successfully</p>
-              <p className="text-xs text-muted-foreground">Course data has been updated. Redirecting...</p>
-            </div>
+            <span className="text-sm font-black text-slate-800">Advanced Modifications Saved Perfectly</span>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Syllabus Topic Edit Modal */}
+      {/* Module Renamer */}
       {editSyllabusId !== null && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-[450px] p-6 bg-card border border-border/80 shadow-2xl rounded-2xl space-y-4 text-left">
-            <h3 className="text-base font-extrabold text-foreground">Edit Week Module Settings</h3>
-            
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 backdrop-blur-xs">
+          <div className="w-[450px] p-6 bg-white border shadow-2xl rounded-2xl space-y-4 text-left">
+            <h3 className="text-base font-extrabold text-slate-900">Edit Week Module Settings</h3>
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-muted-foreground uppercase tracking-wide">
-                Topic Title
-              </label>
-              <input
-                type="text"
-                value={editSyllabusText}
-                onChange={(e) => setEditSyllabusText(e.target.value)}
-                className="w-full px-3 py-2 bg-muted/50 border border-border/80 focus:border-[#0038A8]/40 rounded-xl text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-[#0038A8]/10 transition-all font-medium"
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wide">Topic Title</label>
+              <input type="text" value={editSyllabusText} onChange={(e) => setEditSyllabusText(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border rounded-xl text-sm font-medium focus:outline-none" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wide">Topic Order Position (Week)</label>
+              <input type="number" value={editSyllabusOrder} onChange={(e) => setEditSyllabusOrder(parseInt(e.target.value) || 1)} className="w-full px-3 py-2 bg-slate-50 border rounded-xl text-sm font-medium focus:outline-none" />
+            </div>
+            <div className="flex justify-end gap-2.5 pt-2">
+              <button onClick={() => setEditSyllabusId(null)} className="px-4 py-2 border rounded-xl hover:bg-slate-50 font-bold text-xs">Cancel</button>
+              <button onClick={saveSyllabusEdit} className="px-4 py-2 bg-[#0038A8] text-white font-bold rounded-xl text-xs hover:bg-[#002D86]">Update Module</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* UNIVERSAL INLINE LESSONFORM TRIGGER */}
+      <AnimatePresence>
+        {(addLessonModuleId !== null || editLessonId !== null) && (
+          <div 
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-xs overflow-y-auto p-4"
+            onClick={(e) => { if (e.target === e.currentTarget) handleCloseLessonModal(); }}
+          >
+            <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-2" onClick={(e) => e.stopPropagation()}>
+              <LessonForm 
+                type={editLessonId ? "update" : "create"}
+                data={selectedLessonData}
+                setOpen={handleCloseLessonModal}
+                onCancel={handleCloseLessonModal}
+                relatedData={{ inlineHandler: handleInlineLessonFormSubmit }} 
               />
             </div>
-
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-muted-foreground uppercase tracking-wide">
-                Topic Order / Position (Week)
-              </label>
-              <input
-                type="number"
-                value={editSyllabusOrder}
-                onChange={(e) => setEditSyllabusOrder(parseInt(e.target.value) || 1)}
-                className="w-full px-3 py-2 bg-muted/50 border border-border/80 focus:border-[#0038A8]/40 rounded-xl text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-[#0038A8]/10 transition-all font-medium"
-              />
-            </div>
-
-            <div className="flex justify-end gap-2.5 pt-2">
-              <button
-                onClick={() => setEditSyllabusId(null)}
-                className="px-4 py-2 border border-border/80 rounded-xl hover:bg-muted font-bold text-xs transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={saveSyllabusEdit}
-                className="px-4 py-2 bg-[#0038A8] text-white font-bold rounded-xl text-xs hover:bg-[#002D86] transition-colors"
-              >
-                Update Module
-              </button>
-            </div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
 
-      {/* Lesson Edit Modal */}
-      {editLessonId !== null && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-[450px] p-6 bg-card border border-border/80 shadow-2xl rounded-2xl space-y-4 text-left">
-            <h3 className="text-base font-extrabold text-foreground">Rename Lesson Activity</h3>
-            <input
-              type="text"
-              value={editLessonText}
-              onChange={(e) => setEditLessonText(e.target.value)}
-              placeholder="e.g. Introduction to CSS Grid"
-              className="w-full px-3 py-2 bg-muted/50 border border-border/80 focus:border-[#0038A8]/40 rounded-xl text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-[#0038A8]/10 transition-all font-medium"
-            />
-            <div className="flex justify-end gap-2.5 pt-2">
-              <button
-                onClick={() => setEditLessonId(null)}
-                className="px-4 py-2 border border-border/80 rounded-xl hover:bg-muted font-bold text-xs transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleUpdateLesson}
-                className="px-4 py-2 bg-[#0038A8] text-white font-bold rounded-xl text-xs hover:bg-[#002D86] transition-colors"
-              >
-                Update Lesson
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add Lesson Modal */}
-      {addLessonModuleId !== null && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-[450px] p-6 bg-card border border-border/80 shadow-2xl rounded-2xl space-y-4 text-left">
-            <h3 className="text-base font-extrabold text-foreground">Add New Lesson Activity</h3>
-            <input
-              type="text"
-              value={newLessonTitle}
-              onChange={(e) => setNewLessonTitle(e.target.value)}
-              placeholder="Enter lesson title..."
-              className="w-full px-3 py-2 bg-muted/50 border border-border/80 focus:border-[#0038A8]/40 rounded-xl text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-[#0038A8]/10 transition-all font-medium"
-            />
-            <div className="flex justify-end gap-2.5 pt-2">
-              <button
-                onClick={() => {
-                  setAddLessonModuleId(null);
-                  setNewLessonTitle("");
-                }}
-                className="px-4 py-2 border border-border/80 rounded-xl hover:bg-muted font-bold text-xs transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAddLesson}
-                className="px-4 py-2 bg-[#8b5cf6] text-white font-bold rounded-xl text-xs hover:bg-[#7c3aed] transition-colors"
-              >
-                Add Lesson
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-
-      {/* MOODLE-STYLE BREADCRUMB & HEADER SECTION */}
+      {/* BREADCRUMBS */}
       <div className="flex flex-col gap-4 select-none">
         <div className="space-y-1">
-          <div className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase tracking-wider font-bold">
-            <Link href="/" className="hover:text-foreground flex items-center gap-1">
-              <Globe className="h-3 w-3" />
-              Home
-            </Link>
+          <div className="flex items-center gap-2 text-[10px] text-slate-400 uppercase tracking-wider font-bold">
+            <Link href="/" className="hover:text-slate-800 flex items-center gap-1"><Globe className="h-3 w-3" />Home</Link>
             <span>/</span>
-            <Link href="/list/courses" className="hover:text-foreground">My Courses</Link>
+            <Link href="/list/courses" className="hover:text-slate-800">My Courses</Link>
             <span>/</span>
-            <Link href={`/list/courses/${courseId}`} className="hover:text-foreground">{courseCode || "CS-LMS"}</Link>
+            <Link href={`/list/courses/${courseId}`} className="hover:text-slate-800">{courseCode || "CS-LMS"}</Link>
             <span>/</span>
-            <span className="text-foreground">Edit settings</span>
+            <span className="text-slate-800">Edit settings</span>
           </div>
-          
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-1">
-            <div className="space-y-0.5">
+          <div className="flex items-center gap-3 pt-1">
+            <BackButton />
+            <div>
               <span className="text-xs font-extrabold text-[#0038A8] uppercase tracking-wider font-mono">
-                Course Administration Settings
+                Course Configuration Dashboard
               </span>
-              <h1 className="text-xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight leading-tight max-w-[800px]">
+              <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-tight mt-0.5">
                 Edit Course settings: {courseName}
               </h1>
             </div>
           </div>
         </div>
 
-        {/* MOODLE BOOST TAB-BAR NAVIGATION */}
-        <div className="flex border-b border-border/60 gap-6 select-none text-xs font-extrabold text-muted-foreground pt-2">
-          <Link href={`/list/courses/${courseId}`} className="pb-3 hover:text-foreground transition-colors">Course</Link>
-          <Link href={`/list/students?courseId=${courseId}`} className="pb-3 hover:text-foreground transition-colors">Participants</Link>
-          <Link href="/list/results" className="pb-3 hover:text-foreground transition-colors">Grades</Link>
-          <button className="pb-3 border-b-2 border-[#0038A8] text-foreground">Settings</button>
-          <button className="pb-3 hover:text-foreground transition-colors opacity-60 cursor-not-allowed">Reports</button>
+        <div className="flex border-b border-slate-200 gap-6 select-none text-xs font-extrabold text-slate-400 pt-2">
+          <Link href={`/list/courses/${courseId}?tab=course`} className="pb-3 hover:text-slate-800 transition-colors flex items-center gap-1.5">
+            <BookOpen className="h-3 w-3" />
+            <span>Course</span>
+          </Link>
+          <Link href={`/list/courses/${courseId}?tab=participants`} className="pb-3 hover:text-slate-800 transition-colors flex items-center gap-1.5">
+            <Users className="h-3 w-3" />
+            <span>Participants</span>
+          </Link>
+          <Link href={`/list/courses/${courseId}?tab=grades`} className="pb-3 hover:text-slate-800 transition-colors flex items-center gap-1.5">
+            <BarChart2 className="h-3 w-3" />
+            <span>Grades</span>
+          </Link>
+          <button className="pb-3 border-b-2 border-[#0038A8] text-slate-900 flex items-center gap-1.5">
+            <Settings className="h-3 w-3" />
+            <span>Settings</span>
+          </button>
+          <button className="pb-3 opacity-40 cursor-not-allowed flex items-center gap-1.5" disabled>
+            <FileText className="h-3 w-3" />
+            <span>Reports</span>
+          </button>
         </div>
       </div>
 
-      {/* SINGLE-COLUMN MOODLE SETTINGS FORM OUTLINE */}
-      <div className="max-w-4xl mx-auto space-y-6">
-        
-        {/* SECTION 1: GENERAL SETTINGS */}
-        <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.01)] space-y-6">
-          <div className="flex items-center gap-2 select-none pb-3 border-b border-border/50">
-            <Settings2 className="h-4 w-4 text-[#0038A8]" />
-            <h2 className="text-sm font-black text-foreground uppercase tracking-wider">General settings</h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-6 items-start">
-            {/* Course Full Name */}
-            <label className="md:col-span-2 text-xs font-bold text-muted-foreground uppercase tracking-wide md:pt-3">
-              Course full name
-            </label>
-            <div className="md:col-span-4">
-              <input
-                type="text"
-                value={courseName}
-                onChange={(e) => setCourseName(e.target.value)}
-                placeholder="e.g. Full-Stack Web Development"
-                className="w-full px-4 py-2.5 bg-muted/30 border border-border/80 focus:border-[#0038A8]/40 focus:ring-2 focus:ring-[#0038A8]/10 rounded-xl text-sm placeholder:text-muted-foreground/50 focus:outline-none transition-all font-semibold shadow-inner"
-              />
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+        <div className="lg:col-span-3 space-y-6">
+          
+          {/* GENERAL FORM CONFIGURATIONS */}
+          <div className="bg-white border rounded-3xl p-6 space-y-6 shadow-xs">
+            <div className="flex items-center gap-2 pb-3 border-b">
+              <Settings2 className="h-4 w-4 text-[#0038A8]" />
+              <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider">General settings</h2>
             </div>
-
-            {/* Course Short Name / Code */}
-            <label className="md:col-span-2 text-xs font-bold text-muted-foreground uppercase tracking-wide md:pt-3">
-              Course short name / code
-            </label>
-            <div className="md:col-span-4">
-              <input
-                type="text"
-                value={courseCode}
-                onChange={(e) => setCourseCode(e.target.value)}
-                placeholder="e.g. CS-205"
-                className="w-full md:w-1/2 px-4 py-2.5 bg-muted/30 border border-border/80 focus:border-[#0038A8]/40 focus:ring-2 focus:ring-[#0038A8]/10 rounded-xl text-sm placeholder:text-muted-foreground/50 focus:outline-none transition-all font-mono font-bold shadow-inner"
-              />
-            </div>
-
-            {/* Course Specialisation Category */}
-            <label className="md:col-span-2 text-xs font-bold text-muted-foreground uppercase tracking-wide md:pt-3">
-              Course category
-            </label>
-            <div className="md:col-span-4">
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full md:w-2/3 px-3 py-2.5 bg-muted/40 border border-border/80 focus:border-[#0038A8]/40 focus:ring-2 focus:ring-[#0038A8]/10 rounded-xl text-xs font-bold focus:outline-none transition-all shadow-inner"
-              >
-                <option value="Computer Science">Computer Science</option>
-                <option value="Business">Business</option>
-                <option value="Economics">Economics</option>
-                <option value="Mathematics">Mathematics</option>
-              </select>
-            </div>
-
-            {/* Course Level */}
-            <label className="md:col-span-2 text-xs font-bold text-muted-foreground uppercase tracking-wide md:pt-3">
-              Course level
-            </label>
-            <div className="md:col-span-4">
-              <select
-                value={difficulty}
-                onChange={(e) => setDifficulty(e.target.value)}
-                className="w-full md:w-1/2 px-3 py-2.5 bg-muted/40 border border-border/80 focus:border-[#0038A8]/40 focus:ring-2 focus:ring-[#0038A8]/10 rounded-xl text-xs font-bold focus:outline-none transition-all shadow-inner"
-              >
-                <option value="beginner">Beginner</option>
-                <option value="intermediate">Intermediate</option>
-                <option value="advanced">Advanced</option>
-              </select>
-            </div>
-
-            {/* Course Visibility */}
-            <label className="md:col-span-2 text-xs font-bold text-muted-foreground uppercase tracking-wide md:pt-3">
-              Course visibility
-            </label>
-            <div className="md:col-span-4">
-              <select
-                value={isPublished ? "published" : "draft"}
-                onChange={(e) => setIsPublished(e.target.value === "published")}
-                className="w-full md:w-1/2 px-3 py-2.5 bg-muted/40 border border-border/80 focus:border-[#0038A8]/40 focus:ring-2 focus:ring-[#0038A8]/10 rounded-xl text-xs font-bold focus:outline-none transition-all shadow-inner"
-              >
-                <option value="published">Show (Published)</option>
-                <option value="draft">Hide (Draft)</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* SECTION 2: DESCRIPTION & SUMMARY */}
-        <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.01)] space-y-6">
-          <div className="flex items-center gap-2 select-none pb-3 border-b border-border/50">
-            <FileText className="h-4 w-4 text-[#0038A8]" />
-            <h2 className="text-sm font-black text-foreground uppercase tracking-wider">Description settings</h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-6 items-start">
-            {/* Summary description */}
-            <label className="md:col-span-2 text-xs font-bold text-muted-foreground uppercase tracking-wide md:pt-3">
-              Course summary
-            </label>
-            <div className="md:col-span-4 space-y-2">
-              <div className="border border-border/80 rounded-2xl overflow-hidden bg-muted/10 shadow-sm">
-                <div className="flex flex-wrap items-center gap-1 p-2 bg-muted/40 border-b border-border/80 select-none">
-                  <span className="text-[10px] text-muted-foreground font-black px-2 py-1 rounded-md hover:bg-muted cursor-pointer transition-all border border-border/40 bg-background flex items-center gap-1">
-                    Normal text <ChevronDown className="h-3 w-3 text-muted-foreground/60" />
-                  </span>
-                  <div className="h-4 w-[1px] bg-border/80 mx-1" />
-                  <button className="p-1.5 text-muted-foreground/80 hover:text-foreground rounded-lg hover:bg-muted transition-colors">
-                    <Bold className="h-4 w-4" />
-                  </button>
-                  <button className="p-1.5 text-muted-foreground/80 hover:text-foreground rounded-lg hover:bg-muted transition-colors">
-                    <Italic className="h-4 w-4" />
-                  </button>
-                  <button className="p-1.5 text-muted-foreground/80 hover:text-foreground rounded-lg hover:bg-muted transition-colors">
-                    <Link2 className="h-4 w-4" />
-                  </button>
-                  <div className="h-4 w-[1px] bg-border/80 mx-1" />
-                  <button className="p-1.5 text-muted-foreground/80 hover:text-foreground rounded-lg hover:bg-muted transition-colors">
-                    <List className="h-4 w-4" />
-                  </button>
-                  <button className="p-1.5 text-muted-foreground/80 hover:text-foreground rounded-lg hover:bg-muted transition-colors">
-                    <ListOrdered className="h-4 w-4" />
-                  </button>
-                </div>
-
-                <textarea
-                  rows={5}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Provide structured details about the course summary syllabus..."
-                  className="w-full p-4 bg-transparent placeholder:text-muted-foreground/50 focus:outline-none transition-all text-xs leading-relaxed text-foreground font-medium shadow-inner"
-                />
+            <div className="grid grid-cols-1 md:grid-cols-6 gap-6 items-start">
+              <label className="md:col-span-2 text-xs font-bold text-slate-500 uppercase tracking-wide md:pt-3">Course full name</label>
+              <div className="md:col-span-4">
+                <input type="text" value={courseName} onChange={(e) => setCourseName(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-sm font-semibold focus:outline-none" />
               </div>
-            </div>
-
-            {/* Course Summary Files / Cover Image */}
-            <label className="md:col-span-2 text-xs font-bold text-muted-foreground uppercase tracking-wide md:pt-4">
-              Course summary files / cover
-            </label>
-            <div className="md:col-span-4 space-y-3 text-left">
-              <div className="flex items-center justify-between select-none">
-                <span className="text-[10px] text-muted-foreground font-semibold">Enter Thumbnail URL</span>
-                <button
-                  onClick={() => {
-                    const url = prompt("Enter cover image thumbnail URL:", thumbnail);
-                    if (url) setThumbnail(url);
-                  }}
-                  className="flex items-center gap-1 text-[10px] font-black text-[#8b5cf6] hover:text-[#7c3aed] transition-colors"
-                >
-                  <Undo2 className="h-3.5 w-3.5" />
-                  <span>Change URL</span>
-                </button>
-              </div>
-
-              <div className="relative aspect-[21/9] w-full rounded-2xl overflow-hidden border border-border bg-muted shadow-sm select-none">
-                <img
-                  src={thumbnail}
-                  alt="Course Cover"
-                  className="h-full w-full object-cover"
-                />
-                <div className="absolute inset-0 bg-black/10 pointer-events-none" />
+              <label className="md:col-span-2 text-xs font-bold text-slate-500 uppercase tracking-wide md:pt-3">Course short name / code</label>
+              <div className="md:col-span-4">
+                <input type="text" value={courseCode} onChange={(e) => setCourseCode(e.target.value)} className="w-full md:w-1/2 px-4 py-2.5 bg-slate-50 border rounded-xl text-sm font-mono font-bold focus:outline-none" />
               </div>
             </div>
           </div>
-        </div>
 
-        {/* SECTION 3: TOPICS OUTLINE CONTENT */}
-        <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.01)] space-y-6">
-          <div className="flex items-center justify-between select-none pb-3 border-b border-border/50">
-            <div className="flex items-center gap-2">
-              <Layers className="h-4 w-4 text-[#0038A8]" />
-              <h2 className="text-sm font-black text-foreground uppercase tracking-wider">Course format & topic outline</h2>
+          {/* 🚀 COURSE THUMBNAIL MANAGER BLOCK */}
+          <div className="bg-white border rounded-3xl p-6 space-y-6 shadow-xs">
+            <div className="flex items-center gap-2 pb-3 border-b">
+              <ImageIcon className="h-4 w-4 text-[#0038A8]" />
+              <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider">Course Media Thumbnail</h2>
             </div>
-            
-            <button
-              onClick={handleAddSyllabusSection}
-              className="flex items-center gap-1.5 text-xs font-bold text-[#8b5cf6] hover:text-[#7c3aed] transition-colors bg-[#8b5cf6]/5 px-3 py-1.5 rounded-xl border border-[#8b5cf6]/10"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>Add Topic Section</span>
-            </button>
-          </div>
-
-          <div className="space-y-3">
-            {syllabus.map((item, idx) => {
-              const isExpanded = !!expandedSyllabus[item.id];
-              return (
-                <div
-                  key={item.id}
-                  className="border border-border/80 rounded-2xl overflow-hidden shadow-sm bg-[#F7F8FA]/30 hover:border-border transition-all"
-                >
-                  <div
-                    onClick={() => toggleSyllabusExpand(item.id)}
-                    className="flex items-center gap-3 px-4 py-3 bg-[#F7F8FA]/60 hover:bg-[#F7F8FA]/80 cursor-pointer select-none transition-colors"
-                  >
-                    <GripVertical
-                      onClick={(e) => e.stopPropagation()}
-                      className="h-4 w-4 text-muted-foreground/40 cursor-grab active:cursor-grabbing shrink-0"
-                    />
-                    
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleSyllabusExpand(item.id);
-                      }}
-                      className="text-muted-foreground/60 hover:text-foreground shrink-0 transition-colors"
-                    >
-                      {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                    </button>
-
-                    <span className="text-xs font-bold text-foreground truncate flex-1 text-left">
-                      Topic {idx + 1}: {item.title}
-                    </span>
-
-                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={() => startEditSyllabus(item)}
-                        className="px-2.5 py-1 bg-white hover:bg-accent border border-border/80 text-foreground font-bold text-[10px] rounded-lg transition-all"
-                      >
-                        Rename
-                      </button>
-                      
-                      <button
-                        onClick={() => handleDeleteSyllabusSection(item.id)}
-                        className="p-1 text-muted-foreground/60 hover:text-destructive transition-colors rounded-lg hover:bg-muted"
-                        aria-label="Delete section"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {isExpanded && (
-                    <div className="p-4 border-t border-border/50 bg-card text-left space-y-3">
-                      <div className="flex items-center justify-between border-b border-border/30 pb-1.5 select-none">
-                        <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">Nested Lesson Activities</span>
-                      </div>
-                      
-                      {item.lessons && item.lessons.length > 0 ? (
-                        <div className="space-y-2">
-                          {item.lessons.map((lesson) => (
-                            <div
-                              key={lesson.id}
-                              className="flex items-center justify-between p-2.5 bg-[#f8fafc]/50 dark:bg-muted/10 hover:bg-[#f1f5f9] dark:hover:bg-muted/20 rounded-xl border border-border/40 transition-all"
-                            >
-                              <div className="flex items-center gap-2.5 truncate max-w-[70%]">
-                                <BookOpen className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
-                                <span className="text-xs font-bold text-foreground truncate">{lesson.title}</span>
-                                {lesson.duration && (
-                                  <span className="text-[8px] font-extrabold text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/30 border border-sky-200/30 px-1.5 py-0.5 rounded font-mono shrink-0 select-none">
-                                    {lesson.duration}
-                                  </span>
-                                )}
-                              </div>
-                              
-                              <div className="flex items-center gap-1.5 select-none">
-                                <button
-                                  onClick={() => {
-                                    setEditLessonId(lesson.id);
-                                    setEditLessonText(lesson.title);
-                                  }}
-                                  className="px-2 py-1 bg-white hover:bg-accent border border-border/80 text-foreground font-bold text-[9px] rounded-lg transition-all"
-                                >
-                                  Rename
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteLesson(lesson.id)}
-                                  className="p-1 text-muted-foreground/60 hover:text-destructive transition-colors rounded-lg hover:bg-muted"
-                                  aria-label="Delete lesson"
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-[10px] text-muted-foreground font-semibold py-2 select-none italic">
-                          No learning activity pages registered in this topic.
-                        </p>
-                      )}
-
-                      <button
-                        onClick={() => setAddLessonModuleId(item.id)}
-                        className="mt-1.5 w-full py-2 bg-sky-500/5 hover:bg-sky-500/10 border border-dashed border-sky-500/20 text-sky-700 dark:text-sky-400 font-extrabold text-[10px] rounded-xl flex items-center justify-center gap-1.5 transition-colors select-none"
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                        <span>Add Lesson Activity</span>
-                      </button>
+            <div className="grid grid-cols-1 md:grid-cols-6 gap-6 items-center">
+              <label className="md:col-span-2 text-xs font-bold text-slate-500 uppercase tracking-wide">Image Preview</label>
+              <div className="md:col-span-4 space-y-4">
+                <div className="relative aspect-[21/9] w-full max-w-md border border-slate-200 rounded-2xl overflow-hidden shadow-inner bg-slate-50 flex items-center justify-center group">
+                  {thumbnail ? (
+                    <img src={getImageUrl(thumbnail) || ""} alt="Thumbnail Cover Preview" className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" onError={() => setThumbnail("")} />
+                  ) : (
+                    <div className="flex flex-col items-center gap-1.5 text-slate-400 select-none">
+                      <ImageIcon className="h-8 w-8 stroke-[1.5]" />
+                      <span className="text-[10px] font-bold tracking-wide uppercase">No Image Loaded</span>
                     </div>
                   )}
                 </div>
-              );
-            })}
+                <div className="relative max-w-md">
+                  <Link2 className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+                  <input type="text" value={thumbnail} onChange={(e) => setThumbnail(e.target.value)} placeholder="Paste Unsplash banner asset link or Cloudinary string path..." className="w-full pl-10 pr-4 py-2 bg-slate-50 border rounded-xl text-xs font-mono font-medium focus:outline-none" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* DESCRIPTION DETAILS */}
+          <div className="bg-white border rounded-3xl p-6 space-y-6 shadow-xs">
+            <div className="flex items-center gap-2 pb-3 border-b">
+              <FileText className="h-4 w-4 text-[#0038A8]" />
+              <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider">Description settings</h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-6 gap-6 items-start">
+              <label className="md:col-span-2 text-xs font-bold text-slate-500 uppercase tracking-wide md:pt-3">Course summary</label>
+              <div className="md:col-span-4">
+                <div className="border rounded-2xl overflow-hidden bg-slate-50">
+                  <div className="flex flex-wrap items-center gap-1 p-2 bg-slate-50 border-b select-none">
+                    <span className="text-[10px] text-slate-400 font-black px-2 py-1 rounded-md border bg-white flex items-center gap-1 cursor-pointer">Normal text <ChevronDown className="h-3 w-3" /></span>
+                  </div>
+                  <textarea value={description} onChange={(e) => setDescription(e.target.value)} className="w-full p-4 bg-transparent focus:outline-none text-xs leading-relaxed font-medium" rows={4} />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ACCORDION MAPPER */}
+          <div className="bg-white border rounded-3xl p-6 shadow-sm space-y-6">
+            <div className="flex items-center justify-between pb-3 border-b">
+              <div className="flex items-center gap-2">
+                <Layers className="h-4 w-4 text-[#0038A8]" />
+                <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider">Course format & topic outline</h2>
+              </div>
+              <button type="button" onClick={handleAddSyllabusSection} className="flex items-center gap-1.5 text-xs font-bold text-[#8b5cf6] hover:bg-[#7c3aed] bg-[#8b5cf6]/5 px-3 py-1.5 rounded-xl border border-[#8b5cf6]/10 transition-colors">
+                <Plus className="h-3.5 w-3.5" />
+                <span>Add Topic Section</span>
+              </button>
+            </div>
+
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleModuleDragEnd}>
+              <SortableContext items={syllabus.map(m => m.id)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-3">
+                  {syllabus.map((item, idx) => {
+                    const isExpanded = !!expandedSyllabus[item.id];
+                    return (
+                      <SortableModuleItem
+                        key={item.id}
+                        item={item}
+                        idx={idx}
+                        isExpanded={isExpanded}
+                        toggleSyllabusExpand={toggleSyllabusExpand}
+                        handleToggleModuleVisibility={handleToggleModuleVisibility}
+                        startEditSyllabus={startEditSyllabus}
+                        handleDeleteSyllabusSection={handleDeleteSyllabusSection}
+                        setAddLessonModuleId={setAddLessonModuleId}
+                        openEditLessonModal={openEditLessonModal}
+                        handleDeleteLesson={handleDeleteLesson}
+                        handleToggleLessonVisibility={handleToggleLessonVisibility}
+                        renderActivityIcon={renderActivityIcon}
+                        handleLessonDragEnd={handleLessonDragEnd}
+                        sensors={sensors}
+                      />
+                    );
+                  })}
+                </div>
+              </SortableContext>
+            </DndContext>
           </div>
         </div>
 
-        {/* SECTION 4: TAGS & METADATA */}
-        <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.01)] space-y-6">
-          <div className="flex items-center gap-2 select-none pb-3 border-b border-border/50">
-            <Bookmark className="h-4 w-4 text-[#0038A8]" />
-            <h2 className="text-sm font-black text-foreground uppercase tracking-wider">Course tags & metadata</h2>
+        {/* SIDEBAR METRICS */}
+        <div className="space-y-6">
+          <div className="bg-white border rounded-3xl p-5 space-y-4 shadow-xs">
+            <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider border-b pb-2 flex items-center gap-1.5">
+              <TrendingUp className="h-4 w-4 text-[#0038A8]" /> Dynamic Data Telemetry
+            </h3>
+            <div className="space-y-3 font-medium text-xs text-slate-600">
+              <div className="flex justify-between"><span>Active Modules:</span><span className="font-bold text-slate-900 font-mono">{syllabus.length}</span></div>
+              <div className="flex justify-between"><span>Tracked Lessons:</span><span className="font-bold text-slate-900 font-mono">{liveTotalLessons}</span></div>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-6 items-start">
-            <label className="md:col-span-2 text-xs font-bold text-muted-foreground uppercase tracking-wide md:pt-3 select-none">
-              Assign Course Tags
-            </label>
-            <div className="md:col-span-4 space-y-3 text-left">
-              <form onSubmit={handleAddTag} className="flex gap-2 w-full md:w-2/3 select-none">
-                <input
-                  type="text"
-                  placeholder="Enter custom tag..."
-                  value={newTagInput}
-                  onChange={(e) => setNewTagInput(e.target.value)}
-                  className="flex-1 px-3 py-2 bg-muted/30 border border-border/80 rounded-xl text-xs font-semibold focus:outline-none"
-                />
-                <button type="submit" className="px-3.5 py-2 bg-muted hover:bg-accent border border-border rounded-xl text-xs font-bold transition-all">+</button>
-              </form>
-              
-              <div className="flex flex-wrap gap-1.5 pt-1 select-none">
-                {tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-[#121212] text-white dark:bg-muted dark:text-foreground shadow-sm"
-                  >
-                    <span>{tag}</span>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveTag(tag)}
-                      className="text-white/60 hover:text-white dark:text-foreground/60 dark:hover:text-foreground text-[8px] font-extrabold focus:outline-none shrink-0"
-                    >
-                      ✕
-                    </button>
-                  </span>
-                ))}
+          <div className="bg-white border rounded-3xl p-5 space-y-4 shadow-xs">
+            <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider border-b pb-2 flex items-center gap-1.5">
+              <Percent className="h-4 w-4 text-[#0038A8]" /> System Policies
+            </h3>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase">Max Enrolled Students</label>
+                <div className="relative"><User className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" /><input type="number" value={maxStudents} onChange={(e) => setMaxStudents(parseInt(e.target.value) || 0)} className="w-full pl-9 pr-4 py-1.5 bg-slate-50 border rounded-xl text-xs font-bold focus:outline-none" /></div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase">Pricing Tier ($)</label>
+                <div className="relative"><DollarSign className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" /><input type="number" value={price} onChange={(e) => setPrice(parseFloat(e.target.value) || 0)} className="w-full pl-9 pr-4 py-1.5 bg-slate-50 border rounded-xl text-xs font-bold focus:outline-none" /></div>
               </div>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* MOODLE FORM ACTIONS */}
-        <div className="border-t border-border/60 pt-6 flex items-center justify-end gap-3 select-none">
-          <button
-            onClick={() => router.push(`/list/courses/${courseId}`)}
-            className="px-5 py-2.5 bg-background border border-border hover:bg-accent text-foreground font-extrabold text-xs rounded-xl transition-all shadow-sm active:scale-[0.98]"
-          >
-            Cancel
-          </button>
-          
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-6 py-2.5 bg-[#0038A8] text-white hover:bg-[#002D86] disabled:opacity-50 font-extrabold text-xs rounded-xl transition-all shadow-md shadow-[#0038A8]/10 active:scale-[0.98]"
-          >
-            {saving ? "Saving..." : "Save and display"}
-          </button>
-        </div>
-
+      {/* FOOTER ACTIONS */}
+      <div className="border-t pt-6 flex items-center justify-end gap-3 select-none">
+        <button type="button" onClick={() => router.push(`/list/courses/${courseId}`)} className="px-5 py-2.5 bg-white border hover:bg-slate-50 text-slate-600 font-extrabold text-xs rounded-xl shadow-xs">Cancel</button>
+        <button type="button" onClick={handleSave} disabled={saving} className="px-6 py-2.5 bg-[#0038A8] text-white hover:bg-[#002D86] disabled:opacity-50 font-extrabold text-xs rounded-xl shadow-sm">
+          {saving ? "Saving..." : "Save and display"}
+        </button>
       </div>
     </div>
   );

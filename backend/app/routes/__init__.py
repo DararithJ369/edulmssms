@@ -10,7 +10,6 @@ from .exams import exam_router
 from .results import result_router
 from .enrollments import enrollment_router
 from .attendance import attendance_router
-from .grades import grade_router
 from .submissions import submission_router
 from .grade_level import grade_level_router, grade_level_alias_router
 from .academic_year import academic_year_router
@@ -22,6 +21,13 @@ from .role_permissions import role_permissions_router
 from .courses_management import router as courses_management_router
 from .announcements import announcement_router
 from .progress import progress_router
+from .schedule_slots import schedule_slot_router
+from .ai_tutor import ai_tutor_router
+from .notifications import router as notification_router
+from .video_learning import router as video_learning_router
+from .audit_logs import audit_log_router
+from .events import event_router
+from .storage import storage_router
 
 all_routers = [
     auth_router,
@@ -36,7 +42,6 @@ all_routers = [
     result_router,
     enrollment_router,
     attendance_router,
-    grade_router,
     submission_router,
     grade_level_router,
     grade_level_alias_router,
@@ -48,4 +53,10 @@ all_routers = [
     role_permissions_router,
     announcement_router,
     progress_router,
+    schedule_slot_router,
+    ai_tutor_router,
+    notification_router,
+    video_learning_router,
+    audit_log_router,
+    event_router,
 ]

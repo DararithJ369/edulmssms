@@ -1,4 +1,5 @@
 import FormContainer from "@/components/FormContainer";
+import TableRowActions from "@/components/TableRowActions";
 import Pagination from "@/components/Pagination";
 import TableSearch from "@/components/TableSearch";
 import prisma from "@/lib/prisma";
@@ -175,12 +176,12 @@ const AnnouncementListPage = async ({
 
                 {/* Right Side Actions */}
                 <div className="flex items-center gap-4">
-                  {role === "admin" && (
-                    <div className="flex items-center gap-1 select-none opacity-40 group-hover:opacity-100 transition-opacity">
-                      <FormContainer table="announcement" type="update" data={item} />
-                      <FormContainer table="announcement" type="delete" id={item.id} />
-                    </div>
-                  )}
+                  <TableRowActions
+                    id={item.id}
+                    table="announcement"
+                    editData={item}
+                    role={role}
+                  />
                 </div>
 
               </div>

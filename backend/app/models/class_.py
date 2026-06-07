@@ -9,7 +9,7 @@ class Class(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
-    grade_id = Column(Integer, ForeignKey("grades.id"), nullable=False)
+    grade_id = Column(Integer, ForeignKey("grade_levels.id"), nullable=False)
     supervisor_id = Column(String, ForeignKey("users.id"), nullable=False)
 
     name = Column(String, nullable=False)  # e.g. Grade 10

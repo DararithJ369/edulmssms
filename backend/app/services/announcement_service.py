@@ -45,6 +45,36 @@ class AnnouncementService:
         db.add(obj)
         db.commit()
         db.refresh(obj)
+
+        # Notify enrolled students
+        try:
+            from app.models.enrollment import Enrollment
+            from app.services.notification_service import NotificationService
+            from app.models.course import Course
+            
+            course = db.query(Course).filter(Course.id == obj.course_id).first()
+            course_name = course.course_name if course else f"Course #{obj.course_id}"
+            
+            enrollments = db.query(Enrollment).filter(
+                Enrollment.course_id == obj.course_id,
+                Enrollment.is_active == True
+            ).all()
+
+            for enrollment in enrollments:
+                if enrollment.student_profile and enrollment.student_profile.profile:
+                    student_user_id = enrollment.student_profile.profile.user_id
+                    if student_user_id:
+                        NotificationService.create_notification(
+                            db=db,
+                            user_id=student_user_id,
+                            title="New Course Announcement",
+                            message=f"New announcement in '{course_name}': {obj.title}. Details: {obj.message}",
+                            type="announcement",
+                            reference_id=obj.id
+                        )
+        except Exception as e:
+            print(f"Failed to send announcement notifications: {e}")
+
         return AnnouncementResponse.model_validate(obj)
 
     @staticmethod

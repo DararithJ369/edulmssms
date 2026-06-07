@@ -69,7 +69,7 @@ class SubjectService:
         if db.query(Subject).filter(func.lower(Subject.name) == subject_in.name.lower()).first():
             raise HTTPException(status_code=400, detail="Subject name already exists")
 
-        teacher = db.query(User).filter(User.id == subject_in.teacher_id).first()
+        teacher = db.query(User).filter(User.id == subject_in.instructor_id).first()
         if not teacher:
             raise HTTPException(status_code=400, detail="Teacher not found")
 
@@ -94,8 +94,8 @@ class SubjectService:
             if conflict:
                 raise HTTPException(status_code=400, detail="Subject name already exists")
 
-        if subject_in.teacher_id:
-            if not db.query(User).filter(User.id == subject_in.teacher_id).first():
+        if subject_in.instructor_id:
+            if not db.query(User).filter(User.id == subject_in.instructor_id).first():
                 raise HTTPException(status_code=400, detail="Teacher not found")
 
         for field, value in subject_in.model_dump(exclude_unset=True).items():

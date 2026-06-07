@@ -4,7 +4,7 @@ from fastapi import HTTPException
 from app.models.attendance import Attendance
 from app.models.class_session import ClassSession
 from app.models.user import User
-from app.schemas.attendance import AttendanceBulkCreate, AttendanceUpdate, AttendanceResponse
+from app.schemas.attendance import AttendanceBulkCreate, AttendanceUpdate, AttendanceResponse, AttendanceCreate
 
 
 class AttendanceService:
@@ -33,14 +33,19 @@ class AttendanceService:
             )
             if existing:
                 existing.status = item.status
-                existing.remarks = getattr(item, "remarks", None)
+                existing.note = item.note
+                existing.time = item.time
                 records.append(existing)
             else:
                 record = Attendance(
                     session_id=session_id,
                     student_id=item.student_id,
+                    course_id=payload.course_id,
+                    date=payload.date,
                     status=item.status,
-                    remarks=getattr(item, "remarks", None),
+                    note=item.note,
+                    time=item.time,
+                    recorded_by=session.teacher_id,
                 )
                 db.add(record)
                 records.append(record)
@@ -134,3 +139,22 @@ class AttendanceService:
         db.delete(record)
         db.commit()
         return {"message": "Attendance record deleted successfully"}
+
+    @staticmethod
+    def create_attendance(
+        db: Session, attendance_in: AttendanceCreate, recorded_by: str
+    ) -> AttendanceResponse:
+        record = Attendance(
+            student_id=attendance_in.student_id,
+            course_id=attendance_in.course_id,
+            session_id=attendance_in.session_id,
+            date=attendance_in.date,
+            status=attendance_in.status,
+            time=attendance_in.time,
+            note=attendance_in.note,
+            recorded_by=recorded_by,
+        )
+        db.add(record)
+        db.commit()
+        db.refresh(record)
+        return AttendanceResponse.model_validate(record)

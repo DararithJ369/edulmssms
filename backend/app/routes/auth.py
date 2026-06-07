@@ -10,6 +10,7 @@ from app.config.session import get_db
 from app.schemas.user import LoginRequest, Token
 from app.config.logger import security_logger
 from app.utils.device_tracker import DeviceTracker
+from app.services.audit_log_service import AuditLogService
 from pydantic import BaseModel
 
 load_dotenv()
@@ -44,6 +45,15 @@ def login(request: Request, data: LoginRequest, db: Session = Depends(get_db)):
     client_ip = DeviceTracker.get_client_ip(request)
     security_logger.info(
         f"User {user.email} logged in from IP {client_ip} — {info}"
+    )
+
+    AuditLogService.create_log(
+        db=db,
+        user_id=str(user.id),
+        action="LOGIN",
+        message=f"User {user.username} ({user.email}) logged in successfully.",
+        ip_address=client_ip,
+        user_agent=f"{info.get('os', '')} {info.get('browser', '')}".strip() or None
     )
 
     token_data = {"sub": str(user.id), "role": user.role_id}

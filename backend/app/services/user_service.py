@@ -94,12 +94,24 @@ class UserService:
     
     
     @staticmethod
-    def get_users(db: Session, page: int, limit: int):
-        total = db.query(func.count(User.id)).scalar()
+    def get_users(db: Session, page: int, limit: int, search: str = "", role_name: str = ""):
+        query = db.query(User)
+        
+        if role_name:
+            query = query.join(Role).filter(func.lower(Role.name) == func.lower(role_name))
+            
+        if search:
+            from app.models.user_profile import UserProfile
+            query = query.outerjoin(UserProfile, User.id == UserProfile.user_id).filter(
+                (User.username.ilike(f"%{search}%")) |
+                (User.email.ilike(f"%{search}%")) |
+                (UserProfile.full_name.ilike(f"%{search}%"))
+            )
+            
+        total = query.with_entities(func.count(User.id)).scalar()
         
         users = (
-            db.query(User)
-            .order_by(User.created_at.desc())
+            query.order_by(User.created_at.desc())
             .offset((page - 1) * limit)
             .limit(limit)
             .all()
@@ -116,19 +128,25 @@ class UserService:
         
     
     @staticmethod
-    def get_users_by_role(db: Session, role_name: str, page: int, limit: int):
-        total = (
-            db.query(func.count(User.id))
-            .join(Role)
-            .filter(func.lower(Role.name) == func.lower(role_name))
-            .scalar()
-        )
-        
-        users = (
+    def get_users_by_role(db: Session, role_name: str, page: int, limit: int, search: str = ""):
+        query = (
             db.query(User)
             .join(Role)
             .filter(func.lower(Role.name) == func.lower(role_name))
-            .order_by(User.created_at.desc())
+        )
+        
+        if search:
+            from app.models.user_profile import UserProfile
+            query = query.outerjoin(UserProfile, User.id == UserProfile.user_id).filter(
+                (User.username.ilike(f"%{search}%")) |
+                (User.email.ilike(f"%{search}%")) |
+                (UserProfile.full_name.ilike(f"%{search}%"))
+            )
+            
+        total = query.with_entities(func.count(User.id)).scalar()
+        
+        users = (
+            query.order_by(User.created_at.desc())
             .offset((page - 1) * limit)
             .limit(limit)
             .all()

@@ -1,6 +1,8 @@
 import Announcements from "@/components/Announcements";
 import Performance from "@/components/Performance";
 import ParentEditModal from "@/components/ParentEditModal";
+import ParentLinkStudentModal from "@/components/ParentLinkStudentModal"; 
+import BackButton from "@/components/BackButton";
 import { serverFetch } from "@/lib/server-api";
 import Link from "next/link";
 import { cookies } from "next/headers";
@@ -39,18 +41,21 @@ const SingleParentPage = async ({
   const cookieStore = cookies();
   const role = normalizeRole(cookieStore.get("user_role")?.value);
   const token = cookieStore.get("access_token")?.value || cookieStore.get("token")?.value;
+  const tokenQuery = token ? `?token=${token}` : "";
 
   let profileError: string | null = null;
   let userError: string | null = null;
 
   const [parent, user] = await Promise.all([
     serverFetch<ParentFullResponse>(
-      `/parents/${id}/profile${token ? `?token=${token}` : ""}`
+      `/parents/${id}/profile${tokenQuery}`
     ).catch((err) => {
       profileError = err instanceof Error ? err.message : String(err);
       return null;
     }),
-    serverFetch<UserResponse>(`/users/${id}`).catch((err) => {
+    serverFetch<UserResponse>(
+      `/users/${id}${tokenQuery}`
+    ).catch((err) => {
       userError = err instanceof Error ? err.message : String(err);
       return null;
     }),
@@ -72,10 +77,12 @@ const SingleParentPage = async ({
     );
   }
 
-  // Linked students
-  const linkedStudents: any[] = await serverFetch<any[]>(`/parents/${id}/students`).catch(() => []);
+  const linkedStudents: any[] = await serverFetch<any[]>(
+    `/parents/${id}/students${tokenQuery}`
+  ).catch(() => []);
 
   const pp = parent.parent_profile;
+  const parentAny = parent as any;
 
   const editData = {
     userId:      user.id,
@@ -87,13 +94,13 @@ const SingleParentPage = async ({
     bio:         parent.bio         || "",
     date_of_birth: parent.date_of_birth || "",
     gender:      parent.gender      || "",
-    nationality: (parent as any).nationality || "",
+    nationality: parentAny.nationality || "",
     pfp:         parent.pfp         || "",
-    blood_type:  (parent as any).blood_type || "",
-    medical_conditions: (parent as any).medical_conditions || "",
+    blood_type:  parentAny.blood_type || "",
+    medical_conditions: parentAny.medical_conditions || "",
     emergency_contact_name:         parent.emergency_contact_name         || "",
     emergency_contact_phone:        parent.emergency_contact_phone        || "",
-    emergency_contact_relationship: (parent as any).emergency_contact_relationship || "",
+    emergency_contact_relationship: parentAny.emergency_contact_relationship || "",
     occupation:     pp?.occupation     || "",
     relationship:   pp?.relationship   || "",
     emergency_phone: pp?.emergency_phone || "",
@@ -123,21 +130,24 @@ const SingleParentPage = async ({
 
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 select-none mb-6">
-        <div>
-          <span className="text-xs font-extrabold text-[#0038A8] uppercase tracking-wider font-mono">
-            Guardian Profile Details
-          </span>
-          <div className="flex items-center gap-3 mt-0.5">
-            <h1 className="text-xl md:text-3xl font-black text-gray-900 tracking-tight leading-tight">
-              {displayName}
-            </h1>
-            <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border select-none ${
-              user.is_active
-                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                : "bg-red-50 text-red-600 border-red-200"
-            }`}>
-              {user.is_active ? "Active" : "Inactive"}
+        <div className="flex items-start gap-3">
+          <BackButton className="mt-1" />
+          <div>
+            <span className="text-xs font-extrabold text-[#0038A8] uppercase tracking-wider font-mono">
+              Guardian Profile Details
             </span>
+            <div className="flex items-center gap-3 mt-0.5">
+              <h1 className="text-xl md:text-3xl font-black text-gray-900 tracking-tight leading-tight">
+                {displayName}
+              </h1>
+              <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border select-none ${
+                user.is_active
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  : "bg-red-50 text-red-600 border-red-200"
+              }`}>
+                {user.is_active ? "Active" : "Inactive"}
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -196,7 +206,7 @@ const SingleParentPage = async ({
                   <MetaRow icon={<Phone className="h-3.5 w-3.5" />} value={parent.phone} />
                   {pp?.emergency_phone && <MetaRow icon={<Phone className="h-3.5 w-3.5 text-red-400" />} value={`Emergency: ${pp.emergency_phone}`} />}
                   {parent.address     && <MetaRow icon={<MapPin className="h-3.5 w-3.5" />} value={parent.address} />}
-                  {(parent as any).nationality && <MetaRow icon={<Flag className="h-3.5 w-3.5" />} value={(parent as any).nationality} />}
+                  {parentAny.nationality && <MetaRow icon={<Flag className="h-3.5 w-3.5" />} value={parentAny.nationality} />}
                   {pp?.occupation     && <MetaRow icon={<Briefcase className="h-3.5 w-3.5" />} value={`Occupation: ${pp.occupation}`} />}
                 </div>
               </div>
@@ -225,7 +235,7 @@ const SingleParentPage = async ({
               </div>
 
               <div className="bg-white border border-slate-100 hover:border-emerald-500/25 p-5 rounded-3xl flex items-center gap-4 shadow-sm hover:shadow-md hover:-translate-y-[0.5px] transition-all duration-300 group">
-                <div className="h-11 w-11 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-500 flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 shadow-sm">
+                <div className="h-11 w-11 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 shadow-sm">
                   <Briefcase className="h-5 w-5" />
                 </div>
                 <div>
@@ -248,33 +258,54 @@ const SingleParentPage = async ({
 
           {/* LINKED STUDENTS */}
           <div className="bg-white border border-border/60 rounded-3xl p-6 shadow-sm text-left">
-            <h3 className="text-base font-bold text-gray-900 mb-4 select-none flex items-center gap-2">
-              <GraduationCap className="h-4 w-4 text-[#0038A8]" />
-              Linked Students
-              <span className="ml-auto text-[10px] font-black text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                {linkedStudents.length}
-              </span>
-            </h3>
+            <div className="flex items-center justify-between mb-4 select-none">
+              <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                <GraduationCap className="h-4 w-4 text-[#0038A8]" />
+                Linked Students
+                <span className="text-[10px] font-black text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                  {linkedStudents.length}
+                </span>
+              </h3>
+              {role === "admin" && <ParentLinkStudentModal parentId={user.id} />}
+            </div>
+            
             {linkedStudents.length > 0 ? (
               <div className="space-y-2">
-                {linkedStudents.map((s: any) => (
-                  <Link key={s.id || s.user_id} href={`/list/students/${s.user_id || s.id}`}>
-                    <div className="flex items-center justify-between p-3.5 rounded-2xl border border-border/50 hover:border-[#0038A8]/30 hover:bg-[#0038A8]/5 transition-all group">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="h-9 w-9 rounded-xl bg-rose-50 border border-rose-100 text-rose-500 flex items-center justify-center shrink-0">
-                          <GraduationCap className="h-4 w-4" />
+                {linkedStudents.map((s: any) => {
+                  // 🛡️ EXPLICIT STRING UUID RESOLVER:
+                  // Prioritizes user_id directly, then scans nested profiles,
+                  // and falls back to s.id ONLY if it matches an authentic UUID format.
+                  const isUuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                  let targetUuid = s.user_id || s.profile?.user_id;
+
+                  if (!targetUuid && isUuidRegex.test(String(s.id))) {
+                    targetUuid = s.id;
+                  }
+
+                  // Defensive backup flag to prevent routing to base indexes like /1
+                  if (!targetUuid || !isUuidRegex.test(String(targetUuid))) {
+                    targetUuid = "missing-valid-uuid";
+                  }
+
+                  return (
+                    <Link key={s.id || targetUuid} href={`/list/students/${targetUuid}`}>
+                      <div className="flex items-center justify-between p-3.5 rounded-2xl border border-border/50 hover:border-[#0038A8]/30 hover:bg-[#0038A8]/5 transition-all group">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="h-9 w-9 rounded-xl bg-rose-50 border border-rose-100 text-rose-500 flex items-center justify-center shrink-0">
+                            <GraduationCap className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-foreground truncate">{s.full_name || s.username || "Student"}</p>
+                            {s.grade_level_name && (
+                              <p className="text-[10px] text-muted-foreground mt-0.5">{s.grade_level_name}</p>
+                            )}
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <p className="text-xs font-bold text-foreground truncate">{s.full_name || s.username || "Student"}</p>
-                          {s.grade_level_name && (
-                            <p className="text-[10px] text-muted-foreground mt-0.5">{s.grade_level_name}</p>
-                          )}
-                        </div>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-[#0038A8] transition-colors shrink-0" />
                       </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-[#0038A8] transition-colors shrink-0" />
-                    </div>
-                  </Link>
-                ))}
+                    </Link>
+                  );
+                })}
               </div>
             ) : (
               <div className="py-8 text-center text-muted-foreground/50 select-none">

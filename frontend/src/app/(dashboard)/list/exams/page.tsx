@@ -1,4 +1,5 @@
 import FormContainer from "@/components/FormContainer";
+import TableRowActions from "@/components/TableRowActions";
 import Pagination from "@/components/Pagination";
 import TableSearch from "@/components/TableSearch";
 import { serverFetch } from "@/lib/server-api";
@@ -44,19 +45,63 @@ const ExamListPage = async ({
   const cookieStore = cookies();
   const role = normalizeRole(cookieStore.get("user_role")?.value);
 
-  const { page } = searchParams;
+  const { page, classId } = searchParams;
   const p = page ? parseInt(page) : 1;
 
-  const examsResponse = await serverFetch<{
-    data: ExamList[];
-    meta: { total: number };
-  }>(`/exams?page=${p}&limit=${ITEM_PER_PAGE}`).catch(() => ({
-    data: [],
-    meta: { total: 0 }
-  }));
+  const exactToken = cookieStore.get("access_token")?.value || cookieStore.get("token")?.value || "";
+  const fetchOptions = { token: exactToken };
 
-  const data = examsResponse.data || [];
-  const count = examsResponse.meta?.total ?? 0;
+  let data: ExamList[] = [];
+  let count = 0;
+
+  if (classId) {
+    let courseIds: number[] = [];
+    const students = await serverFetch<any[]>(`/classes/${classId}/students`, fetchOptions).catch(() => []);
+    if (students && students.length > 0) {
+      const studentId = students[0].id || students[0].user_id;
+      const overview = await serverFetch<any>(`/students/${studentId}/overview`, fetchOptions).catch(() => null);
+      if (overview && overview.courses) {
+        courseIds = overview.courses.map((c: any) => Number(c.course_id));
+      }
+    }
+
+    const examsResponse = await serverFetch<{
+      data: any[];
+      meta: { total: number };
+    }>(`/exams?limit=1000`, fetchOptions).catch(() => ({
+      data: [],
+      meta: { total: 0 }
+    }));
+    const allExams = examsResponse.data || [];
+
+    const lessonsResponse = await serverFetch<{ data: any[] }>(`/lessons?limit=1000`, fetchOptions).catch(() => ({ data: [] }));
+    const lessons = lessonsResponse.data || [];
+    const lessonToCourse: Record<number, number> = {};
+    lessons.forEach((l: any) => {
+      const cId = l.course_id || l.course?.id;
+      if (l.id && cId) {
+        lessonToCourse[l.id] = Number(cId);
+      }
+    });
+
+    const filteredExams = allExams.filter((exam) => {
+      const cId = lessonToCourse[exam.lesson_id];
+      return cId ? courseIds.includes(cId) : false;
+    });
+
+    count = filteredExams.length;
+    data = filteredExams.slice((p - 1) * ITEM_PER_PAGE, p * ITEM_PER_PAGE);
+  } else {
+    const examsResponse = await serverFetch<{
+      data: ExamList[];
+      meta: { total: number };
+    }>(`/exams?page=${p}&limit=${ITEM_PER_PAGE}`, fetchOptions).catch(() => ({
+      data: [],
+      meta: { total: 0 }
+    }));
+    data = examsResponse.data || [];
+    count = examsResponse.meta?.total ?? 0;
+  }
 
   return (
     <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left">
@@ -158,13 +203,12 @@ const ExamListPage = async ({
 
                 {/* Right Side Actions and Completion tracking */}
                 <div className="flex items-center gap-4">
-                  {/* Dynamic actions for admins/teachers */}
-                  {(role === "admin" || role === "teacher") && (
-                    <div className="flex items-center gap-1 select-none opacity-40 group-hover:opacity-100 transition-opacity">
-                      <FormContainer table="exam" type="update" data={item} />
-                      <FormContainer table="exam" type="delete" id={item.id} />
-                    </div>
-                  )}
+                  <TableRowActions
+                    id={item.id}
+                    table="exam"
+                    editData={item}
+                    role={role}
+                  />
 
                   <Link href={`/list/exams`}>
                     <button className="px-3.5 py-1.5 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 text-violet-700 dark:text-violet-400 font-bold text-[9px] rounded-lg shadow-sm transition-colors active:scale-[0.98]">

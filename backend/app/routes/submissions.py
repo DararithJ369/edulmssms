@@ -64,10 +64,16 @@ def get_submissions_by_reference(
 
 
 @submission_router.get("/{submission_id}", response_model=SubmissionResponse)
-def get_submission(submission_id: int, db: Session = Depends(get_db)):
+def get_submission(
+    submission_id: int, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     obj = db.query(Submission).filter(Submission.id == submission_id).first()
     if not obj:
         raise HTTPException(status_code=404, detail="Submission not found")
+    if current_user.role.name.lower() not in ["admin", "teacher", "instructor"] and str(obj.student_id) != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Forbidden")
     return obj
 
 
@@ -116,6 +122,13 @@ async def submit_homework(
             sub.submission_file = saved_file_url
         sub.submitted_at = datetime.now()
         sub.status = "submitted"
+
+        # Record streak activity
+        try:
+            from app.services.streak_service import StreakService
+            StreakService.record_activity(db, student_id)
+        except Exception as e:
+            print(f"Failed to record streak activity on homework submit: {e}")
 
     db.commit()
     db.refresh(sub)
@@ -184,6 +197,23 @@ def grade_submission(
 
     db.commit()
     db.refresh(sub)
+
+    # Notify student about released grade
+    try:
+        from app.services.notification_service import NotificationService
+        
+        notif_msg = f"Your submission for {sub.submission_type} #{sub.reference_id} has been graded. Score: {score}/{total_marks} ({grade_letter}). Feedback: {feedback or 'None'}"
+        NotificationService.create_notification(
+            db=db,
+            user_id=sub.student_id,
+            title="Grade Released",
+            message=notif_msg,
+            type="grade",
+            reference_id=sub.id
+        )
+    except Exception as e:
+        print(f"Failed to send grade notification: {e}")
+
     return sub
 
 

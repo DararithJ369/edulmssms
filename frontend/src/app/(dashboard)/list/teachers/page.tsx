@@ -1,4 +1,5 @@
 import FormContainer from "@/components/FormContainer";
+import TableRowActions from "@/components/TableRowActions";
 import Pagination from "@/components/Pagination";
 import TableSearch from "@/components/TableSearch";
 import { serverFetch } from "@/lib/server-api";
@@ -58,16 +59,72 @@ const TeacherListPage = async ({
   const cookieStore = cookies();
   const role = normalizeRole(cookieStore.get("user_role")?.value);
 
-  const { page } = searchParams;
+  const { page, classId } = searchParams;
 
   const p = page ? parseInt(page) : 1;
 
-  const response = await serverFetch<{ data: TeacherList[]; meta?: { total?: number } }>(
-    `/users/instructors?page=${p}&limit=${ITEM_PER_PAGE}`
-  );
+  const exactToken = cookieStore.get("access_token")?.value || cookieStore.get("token")?.value || "";
+  const fetchOptions = { token: exactToken };
 
-  const data = response.data || [];
-  const count = response.meta?.total ?? 0;
+  let data: TeacherList[] = [];
+  let count = 0;
+
+  if (classId) {
+    const teacherIds = new Set<string>();
+
+    // 1. Get class details for supervisor_id
+    const classDetail = await serverFetch<any>(`/classes/${classId}`, fetchOptions).catch(() => null);
+    if (classDetail?.supervisor_id) {
+      teacherIds.add(classDetail.supervisor_id);
+    }
+
+    // 2. Get sessions for teacher_id
+    const sessions = await serverFetch<any[]>(`/classes/${classId}/sessions`, fetchOptions).catch(() => []);
+    if (sessions) {
+      sessions.forEach((s: any) => {
+        if (s.teacher_id) teacherIds.add(s.teacher_id);
+        if (s.teacher?.id) teacherIds.add(s.teacher.id);
+      });
+    }
+
+    // 3. Get course instructors
+    let courseIds: number[] = [];
+    const students = await serverFetch<any[]>(`/classes/${classId}/students`, fetchOptions).catch(() => []);
+    if (students && students.length > 0) {
+      const studentId = students[0].id || students[0].user_id;
+      const overview = await serverFetch<any>(`/students/${studentId}/overview`, fetchOptions).catch(() => null);
+      if (overview && overview.courses) {
+        courseIds = overview.courses.map((c: any) => Number(c.course_id));
+      }
+    }
+
+    if (courseIds.length > 0) {
+      const coursesRes = await serverFetch<{ data: any[] }>(`/courses?limit=100`, fetchOptions).catch(() => ({ data: [] }));
+      const allCourses = coursesRes.data || [];
+      allCourses.forEach((c: any) => {
+        if (courseIds.includes(Number(c.id)) && c.instructor_id) {
+          teacherIds.add(c.instructor_id);
+        }
+      });
+    }
+
+    const response = await serverFetch<{ data: TeacherList[]; meta?: { total?: number } }>(
+      `/users/instructors?limit=1000`,
+      fetchOptions
+    ).catch(() => ({ data: [], meta: { total: 0 } }));
+
+    const allTeachers = response.data || [];
+    const filteredTeachers = allTeachers.filter((t) => teacherIds.has(t.id));
+    count = filteredTeachers.length;
+    data = filteredTeachers.slice((p - 1) * ITEM_PER_PAGE, p * ITEM_PER_PAGE);
+  } else {
+    const response = await serverFetch<{ data: TeacherList[]; meta?: { total?: number } }>(
+      `/users/instructors?page=${p}&limit=${ITEM_PER_PAGE}`,
+      fetchOptions
+    ).catch(() => ({ data: [], meta: { total: 0 } }));
+    data = response.data || [];
+    count = response.meta?.total ?? 0;
+  }
 
   return (
     <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left">
@@ -171,20 +228,15 @@ const TeacherListPage = async ({
                 </div>
               </div>
 
-              {/* Right Side Actions */}
+              {/* Right Side Actions Dropdown */}
               <div className="flex items-center gap-4 z-10">
-                {/* Dynamic actions for admins */}
-                {role === "admin" && (
-                  <div className="flex items-center gap-1 select-none opacity-40 group-hover:opacity-100 transition-opacity">
-                    <FormContainer table="teacher" type="delete" id={item.id} />
-                  </div>
-                )}
-
-                <Link href={`/list/teachers/${item.id}`}>
-                  <button className="px-4 py-1.5 bg-[#0038A8]/10 hover:bg-[#0038A8]/20 border border-[#0038A8]/20 text-[#0038A8] dark:text-sky-300 font-extrabold text-[9px] rounded-lg shadow-sm transition-colors active:scale-[0.98] uppercase tracking-wider">
-                    View Profile
-                  </button>
-                </Link>
+                <TableRowActions
+                  id={item.id}
+                  table="teacher"
+                  viewUrl={`/list/teachers/${item.id}`}
+                  editData={item}
+                  role={role}
+                />
               </div>
             </div>
           ))}

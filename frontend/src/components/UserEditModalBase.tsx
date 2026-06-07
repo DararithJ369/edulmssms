@@ -202,14 +202,15 @@ interface ModalShellProps {
   onSave: () => void;
   onClose: () => void;
   children: React.ReactNode;
+  className?: string; // 💡 FIXED: Explicitly support className overrides
 }
 
 export function ModalShell({
   title, data, fields, tabs, activeTab, setTab,
   photoUrl, setPhotoUrl,
   saving, onSave, onClose, children,
+  className = "", // 💡 FIXED: Destructure fallback mapping default values
 }: ModalShellProps) {
-  const fileRef = useRef<HTMLInputElement>(null);
   const displayName = fields.full_name || data.username || "User";
   const currentPhoto = photoUrl || getImageUrl(data.pfp);
   const { bg, text: textColor } = getInitialsColor(displayName);
@@ -217,7 +218,7 @@ export function ModalShell({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="bg-card border border-border rounded-3xl shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden">
+      <div className={`bg-card border border-border shadow-2xl w-full flex flex-col overflow-hidden max-h-[92vh] ${className || "max-w-2xl rounded-[4px]"}`}>
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border/60 shrink-0">

@@ -12,12 +12,6 @@ academic_year_router = APIRouter(prefix="/academic-years", tags=["Academic Years
 
 
 # ── Static paths — MUST be before /{year_id} ─────────────────────────────────
-
-@academic_year_router.get("/setup-form", dependencies=[Depends(PermissionGuard.admin_only)])
-def setup_form(db: Session = Depends(get_db)):
-    return AcademicYearService.setup_form(db)
-
-
 @academic_year_router.get("/current", response_model=AcademicYearResponse)
 def get_current_year(db: Session = Depends(get_db)):
     return AcademicYearService.get_current(db)

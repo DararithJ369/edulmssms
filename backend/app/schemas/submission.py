@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
 from datetime import datetime
 from typing import Optional
 
@@ -31,8 +31,15 @@ class SubmissionUpdate(BaseModel):
 class SubmissionResponse(SubmissionBase):
     id: int
     submitted_at: datetime
+    student_name: Optional[str] = None
+    student_code: Optional[str] = None
 
     model_config = {"from_attributes": True}
+
+    @field_serializer("submission_file")
+    def serialize_submission_file(self, v: Optional[str]) -> Optional[str]:
+        from app.services.storage import StorageService
+        return StorageService.resolve_url(v)
 
 
 class Submission(SubmissionBase):

@@ -1,4 +1,5 @@
 import FormContainer from "@/components/FormContainer";
+import TableRowActions from "@/components/TableRowActions";
 import Pagination from "@/components/Pagination";
 import TableSearch from "@/components/TableSearch";
 import { serverFetch } from "@/lib/server-api";
@@ -174,20 +175,15 @@ const StudentListPage = async ({
                 </div>
               </div>
 
-              {/* Right Side Actions */}
+              {/* Right Side Actions Dropdown */}
               <div className="flex items-center gap-4 z-10">
-                {/* Dynamic actions for admins */}
-                {role === "admin" && (
-                  <div className="flex items-center gap-1 select-none opacity-40 group-hover:opacity-100 transition-opacity">
-                    <FormContainer table="student" type="delete" id={item.id} />
-                  </div>
-                )}
-
-                <Link href={`/list/students/${item.id}`}>
-                  <button className="px-4 py-1.5 bg-[#0038A8]/10 hover:bg-[#0038A8]/20 border border-[#0038A8]/20 text-[#0038A8] dark:text-sky-300 font-extrabold text-[9px] rounded-lg shadow-sm transition-colors active:scale-[0.98] uppercase tracking-wider">
-                    View Profile
-                  </button>
-                </Link>
+                <TableRowActions
+                  id={item.id}
+                  table="student"
+                  viewUrl={`/list/students/${item.id}`}
+                  editData={item}
+                  role={role}
+                />
               </div>
             </div>
           ))}

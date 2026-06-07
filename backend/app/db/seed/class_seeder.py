@@ -21,22 +21,22 @@ class ClassSeeder(BaseSeeder):
             Colors.warning("Table 'classes' does not exist, skipping class seeding")
             return None
 
-        if "grades" not in tables:
-            Colors.warning("Table 'grades' does not exist, skipping class seeding")
+        if "grade_levels" not in tables:
+            Colors.warning("Table 'grade_levels' does not exist, skipping class seeding")
             return None
 
         if not grade_id:
-            from app.models.grade import Grade
-            grade = self.db.query(Grade).first()
+            from app.models.grade_level import GradeLevel
+            grade = self.db.query(GradeLevel).first()
             if not grade:
-                Colors.success("No grade found, skipping class seeding")
+                Colors.success("No grade level found, skipping class seeding")
                 return None
             grade_id = grade.id
         else:
-            from app.models.grade import Grade
-            grade = self.db.query(Grade).filter_by(id=grade_id).first()
+            from app.models.grade_level import GradeLevel
+            grade = self.db.query(GradeLevel).filter_by(id=grade_id).first()
             if not grade:
-                Colors.success(f"Grade with id {grade_id} not found, skipping class seeding")
+                Colors.success(f"GradeLevel with id {grade_id} not found, skipping class seeding")
                 return None
 
         # Construct class name as "{grade_name} {section}" (e.g., "Year 1 A")

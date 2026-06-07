@@ -1,4 +1,5 @@
 import FormContainer from "@/components/FormContainer";
+import TableRowActions from "@/components/TableRowActions";
 import Pagination from "@/components/Pagination";
 import TableSearch from "@/components/TableSearch";
 import { serverFetch } from "@/lib/server-api";
@@ -27,6 +28,7 @@ type SubjectList = {
   code?: string | null;
   credits?: number | null;
   instructor_id?: string | null;
+  instructor_name?: string | null;
   is_active?: boolean | null;
 };
 
@@ -134,19 +136,19 @@ const SubjectListPage = async ({
                       {item.code && <span className="text-muted-foreground/40">•</span>}
                       <span className="font-sans">{item.credits ?? 0} academic credits</span>
                       <span className="text-muted-foreground/40">•</span>
-                      <span className="font-sans">Lead: {item.instructor_id || "Faculty Staff"}</span>
+                      <span className="font-sans">Lead: {item.instructor_name || "Faculty Staff"}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Right Side Actions */}
+                {/* Right Side Actions Dropdown */}
                 <div className="flex items-center gap-4 z-10">
-                  {role === "admin" && (
-                    <div className="flex items-center gap-1 select-none opacity-40 group-hover:opacity-100 transition-opacity">
-                      <FormContainer table="subject" type="update" data={item} />
-                      <FormContainer table="subject" type="delete" id={item.id} />
-                    </div>
-                  )}
+                  <TableRowActions
+                    id={item.id}
+                    table="subject"
+                    editData={item}
+                    role={role}
+                  />
                 </div>
 
               </div>

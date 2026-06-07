@@ -2,6 +2,7 @@ import Announcements from "@/components/Announcements";
 import BigCalendarContainer from "@/components/BigCalendarContainer";
 import Performance from "@/components/Performance";
 import TeacherEditModal from "@/components/TeacherEditModal";
+import BackButton from "@/components/BackButton";
 import { serverFetch } from "@/lib/server-api";
 import Image from "next/image";
 import Link from "next/link";
@@ -123,21 +124,24 @@ const SingleTeacherPage = async ({
 
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 select-none mb-6">
-        <div>
-          <span className="text-xs font-extrabold text-[#0038A8] uppercase tracking-wider font-mono">
-            Faculty Profile Details
-          </span>
-          <div className="flex items-center gap-3 mt-0.5">
-            <h1 className="text-xl md:text-3xl font-black text-gray-900 tracking-tight leading-tight">
-              {displayName}
-            </h1>
-            <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border select-none ${
-              user.is_active
-                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                : "bg-red-50 text-red-600 border-red-200"
-            }`}>
-              {user.is_active ? "Active" : "Inactive"}
+        <div className="flex items-start gap-3">
+          <BackButton className="mt-1" />
+          <div>
+            <span className="text-xs font-extrabold text-[#0038A8] uppercase tracking-wider font-mono">
+              Faculty Profile Details
             </span>
+            <div className="flex items-center gap-3 mt-0.5">
+              <h1 className="text-xl md:text-3xl font-black text-gray-900 tracking-tight leading-tight">
+                {displayName}
+              </h1>
+              <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border select-none ${
+                user.is_active
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  : "bg-red-50 text-red-600 border-red-200"
+              }`}>
+                {user.is_active ? "Active" : "Inactive"}
+              </span>
+            </div>
           </div>
         </div>
       </div>

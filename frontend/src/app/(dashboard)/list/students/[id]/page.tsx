@@ -1,17 +1,21 @@
+export const dynamic = "force-dynamic"; // 💡 Prevents static snapshot rendering traps
+
 import Announcements from "@/components/Announcements";
 import BigCalendarContainer from "@/components/BigCalendarContainer";
 import Performance from "@/components/Performance";
 import StudentAttendanceCard from "@/components/StudentAttendanceCard";
 import StudentEditModal from "@/components/StudentEditModal";
+import BackButton from "@/components/BackButton";
 import { serverFetch } from "@/lib/server-api";
 import Link from "next/link";
 import { cookies } from "next/headers";
+import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { StudentProfileResponse, UserResponse, ClassResponse } from "@/types";
 import {
   Globe, GraduationCap, Calendar, Mail, Phone, ShieldAlert,
   MapPin, Flag, BookOpen, Users, AlertCircle, Hash, Building2,
-  ChevronRight, CheckCircle2, XCircle, Clock,
+  ChevronRight, CheckCircle2,
 } from "lucide-react";
 import { getImageUrl } from "@/lib/image-url";
 
@@ -58,7 +62,6 @@ const fmtDate = (v?: string | null) => {
   catch { return v; }
 };
 
-// ── tiny reusable info row ────────────────────────────────────────────────────
 const MetaRow = ({
   icon, label, value,
 }: {
@@ -75,31 +78,89 @@ const MetaRow = ({
   </div>
 );
 
-const SingleStudentPage = async ({
-  params: { id },
-}: {
-  params: { id: string };
-}) => {
+interface PageProps {
+  params: {
+    id: string;
+  };
+}
+
+const SingleStudentPage = async ({ params: { id } }: PageProps) => {
+  // 1. 🛡️ SERVER-SIDE UUID FORMAT GUARD
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+  
+  if (!isUuid) {
+    return notFound(); 
+  }
+
+  // 🔐 Step 2: Resolve tokens from context cookies safely
   const cookieStore = cookies();
   const role = normalizeRole(cookieStore.get("user_role")?.value);
-  const token = cookieStore.get("access_token")?.value || cookieStore.get("token")?.value;
+  const exactToken = cookieStore.get("access_token")?.value || cookieStore.get("token")?.value || "";
 
-  let profileError: string | null = null;
-  let userError: string | null = null;
+  let profileError: any = null;
+  let userError: any = null;
 
-  const [student, user, overview] = await Promise.all([
+  // 🔐 Step 3: Server fetch headers encapsulation object
+  const fetchOptions = { 
+    token: exactToken 
+  };
+
+  // 🔐 Step 4: Dispatch data dispatches concurrently
+  const [student, user, overview, attendanceData] = await Promise.all([
     serverFetch<StudentProfileResponse>(
-      `/students/${id}/profile${token ? `?token=${token}` : ""}`
+      `/students/${id}/profile`,
+      fetchOptions
     ).catch((err) => {
-      profileError = err instanceof Error ? err.message : String(err);
+      if (err?.message === "NEXT_REDIRECT" || err?.digest?.includes("NEXT_REDIRECT")) {
+        profileError = err;
+      } else {
+        profileError = err instanceof Error ? err.message : String(err);
+      }
       return null;
     }),
-    serverFetch<UserResponse>(`/users/${id}`).catch((err) => {
-      userError = err instanceof Error ? err.message : String(err);
+    
+    serverFetch<UserResponse>(
+      `/users/${id}`,
+      fetchOptions
+    ).catch((err) => {
+      if (err?.message === "NEXT_REDIRECT" || err?.digest?.includes("NEXT_REDIRECT")) {
+        userError = err;
+      } else {
+        userError = err instanceof Error ? err.message : String(err);
+      }
       return null;
     }),
-    serverFetch<any>(`/students/${id}/overview`).catch(() => null),
+    
+    serverFetch<any>(
+      `/students/${id}/overview`,
+      fetchOptions
+    ).catch(() => null),
+
+    serverFetch<any[]>(
+      `/students/${id}/attendance`,
+      fetchOptions
+    ).catch(() => []),
   ]);
+
+  const attList = Array.isArray(attendanceData) ? attendanceData : (attendanceData as any)?.data ?? [];
+  const totalAtt = attList.length;
+  const presentCount = attList.filter((r: any) => r.status === "present").length;
+  const onlineCount = attList.filter((r: any) => r.status === "online").length;
+  const lateCount = attList.filter((r: any) => r.status === "late").length;
+  const excusedCount = attList.filter((r: any) => r.status === "excused").length;
+  const absentCount = attList.filter((r: any) => r.status === "absent").length;
+
+  const attendanceRate = totalAtt > 0 
+    ? Math.round(((presentCount + onlineCount + lateCount) / totalAtt) * 100) 
+    : 100;
+
+  // Handle standard route session middleware overrides
+  if (profileError && (profileError.message === "NEXT_REDIRECT" || profileError.digest?.includes("NEXT_REDIRECT"))) {
+    throw profileError;
+  }
+  if (userError && (userError.message === "NEXT_REDIRECT" || userError.digest?.includes("NEXT_REDIRECT"))) {
+    throw userError;
+  }
 
   if (!student || !user) {
     return (
@@ -117,17 +178,18 @@ const SingleStudentPage = async ({
     );
   }
 
-  const classId = student.class_id || student.student_profile?.class_id;
-  const classData = classId ? await serverFetch<ClassResponse>(`/classes/${classId}`).catch(() => null) : null;
-  const sessions = classId ? await serverFetch<any[]>(`/classes/${classId}/sessions`).catch(() => []) : [];
+  // 🛡️ TYPE SAFE DEFENSIVE EXTRACTORS
+  const sp = student.student_profile || (student as any).student_profile;
+  const classId = student.class_id || sp?.class_id || null;
+  const targetUserId = student.user_id || user.id;
+
+  // Conditional dynamic background network dispatches
+  const classData = classId ? await serverFetch<ClassResponse>(`/classes/${classId}`, fetchOptions).catch(() => null) : null;
+  const sessions = classId ? await serverFetch<any[]>(`/classes/${classId}/sessions`, fetchOptions).catch(() => []) : [];
   const lessonsCount = sessions.length;
 
-  // Data from overview endpoint (parents, courses, attendance)
   const parents: any[] = overview?.parents ?? [];
   const courses: any[] = overview?.courses ?? [];
-  const att = overview?.attendance ?? {};
-
-  const sp = student.student_profile;
 
   const editData = {
     userId: user.id,
@@ -176,39 +238,37 @@ const SingleStudentPage = async ({
 
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 select-none mb-6">
-        <div>
-          <span className="text-xs font-extrabold text-[#0038A8] uppercase tracking-wider font-mono">
-            Student Profile Details
-          </span>
-          <div className="flex items-center gap-3 mt-0.5">
-            <h1 className="text-xl md:text-3xl font-black text-gray-900 tracking-tight leading-tight">
-              {displayName}
-            </h1>
-            {/* Active / Inactive badge */}
-            <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border select-none ${
-              user.is_active
-                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                : "bg-red-50 text-red-600 border-red-200"
-            }`}>
-              {user.is_active ? "Active" : "Inactive"}
+        <div className="flex items-start gap-3">
+          <BackButton className="mt-1" />
+          <div>
+            <span className="text-xs font-extrabold text-[#0038A8] uppercase tracking-wider font-mono">
+              Student Profile Details
             </span>
+            <div className="flex items-center gap-3 mt-0.5">
+              <h1 className="text-xl md:text-3xl font-black text-gray-900 tracking-tight leading-tight">
+                {displayName}
+              </h1>
+              <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border select-none ${
+                user.is_active
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  : "bg-red-50 text-red-600 border-red-200"
+              }`}>
+                {user.is_active ? "Active" : "Inactive"}
+              </span>
+            </div>
           </div>
         </div>
       </div>
 
       <div className="flex gap-6 flex-col xl:flex-row">
 
-        {/* ── LEFT COLUMN (2/3) ─────────────────────────────────────────── */}
+        {/* ── LEFT COLUMN (2/3) ── */}
         <div className="w-full xl:w-2/3 flex flex-col gap-6">
-
-          {/* TOP ROW: profile card + metric cards */}
           <div className="flex flex-col lg:flex-row gap-6">
 
             {/* SKY BLUE PROFILE CARD */}
             <div className="bg-[#E6F6FD] border border-sky-100 p-6 rounded-3xl flex-1 flex flex-col sm:flex-row gap-6 shadow-sm relative overflow-hidden">
               <span className="absolute left-0 top-0 bottom-0 w-[4px] bg-sky-400" />
-
-              {/* Avatar */}
               <div className="w-full sm:w-1/3 flex justify-center sm:justify-start items-start pt-1">
                 <div
                   className="h-28 w-28 sm:h-32 sm:w-32 rounded-full overflow-hidden border border-sky-100 flex items-center justify-center shrink-0 shadow-sm"
@@ -224,7 +284,6 @@ const SingleStudentPage = async ({
                 </div>
               </div>
 
-              {/* Info */}
               <div className="w-full sm:w-2/3 flex flex-col justify-between gap-3">
                 <div className="flex items-start justify-between gap-4">
                   <div>
@@ -232,6 +291,7 @@ const SingleStudentPage = async ({
                       {displayName}
                     </h1>
                     <div className="flex items-center gap-2 flex-wrap mt-1.5">
+                      {/* 🛠️ FIXED: Text alignment color parameters synchronized from text-rose to text-sky */}
                       <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-sky-500/10 text-sky-700 border border-sky-200 flex items-center gap-1 select-none">
                         <GraduationCap className="h-3 w-3" />Student
                       </span>
@@ -251,13 +311,11 @@ const SingleStudentPage = async ({
                   {student.bio || "No biography available."}
                 </p>
 
-                {/* Metadata grid — row 1: original 4 */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-1.5 gap-x-4 border-t border-sky-100 pt-3">
                   <MetaRow icon={<span className="h-4 w-4 rounded bg-sky-50 border border-sky-200 flex items-center justify-center text-red-500 text-[9px] font-black">B</span>} value={`Blood: ${student.blood_type || "-"}`} />
                   <MetaRow icon={<Calendar className="h-3.5 w-3.5" />} value={fmtDate(student.date_of_birth)} />
                   <MetaRow icon={<Mail className="h-3.5 w-3.5" />} value={user.email} />
                   <MetaRow icon={<Phone className="h-3.5 w-3.5" />} value={student.phone} />
-                  {/* ── NEW fields ── */}
                   {student.address && (
                     <MetaRow icon={<MapPin className="h-3.5 w-3.5" />} value={student.address} />
                   )}
@@ -276,18 +334,15 @@ const SingleStudentPage = async ({
 
             {/* METRIC SMALL CARDS */}
             <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4 select-none">
-
-              {/* ATTENDANCE */}
               <div className="bg-white border border-slate-100 hover:border-emerald-500/25 p-5 rounded-3xl flex items-center gap-4 shadow-sm hover:shadow-md hover:-translate-y-[0.5px] transition-all duration-300 group">
                 <div className="h-11 w-11 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 shadow-sm">
                   <CheckCircle2 className="h-5 w-5" />
                 </div>
                 <Suspense fallback={<span className="text-xs text-muted-foreground">Loading…</span>}>
-                  <StudentAttendanceCard id={student.user_id} />
+                  <StudentAttendanceCard id={targetUserId} />
                 </Suspense>
               </div>
 
-              {/* GRADE LEVEL */}
               <div className="bg-white border border-slate-100 hover:border-indigo-500/25 p-5 rounded-3xl flex items-center gap-4 shadow-sm hover:shadow-md hover:-translate-y-[0.5px] transition-all duration-300 group">
                 <div className="h-11 w-11 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 shadow-sm">
                   <GraduationCap className="h-5 w-5" />
@@ -300,7 +355,6 @@ const SingleStudentPage = async ({
                 </div>
               </div>
 
-              {/* LESSONS */}
               <div className="bg-white border border-slate-100 hover:border-sky-500/25 p-5 rounded-3xl flex items-center gap-4 shadow-sm hover:shadow-md hover:-translate-y-[0.5px] transition-all duration-300 group">
                 <div className="h-11 w-11 rounded-2xl bg-sky-50 border border-sky-100 text-sky-600 flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 shadow-sm">
                   <Calendar className="h-5 w-5" />
@@ -311,7 +365,6 @@ const SingleStudentPage = async ({
                 </div>
               </div>
 
-              {/* CLASS */}
               <div className="bg-white border border-slate-100 hover:border-violet-500/25 p-5 rounded-3xl flex items-center gap-4 shadow-sm hover:shadow-md hover:-translate-y-[0.5px] transition-all duration-300 group">
                 <div className="h-11 w-11 rounded-2xl bg-violet-50 border border-violet-100 text-violet-600 flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 shadow-sm">
                   <BookOpen className="h-5 w-5" />
@@ -326,7 +379,7 @@ const SingleStudentPage = async ({
             </div>
           </div>
 
-          {/* ── ENROLLED COURSES ─────────────────────────────────────────── */}
+          {/* ENROLLED COURSES */}
           <div className="bg-white border border-border/60 rounded-3xl p-6 shadow-sm text-left">
             <h3 className="text-base font-bold text-gray-900 mb-4 select-none flex items-center gap-2">
               <BookOpen className="h-4 w-4 text-[#0038A8]" />
@@ -365,26 +418,114 @@ const SingleStudentPage = async ({
             )}
           </div>
 
+          {/* ATTENDANCE HISTORY LOGS */}
+          <div className="bg-white border border-border/60 rounded-3xl p-6 shadow-sm text-left">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 select-none">
+              <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                Attendance History Logs
+              </h3>
+              <div className="flex items-center gap-2 text-xs font-bold">
+                <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-lg border border-emerald-100">
+                  Rate: {attendanceRate}%
+                </span>
+                <span className="px-2.5 py-1 bg-slate-50 text-slate-600 rounded-lg border border-slate-200">
+                  Total: {totalAtt} records
+                </span>
+              </div>
+            </div>
+
+            {/* Stat breakdown pills */}
+            <div className="grid grid-cols-5 gap-2 text-center mb-4 select-none">
+              <div className="bg-emerald-50/55 border border-emerald-100/50 p-2 rounded-xl">
+                <p className="text-sm font-black text-emerald-700">{presentCount}</p>
+                <p className="text-[8px] font-extrabold text-slate-500 uppercase tracking-wider">Present</p>
+              </div>
+              <div className="bg-sky-50/55 border border-sky-100/50 p-2 rounded-xl">
+                <p className="text-sm font-black text-sky-700">{onlineCount}</p>
+                <p className="text-[8px] font-extrabold text-slate-500 uppercase tracking-wider">Online</p>
+              </div>
+              <div className="bg-amber-50/55 border border-amber-100/50 p-2 rounded-xl">
+                <p className="text-sm font-black text-amber-700">{lateCount}</p>
+                <p className="text-[8px] font-extrabold text-slate-500 uppercase tracking-wider">Late</p>
+              </div>
+              <div className="bg-purple-50/55 border border-purple-100/50 p-2 rounded-xl">
+                <p className="text-sm font-black text-purple-700">{excusedCount}</p>
+                <p className="text-[8px] font-extrabold text-slate-500 uppercase tracking-wider">Excused</p>
+              </div>
+              <div className="bg-red-50/55 border border-red-100/50 p-2 rounded-xl">
+                <p className="text-sm font-black text-red-700">{absentCount}</p>
+                <p className="text-[8px] font-extrabold text-slate-500 uppercase tracking-wider">Absent</p>
+              </div>
+            </div>
+
+            {attList.length > 0 ? (
+              <div className="overflow-x-auto max-h-[300px] overflow-y-auto border border-border/50 rounded-2xl divide-y divide-border/40">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50/70 text-[9px] font-black uppercase text-slate-500 tracking-wider sticky top-0 border-b border-border/50">
+                      <th className="py-2 px-3">Date</th>
+                      <th className="py-2 px-3">Course / Subject</th>
+                      <th className="py-2 px-3 text-center">Status</th>
+                      <th className="py-2 px-3">Note</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/40 text-xs">
+                    {attList.map((row: any) => {
+                      let statusStyle = "bg-slate-100 text-slate-700 border-slate-200/55";
+                      if (row.status === "present") statusStyle = "bg-emerald-50 text-emerald-700 border-emerald-100";
+                      if (row.status === "absent") statusStyle = "bg-red-50 text-red-700 border-red-100";
+                      if (row.status === "late") statusStyle = "bg-amber-50 text-amber-700 border-amber-100";
+                      if (row.status === "excused") statusStyle = "bg-purple-50 text-purple-700 border-purple-100";
+                      if (row.status === "online") statusStyle = "bg-sky-50 text-sky-700 border-sky-100";
+
+                      return (
+                        <tr key={row.id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="py-2.5 px-3 font-semibold text-slate-700 whitespace-nowrap">
+                            {row.date ? new Date(row.date).toLocaleDateString() : "—"}
+                            {row.time && <span className="text-[10px] text-muted-foreground block font-normal">{row.time}</span>}
+                          </td>
+                          <td className="py-2.5 px-3 font-bold text-slate-800">{row.course_name || "—"}</td>
+                          <td className="py-2.5 px-3 text-center">
+                            <span className={`px-2 py-0.5 text-[9px] font-black uppercase tracking-wider rounded border ${statusStyle}`}>
+                              {row.status}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-600 text-[11px] font-medium max-w-[200px] truncate" title={row.note || ""}>
+                            {row.note || "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="py-8 text-center text-slate-400 select-none">
+                <CheckCircle2 className="h-8 w-8 mx-auto mb-2 opacity-30 text-slate-300" />
+                <p className="text-xs font-semibold">No attendance log records found for this student.</p>
+              </div>
+            )}
+          </div>
+
           {/* SCHEDULE */}
           <div className="bg-white border border-border/60 rounded-3xl p-6 shadow-sm text-left">
             <h3 className="text-base font-bold text-gray-900 mb-4 select-none">Student&apos;s Schedule</h3>
             <div className="h-[750px] relative overflow-hidden rounded-2xl border border-border/50">
-              {classId ? (
-                <BigCalendarContainer type="classId" id={classId} />
+              {targetUserId ? (
+                <BigCalendarContainer type="studentId" id={targetUserId} />
               ) : (
                 <div className="p-12 text-center text-muted-foreground flex flex-col items-center justify-center h-full select-none">
                   <ShieldAlert className="h-10 w-10 text-muted-foreground/30 mb-3" />
-                  <p className="text-sm font-bold">No class assigned — schedule unavailable.</p>
+                  <p className="text-sm font-bold">No student ID resolved — schedule unavailable.</p>
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* ── RIGHT COLUMN (1/3) ────────────────────────────────────────── */}
+        {/* ── RIGHT COLUMN (1/3) ── */}
         <div className="w-full xl:w-1/3 flex flex-col gap-6 select-none">
-
-          {/* SHORTCUT LINKS */}
           <div className="bg-white border border-border/60 p-6 rounded-3xl shadow-sm text-left">
             <h3 className="text-base font-bold text-gray-900 mb-4 select-none">Shortcut Links</h3>
             <div className="flex gap-3 flex-wrap text-xs text-gray-500">
@@ -394,13 +535,14 @@ const SingleStudentPage = async ({
                   <Link className="px-3.5 py-2 bg-violet-50 hover:bg-violet-100 border border-violet-100 text-violet-700 font-extrabold text-[10px] rounded-xl shadow-sm transition-all active:scale-[0.98] uppercase tracking-wider" href={`/list/teachers?classId=${classId}`}>Teachers</Link>
                   <Link className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 border border-rose-100 text-rose-700 font-extrabold text-[10px] rounded-xl shadow-sm transition-all active:scale-[0.98] uppercase tracking-wider" href={`/list/exams?classId=${classId}`}>Exams</Link>
                   <Link className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 border border-amber-100 text-amber-700 font-extrabold text-[10px] rounded-xl shadow-sm transition-all active:scale-[0.98] uppercase tracking-wider" href={`/list/assignments?classId=${classId}`}>Assignments</Link>
+                  <Link className="px-3.5 py-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-700 font-extrabold text-[10px] rounded-xl shadow-sm transition-all active:scale-[0.98] uppercase tracking-wider" href={`/list/quizzes?classId=${classId}`}>Quizzes</Link>
                 </>
               )}
-              <Link className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 text-emerald-700 font-extrabold text-[10px] rounded-xl shadow-sm transition-all active:scale-[0.98] uppercase tracking-wider" href={`/list/results?studentId=${student.user_id}`}>Gradebook Results</Link>
+              <Link className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 text-emerald-700 font-extrabold text-[10px] rounded-xl shadow-sm transition-all active:scale-[0.98] uppercase tracking-wider" href={`/list/results?studentId=${targetUserId}`}>Gradebook Results</Link>
             </div>
           </div>
 
-          {/* ── PARENTS / GUARDIANS (NEW) ─────────────────────────────── */}
+          {/* PARENTS / GUARDIANS */}
           <div className="bg-white border border-border/60 p-6 rounded-3xl shadow-sm text-left">
             <h3 className="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
               <Users className="h-4 w-4 text-[#0038A8]" />
@@ -452,7 +594,7 @@ const SingleStudentPage = async ({
             )}
           </div>
 
-          {/* ── EMERGENCY CONTACT (NEW — only shown if set) ──────────── */}
+          {/* EMERGENCY CONTACT */}
           {(student.emergency_contact_name || student.emergency_contact_phone) && (
             <div className="bg-red-50 border border-red-100 p-5 rounded-3xl shadow-sm text-left">
               <h3 className="text-sm font-extrabold text-red-700 mb-3 flex items-center gap-2">

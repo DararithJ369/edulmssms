@@ -9,6 +9,8 @@ from app.models.user import User
 from app.models.course import Course, Module, Lesson
 from app.models.progress import StudentCourseProgress, StudentLessonProgress, StudentModuleProgress
 from app.schemas.progress import ToggleProgressRequest, CourseProgressAggregate, StudentCourseProgressResponse
+from app.models.streak import StudentStreak
+from app.services.streak_service import StreakService
 
 progress_router = APIRouter(prefix="/progress", tags=["Learning Progress"])
 
@@ -186,6 +188,12 @@ def toggle_lesson_progress(
     prog.completed_at = datetime.now()
     db.commit()
 
+    if request.completed:
+        try:
+            StreakService.record_activity(db, student_id)
+        except Exception as e:
+            print(f"Failed to record streak activity for lesson completion: {e}")
+
     # Recalculate
     recalculate_course_progress(db, student_id, module.course_id)
 
@@ -236,8 +244,225 @@ def toggle_module_progress(
 
     db.commit()
 
+    if request.completed:
+        try:
+            StreakService.record_activity(db, student_id)
+        except Exception as e:
+            print(f"Failed to record streak activity for module completion: {e}")
+
     # Recalculate
     recalculate_course_progress(db, student_id, module.course_id)
 
     # Return refreshed status
     return get_course_progress(module.course_id, db, current_user)
+
+
+@progress_router.get("/streak")
+def get_student_streak(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    streak = db.query(StudentStreak).filter(StudentStreak.student_id == current_user.id).first()
+    if not streak:
+        return {
+            "student_id": current_user.id,
+            "current_streak": 0,
+            "longest_streak": 0,
+            "last_activity_date": None
+        }
+    return {
+        "student_id": streak.student_id,
+        "current_streak": streak.current_streak,
+        "longest_streak": streak.longest_streak,
+        "last_activity_date": streak.last_activity_date.isoformat() if streak.last_activity_date else None
+    }
+
+
+@progress_router.get("/resume-learning")
+def get_resume_learning(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get the most recently viewed lesson that is not fully completed yet,
+    or the last viewed lesson.
+    """
+    from app.models.lesson_view import StudentLessonView
+    from app.models.video_progress import StudentVideoProgress
+    from app.models.progress import StudentLessonProgress
+
+    # Query last viewed lessons
+    last_viewed = (
+        db.query(StudentLessonView)
+        .filter(StudentLessonView.student_id == current_user.id)
+        .order_by(StudentLessonView.viewed_at.desc())
+        .all()
+    )
+
+    if not last_viewed:
+        return {}
+
+    # Find the first one that is not marked completed in StudentLessonProgress
+    target_view = None
+    for view in last_viewed:
+        is_completed = db.query(StudentLessonProgress).filter(
+            StudentLessonProgress.student_id == current_user.id,
+            StudentLessonProgress.lesson_id == view.lesson_id,
+            StudentLessonProgress.completed == True
+        ).first()
+        if not is_completed:
+            target_view = view
+            break
+
+    # Fallback to the absolute last viewed if all are completed
+    if not target_view:
+        target_view = last_viewed[0]
+
+    lesson = target_view.lesson
+    if not lesson:
+        return {}
+
+    # Get video progress details if any
+    vp = db.query(StudentVideoProgress).filter(
+        StudentVideoProgress.student_id == current_user.id,
+        StudentVideoProgress.lesson_id == lesson.id
+    ).first()
+
+    course_id = lesson.module.course_id if lesson.module else None
+    course_name = lesson.module.course.course_name if lesson.module and lesson.module.course else None
+
+    # Get course progress percentage
+    course_progress = 0.0
+    if course_id:
+        cp_rec = db.query(StudentCourseProgress).filter(
+            StudentCourseProgress.student_id == current_user.id,
+            StudentCourseProgress.course_id == course_id
+        ).first()
+        if cp_rec:
+            course_progress = cp_rec.progress_percentage
+
+    return {
+        "lesson_id": lesson.id,
+        "lesson_title": lesson.title,
+        "course_id": course_id,
+        "course_name": course_name,
+        "course_progress": course_progress,
+        "current_time": vp.current_time if vp else 0.0,
+        "duration": vp.duration if vp else 0.0,
+        "completed": vp.completed if vp else False
+    }
+
+
+@progress_router.get("/recently-viewed", response_model=List[dict])
+def get_recently_viewed(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get the list of the 3-5 most recently viewed lessons.
+    """
+    from app.models.lesson_view import StudentLessonView
+    
+    views = (
+        db.query(StudentLessonView)
+        .filter(StudentLessonView.student_id == current_user.id)
+        .order_by(StudentLessonView.viewed_at.desc())
+        .limit(5)
+        .all()
+    )
+
+    result = []
+    for view in views:
+        lesson = view.lesson
+        if lesson:
+            course_id = lesson.module.course_id if lesson.module else None
+            course_name = lesson.module.course.course_name if lesson.module and lesson.module.course else None
+            result.append({
+                "lesson_id": lesson.id,
+                "lesson_title": lesson.title,
+                "course_id": course_id,
+                "course_name": course_name,
+                "viewed_at": view.viewed_at.isoformat()
+            })
+    return result
+
+
+@progress_router.get("/continue-learning", response_model=List[dict])
+def get_continue_learning(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Returns courses that the student is currently enrolled in with progress details.
+    """
+    from app.models.enrollment import Enrollment
+    from app.models.user_profile import UserProfile
+    
+    # Get student profile first
+    up = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
+    if not up or not up.student_profile:
+        return []
+        
+    enrollments = db.query(Enrollment).filter(
+        Enrollment.student_profile_id == up.student_profile.id,
+        Enrollment.is_active == True
+    ).all()
+    
+    result = []
+    for e in enrollments:
+        course = e.course
+        if course:
+            cp_rec = db.query(StudentCourseProgress).filter(
+                StudentCourseProgress.student_id == current_user.id,
+                StudentCourseProgress.course_id == course.id
+            ).first()
+            
+            progress = cp_rec.progress_percentage if cp_rec else 0.0
+            
+            result.append({
+                "course_id": course.id,
+                "course_name": course.course_name,
+                "description": course.description,
+                "image": course.thumbnail,
+                "progress_percentage": progress
+            })
+    return result
+
+
+@progress_router.get("/recommended-courses", response_model=List[dict])
+def get_recommended_courses(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get course recommendations (courses the student is NOT enrolled in yet).
+    """
+    from app.models.enrollment import Enrollment
+    from app.models.user_profile import UserProfile
+    
+    up = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
+    enrolled_course_ids = []
+    if up and up.student_profile:
+        enrolled_course_ids = [
+            e.course_id for e in db.query(Enrollment).filter(
+                Enrollment.student_profile_id == up.student_profile.id,
+                Enrollment.is_active == True
+            ).all()
+        ]
+        
+    recommended = db.query(Course)
+    if enrolled_course_ids:
+        recommended = recommended.filter(Course.id.notin_(enrolled_course_ids))
+        
+    recommended = recommended.limit(4).all()
+    
+    return [
+        {
+            "id": c.id,
+            "course_name": c.course_name,
+            "description": c.description,
+            "image": c.thumbnail,
+            "teacher_name": c.teacher.profile.full_name if c.teacher and c.teacher.profile else (c.teacher.username if c.teacher else "Unknown Instructor")
+        }
+        for c in recommended
+    ]

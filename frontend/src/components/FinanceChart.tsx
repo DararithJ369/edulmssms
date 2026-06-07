@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
+import { api } from "@/lib/api";
 import {
   LineChart,
   Line,
@@ -12,70 +14,75 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-const data = [
-  {
-    name: "Jan",
-    income: 4000,
-    expense: 2400,
-  },
-  {
-    name: "Feb",
-    income: 3000,
-    expense: 1398,
-  },
-  {
-    name: "Mar",
-    income: 2000,
-    expense: 9800,
-  },
-  {
-    name: "Apr",
-    income: 2780,
-    expense: 3908,
-  },
-  {
-    name: "May",
-    income: 1890,
-    expense: 4800,
-  },
-  {
-    name: "Jun",
-    income: 2390,
-    expense: 3800,
-  },
-  {
-    name: "Jul",
-    income: 3490,
-    expense: 4300,
-  },
-  {
-    name: "Aug",
-    income: 3490,
-    expense: 4300,
-  },
-  {
-    name: "Sep",
-    income: 3490,
-    expense: 4300,
-  },
-  {
-    name: "Oct",
-    income: 3490,
-    expense: 4300,
-  },
-  {
-    name: "Nov",
-    income: 3490,
-    expense: 4300,
-  },
-  {
-    name: "Dec",
-    income: 3490,
-    expense: 4300,
-  },
-];
-
 const FinanceChart = () => {
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchFinanceData = async () => {
+      try {
+        const [feesRes, expensesRes] = await Promise.all([
+          api.get("/finance/fees?limit=500"),
+          api.get("/finance/expenses?limit=500")
+        ]);
+
+        const feesList = feesRes.data.data || [];
+        const expensesList = expensesRes.data.data || [];
+
+        const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        
+        const monthlyAggregation: Record<string, { income: number; expense: number }> = {};
+        months.forEach(m => {
+          monthlyAggregation[m] = { income: 0, expense: 0 };
+        });
+
+        feesList.forEach((item: any) => {
+          const rawDate = item.paid_date || item.created_at;
+          if (rawDate) {
+            const dateObj = new Date(rawDate);
+            if (!isNaN(dateObj.getTime())) {
+              const monthName = months[dateObj.getMonth()];
+              monthlyAggregation[monthName].income += Number(item.amount || 0);
+            }
+          }
+        });
+
+        expensesList.forEach((item: any) => {
+          const rawDate = item.spent_date || item.created_at;
+          if (rawDate) {
+            const dateObj = new Date(rawDate);
+            if (!isNaN(dateObj.getTime())) {
+              const monthName = months[dateObj.getMonth()];
+              monthlyAggregation[monthName].expense += Number(item.amount || 0);
+            }
+          }
+        });
+
+        const formattedData = months.map(m => ({
+          name: m,
+          income: monthlyAggregation[m].income,
+          expense: monthlyAggregation[m].expense,
+        }));
+
+        setChartData(formattedData);
+      } catch (err) {
+        console.error("Failed to fetch finance data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFinanceData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-xl w-full h-full p-4 flex items-center justify-center">
+        <span className="text-gray-500 font-medium">Loading finance data...</span>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white rounded-xl w-full h-full p-4">
       <div className="flex justify-between items-center">
@@ -86,7 +93,7 @@ const FinanceChart = () => {
         <LineChart
           width={500}
           height={300}
-          data={data}
+          data={chartData}
           margin={{
             top: 5,
             right: 30,

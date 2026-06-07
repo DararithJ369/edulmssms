@@ -95,8 +95,10 @@ class UserProfileService:
             phone=profile_in.phone,
             address=profile_in.address,
             image=get_image(image) if image else profile_in.pfp,
+            tier=profile_in.tier if profile_in.tier else "free",
         )
         db.add(profile)
+
         db.flush()
         
         # Handle instructor profile creation
@@ -166,7 +168,10 @@ class UserProfileService:
             update_data["image"] = update_data.pop("pfp")
 
         for field, value in update_data.items():
+            if field == "tier" and value is None:
+                continue
             setattr(profile, field, value)
+
 
         if delete_image:
             profile.image = None  # type: ignore[attr-defined]

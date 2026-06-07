@@ -125,8 +125,27 @@ class ParentProfileService:
     @staticmethod
     def get_students(db: Session, user_id: str) -> list:
         parent = ParentProfileService._get_parent_extension(db, user_id)
+        
+        from sqlalchemy.orm import joinedload
         from app.schemas.user import StudentNested
-        return [StudentNested.model_validate(s) for s in parent.students]
+
+        student_ids = [s.id for s in parent.students]
+        
+        if not student_ids:
+            return []
+
+        fully_loaded_students = (
+            db.query(StudentProfile)
+            .options(
+                joinedload(StudentProfile.profile)
+                .joinedload(UserProfile.user),
+                joinedload(StudentProfile.grade_level) 
+            )
+            .filter(StudentProfile.id.in_(student_ids))
+            .all()
+        )
+
+        return [StudentNested.model_validate(s) for s in fully_loaded_students]
 
     @staticmethod
     def link_student(db: Session, user_id: str, student_profile_id: int) -> ParentFullResponse:

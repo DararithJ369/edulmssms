@@ -1,6 +1,8 @@
 import Pagination from "@/components/Pagination";
 import TableSearch from "@/components/TableSearch";
+import TableRowActions from "@/components/TableRowActions";
 import { serverFetch } from "@/lib/server-api";
+import { getImageUrl } from "@/lib/image-url";
 import { ITEM_PER_PAGE } from "@/lib/settings";
 import Image from "next/image";
 import Link from "next/link";
@@ -99,7 +101,7 @@ const CourseListPage = async ({
         {/* Administration Actions */}
         <div className="flex items-center gap-2 shrink-0">
           {(role === "admin" || role === "teacher") && (
-            <Link href="/list/courses/1/edit">
+            <Link href={`/list/courses/create${category ? `?category=${encodeURIComponent(category)}` : ''}`}>
               <button className="px-4 py-2 bg-[#8b5cf6] text-white hover:bg-[#7c3aed] font-extrabold text-xs rounded-xl transition-all shadow-md shadow-violet-500/10 flex items-center gap-1.5 active:scale-[0.98]">
                 <Plus className="h-4 w-4" />
                 <span>Create New Activity</span>
@@ -153,7 +155,7 @@ const CourseListPage = async ({
               {/* Card Thumbnail Image Banner */}
               <div className="relative aspect-[16/9] w-full bg-muted border-b border-border/50 shrink-0">
                 <img
-                  src={item.thumbnail || "https://images.unsplash.com/photo-1610962381137-50ef93055125?auto=format&fit=crop&q=80&w=800"}
+                  src={getImageUrl(item.thumbnail) || "https://images.unsplash.com/photo-1610962381137-50ef93055125?auto=format&fit=crop&q=80&w=800"}
                   alt={item.course_name}
                   className="h-full w-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
                 />
@@ -216,6 +218,12 @@ const CourseListPage = async ({
                         <ChevronRight className="h-3 w-3" />
                       </button>
                     </Link>
+                    <TableRowActions
+                      id={item.id}
+                      table="course"
+                      viewUrl={`/list/courses/${item.id}`}
+                      role={role}
+                    />
                   </div>
                 </div>
 

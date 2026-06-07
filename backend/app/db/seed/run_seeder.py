@@ -30,6 +30,7 @@ from app.db.seed.result_seeder import ResultSeeder
 from app.db.seed.submission_seeder import SubmissionSeeder
 from app.db.seed.announcement_seeder import AnnouncementSeeder
 from app.db.seed.finance_seeder import FinanceSeeder
+from app.db.seed.audit_log_seeder import AuditLogSeeder
 from app.utils.colors import Colors
 
 
@@ -44,7 +45,7 @@ def ensure_seed_tables(db):
         "app.models.user",
         "app.models.user_profile",
         "app.models.class_",
-        "app.models.grade",
+        "app.models.grade_level",
         "app.models.subject",
         "app.models.course",
         "app.models.lesson_material",
@@ -59,6 +60,7 @@ def ensure_seed_tables(db):
         "app.models.student_profile",
         "app.models.parent_profile",
         "app.models.finance",
+        "app.models.audit_log",
     ]
     
     for module_name in model_modules:
@@ -81,25 +83,6 @@ def ensure_seed_tables(db):
     db.commit()
     Base.metadata.create_all(bind=db.bind)
 
-
-def ensure_default_grade(db):
-    grade_module = importlib.import_module("app.models.grade")
-    grade_model = getattr(grade_module, "Grade")
-
-    grade = db.query(grade_model).filter_by(name="Grade 10", level=10).first()
-    if grade:
-        return grade
-
-    grade = grade_model(
-        name="10",
-        level=10,
-        description="Default grade created by seeder"
-    )
-    db.add(grade)
-    db.commit()
-    db.refresh(grade)
-    Colors.success("Default grade created")
-    return grade
 
 
 def main():
@@ -126,14 +109,14 @@ def main():
 
     try:
         if args.command == "seed":
-            ensure_default_grade(db)
-
             role_seeder = RoleSeeder(db)
+            grade_level_seeder = GradeLevelSeeder(db)
             user_seeder = UserSeeder(db)
             profile_seeder = ProfileSeeder(db)
             class_seeder = ClassSeeder(db)
 
             roles = role_seeder.seed_roles()
+            grade_levels = grade_level_seeder.seed_grade_levels()
 
             admin_role = roles.get("admin")
             instructor_role = roles.get("instructor")
@@ -146,6 +129,18 @@ def main():
             instructor = user_seeder.seed_instructor(instructor_role.id) if instructor_role else None
             if instructor and instructor not in instructors:
                 instructors.append(instructor)
+
+            # Re-order instructors to match the expected index mapping in SubjectSeeder and CourseSeeder
+            username_order = ["instructor", "michael.johnson", "james.wilson", "lisa.anderson", "robert.martinez", "sarah.chen"]
+            instructors_dict = {inst.username: inst for inst in instructors}
+            ordered_instructors = []
+            for username in username_order:
+                if username in instructors_dict:
+                    ordered_instructors.append(instructors_dict[username])
+            for inst in instructors:
+                if inst not in ordered_instructors:
+                    ordered_instructors.append(inst)
+            instructors = ordered_instructors
 
             students = user_seeder.seed_students(student_role.id, count=20) if student_role else []
             parent_role = roles.get("parent")
@@ -164,14 +159,18 @@ def main():
             if admin:
                 profile_seeder.seed_profile(admin_id, "System Admin")
             
-            # Seed instructor profiles
-            instructor_names = [
-                "Dr. Sarah Chen", "Prof. Michael Johnson", "Dr. James Wilson", 
-                "Prof. Lisa Anderson", "Dr. Robert Martinez"
-            ]
-            for i, inst_id in enumerate(instructor_ids_list):
-                inst_name = instructor_names[i] if i < len(instructor_names) else f"Instructor {i+1}"
-                profile_seeder.seed_profile(inst_id, inst_name)
+            # Seed instructor profiles using explicit username-to-name mapping
+            username_to_name = {
+                "instructor": "Dr. Sarah Chen",
+                "sarah.chen": "Dr. Sarah Chen",
+                "michael.johnson": "Prof. Michael Johnson",
+                "james.wilson": "Dr. James Wilson",
+                "lisa.anderson": "Prof. Lisa Anderson",
+                "robert.martinez": "Dr. Robert Martinez"
+            }
+            for inst in instructors:
+                inst_name = username_to_name.get(inst.username, f"Instructor {inst.username}")
+                profile_seeder.seed_profile(inst.id, inst_name)
 
             # Real student names
             student_names = [
@@ -206,9 +205,6 @@ def main():
             academic_years = academic_year_seeder.seed_academic_years()
             academic_year_id = academic_years[0].id if academic_years else 1
 
-            # Seed grade levels BEFORE creating student profiles
-            grade_level_seeder = GradeLevelSeeder(db)
-            grade_levels = grade_level_seeder.seed_grade_levels()
 
             # Get student profile IDs for enrollment
             from app.models.student_profile import StudentProfile
@@ -266,6 +262,52 @@ def main():
                         emergency_phone="0123456789"
                     )
                     db.add(pp)
+            
+            db.commit()
+            
+            # Get instructor user profiles and create instructor profiles if they don't exist
+            from app.models.user import User
+            from app.models.instructor_profile import InstructorProfile
+            instructor_user_profiles = db.query(UserProfile).filter(
+                UserProfile.user_id.in_(instructor_ids_list)
+            ).all()
+            
+            instructor_departments = {
+                "instructor": "Computer Science",
+                "sarah.chen": "Computer Science",
+                "michael.johnson": "Data Science",
+                "james.wilson": "Artificial Intelligence",
+                "lisa.anderson": "Software Engineering",
+                "robert.martinez": "Information Technology"
+            }
+            instructor_positions = {
+                "instructor": "Associate Professor",
+                "sarah.chen": "Associate Professor",
+                "michael.johnson": "Senior Lecturer",
+                "james.wilson": "Professor",
+                "lisa.anderson": "Lecturer",
+                "robert.martinez": "Assistant Professor"
+            }
+            
+            for up in instructor_user_profiles:
+                user_obj = db.query(User).filter_by(id=up.user_id).first()
+                username = user_obj.username if user_obj else ""
+                
+                existing_ip = db.query(InstructorProfile).filter_by(profile_id=up.id).first()
+                if not existing_ip:
+                    dept = instructor_departments.get(username, "Computer Science")
+                    pos = instructor_positions.get(username, "Lecturer")
+                    office_num = 100 + sum(ord(c) for c in username) % 200
+                    office = f"Office {office_num}"
+                    
+                    ip = InstructorProfile(
+                        profile_id=up.id,
+                        department=dept,
+                        position=pos,
+                        office=office,
+                        hire_date=datetime.now().date()
+                    )
+                    db.add(ip)
             
             db.commit()
             
@@ -345,6 +387,95 @@ def main():
             # Seed finance records (fee collections, staff salaries, operating expenses)
             finance_seeder = FinanceSeeder(db)
             finance_seeder.seed_finance()
+
+            # Seed schedule slots
+            from app.models.schedule_slot import ScheduleSlot
+            from datetime import time
+            existing_slots = db.query(ScheduleSlot).count()
+            if existing_slots == 0:
+                slots_data = [
+                    {
+                        "class_id": class_id,
+                        "teacher_id": instructor_ids_list[0],
+                        "subject_id": subjects[1].id if len(subjects) > 1 else subjects[0].id,
+                        "day_of_week": "MONDAY",
+                        "start_time": time(9, 0),
+                        "end_time": time(11, 0),
+                        "room": "Room 302",
+                        "is_active": True
+                    },
+                    {
+                        "class_id": class_id,
+                        "teacher_id": instructor_ids_list[0],
+                        "subject_id": subjects[1].id if len(subjects) > 1 else subjects[0].id,
+                        "day_of_week": "WEDNESDAY",
+                        "start_time": time(9, 0),
+                        "end_time": time(11, 0),
+                        "room": "Room 302",
+                        "is_active": True
+                    },
+                    {
+                        "class_id": class_id,
+                        "teacher_id": instructor_ids_list[0],
+                        "subject_id": subjects[1].id if len(subjects) > 1 else subjects[0].id,
+                        "day_of_week": "FRIDAY",
+                        "start_time": time(14, 0),
+                        "end_time": time(16, 0),
+                        "room": "Lab 1",
+                        "is_active": True
+                    }
+                ]
+                for sd in slots_data:
+                    slot_obj = ScheduleSlot(**sd)
+                    db.add(slot_obj)
+                db.commit()
+                print("Seeded schedule slots successfully")
+
+            # Seed audit logs
+            audit_log_seeder = AuditLogSeeder(db)
+            audit_log_seeder.seed_audit_logs(admin_id, student_ids_list, instructor_ids_list)
+
+            # Seed events
+            from app.models.event import Event
+            from datetime import datetime, timedelta
+            existing_events = db.query(Event).count()
+            if existing_events == 0:
+                now = datetime.now()
+                events_data = [
+                    {
+                        "title": "Full-Stack Web Dev Workshop",
+                        "description": "Hands-on session building FastAPI backends with Next.js frontends.",
+                        "start_time": now + timedelta(days=1, hours=2),
+                        "end_time": now + timedelta(days=1, hours=4),
+                        "class_id": class_id
+                    },
+                    {
+                        "title": "Semester Midterm Exams",
+                        "description": "Midterm examinations for all academic departments.",
+                        "start_time": now + timedelta(days=5, hours=1),
+                        "end_time": now + timedelta(days=8, hours=8),
+                        "class_id": None
+                    },
+                    {
+                        "title": "AI & Robotics Guest Lecture",
+                        "description": "Special presentation from visiting industry researchers.",
+                        "start_time": now + timedelta(days=3, hours=6),
+                        "end_time": now + timedelta(days=3, hours=8),
+                        "class_id": class_id
+                    },
+                    {
+                        "title": "Global Coding Hackathon",
+                        "description": "24-hour programming challenge with prizes.",
+                        "start_time": now + timedelta(days=10, hours=0),
+                        "end_time": now + timedelta(days=11, hours=0),
+                        "class_id": None
+                    }
+                ]
+                for ev in events_data:
+                    event_obj = Event(**ev)
+                    db.add(event_obj)
+                db.commit()
+                print("Seeded calendar events successfully")
 
             print("LMS + SMS data seeded successfully")
 

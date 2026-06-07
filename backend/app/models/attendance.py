@@ -11,6 +11,7 @@ class Attendance(Base):
 
     student_id = Column(String, ForeignKey("users.id"), nullable=False)  # reference Users table
     course_id = Column(Integer, ForeignKey("courses.id"), nullable=False)
+    session_id = Column(Integer, ForeignKey("class_sessions.id"), nullable=True)
 
     date = Column(Date, nullable=False)
     status = Column(String, nullable=False)  # present, absent, late
@@ -25,6 +26,7 @@ class Attendance(Base):
     # Relationships
     student = relationship("User", foreign_keys=[student_id], lazy="selectin")
     course = relationship("Course", foreign_keys=[course_id], lazy="selectin")
+    session = relationship("ClassSession", foreign_keys=[session_id], lazy="selectin")
 
     @property
     def student_name(self) -> str:

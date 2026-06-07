@@ -22,6 +22,7 @@ class UserProfileBase(BaseModel):
     emergency_contact_relationship: Optional[str] = None
     blood_type: Optional[str] = None
     medical_conditions: Optional[str] = None
+    tier: Optional[str] = None
 
 
 # ── Student extension ─────────────────────────────────────────────────────────
@@ -91,29 +92,30 @@ class StudentProfileNested(BaseModel):
 
 class StudentNested(BaseModel):
     id: int
+    user_id: Optional[str] = None
     student_id: Optional[str] = None
     department: Optional[str] = None
     enrolment_date: Optional[datetime] = None
     grade_level_id: Optional[int] = None
     grade_level_name: Optional[str] = None
     full_name: Optional[str] = None
-    profile: Optional[ParentProfileBasicProfile] = None  # reuse minimal profile schema with user_id
  
     model_config = {"from_attributes": True}
     
     @classmethod
     def model_validate(cls, obj, *args, **kwargs):
-        # Get full_name and user_id from related profile if available
         instance = super().model_validate(obj, *args, **kwargs)
+        
+        # 1. Reach out to the core UserProfile row through the relationship tree
+        # StudentProfile -> UserProfile (which contains .user_id and .full_name)
         if hasattr(obj, "profile") and obj.profile:
             instance.full_name = getattr(obj.profile, "full_name", None)
-            instance.profile = ParentProfileBasicProfile(user_id=obj.profile.user_id)
+            # Assign the target string identifier here
+            instance.user_id = getattr(obj.profile, "user_id", None)
         
-        # Extract grade level name
+        # 2. Extract grade level metadata
         if hasattr(obj, "grade_level") and obj.grade_level:
-            instance.grade_level_name = obj.grade_level.name
-        
-        return instance
+            instance.grade_level_name 
 
 
 class ParentProfileCreate(BaseModel):
@@ -177,6 +179,7 @@ class UserProfileResponse(BaseModel):
     emergency_contact_relationship: Optional[str] = None
     blood_type: Optional[str] = None
     medical_conditions: Optional[str] = None
+    tier: Optional[str] = "free"
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

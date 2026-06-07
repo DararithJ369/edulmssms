@@ -52,6 +52,33 @@ class AssignmentService:
         db.add(obj)
         db.commit()
         db.refresh(obj)
+
+        # Notify enrolled students
+        try:
+            from app.models.enrollment import Enrollment
+            from app.services.notification_service import NotificationService
+            
+            enrollments = db.query(Enrollment).filter(
+                Enrollment.course_id == obj.course_id,
+                Enrollment.is_active == True
+            ).all()
+
+            for enrollment in enrollments:
+                if enrollment.student_profile and enrollment.student_profile.profile:
+                    student_user_id = enrollment.student_profile.profile.user_id
+                    if student_user_id:
+                        due_str = obj.due_date.strftime('%Y-%m-%d %H:%M') if obj.due_date else "N/A"
+                        NotificationService.create_notification(
+                            db=db,
+                            user_id=student_user_id,
+                            title="New Assignment Released",
+                            message=f"A new assignment '{obj.title}' has been released for course '{obj.course_name}'. Due date: {due_str}.",
+                            type="assignment",
+                            reference_id=obj.id
+                        )
+        except Exception as e:
+            print(f"Failed to send assignment creation notifications: {e}")
+
         return AssignmentResponse.model_validate(obj)
 
     @staticmethod
@@ -124,6 +151,13 @@ class AssignmentService:
         if file:
             submission.file_url = get_image(file)
         db.add(submission)
+        # Record streak activity
+        try:
+            from app.services.streak_service import StreakService
+            StreakService.record_activity(db, str(student_id))
+        except Exception as e:
+            print(f"Failed to record streak activity on assignment submit: {e}")
+
         db.commit()
         db.refresh(submission)
         return SubmissionResponse.model_validate(submission)

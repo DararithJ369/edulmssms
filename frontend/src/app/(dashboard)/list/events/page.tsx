@@ -50,7 +50,7 @@ const EventListPage = async ({
   });
 
   const response = await serverFetch<EventsResponse>(
-    `/announcements?${params.toString()}`
+    `/events?${params.toString()}`
   ).catch(() => null);
 
   const data: EventItem[] = response?.data ?? [];

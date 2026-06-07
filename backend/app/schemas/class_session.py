@@ -10,6 +10,9 @@ class ClassSessionBase(BaseModel):
     end_time: TimeType
     room: Optional[str] = None
     status: Optional[str] = "scheduled"
+    subject_id: int
+    teacher_id: str
+    schedule_slot_id: Optional[int] = None
 
 
 class ClassSessionCreate(ClassSessionBase):
@@ -24,6 +27,9 @@ class ClassSessionUpdate(BaseModel):
     end_time: Optional[TimeType] = None
     room: Optional[str] = None
     status: Optional[str] = None
+    subject_id: Optional[int] = None
+    teacher_id: Optional[str] = None
+    schedule_slot_id: Optional[int] = None
     
     
 class ClassSessionResponse(ClassSessionBase):

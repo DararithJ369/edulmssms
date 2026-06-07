@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from typing import Any, Optional, Union
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import jwt
 from passlib.context import CryptContext
@@ -41,26 +41,66 @@ def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 def get_current_user(
+    request: Request,
     db: Session = Depends(get_db),
-    token: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    token: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
 ) -> User:
     """Decode JWT token and return the authenticated user."""
-    if token is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+    token_str = None
+
+    # Standard FastAPI Bearer scheme extraction
+    if token:
+        token_str = token.credentials
+        
+    # Manual backup verification of the Authorization Header
+    if not token_str:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token_str = auth_header.split(" ")[1]
+
+    # Read from URL query params fallback (?token=...)
+    if not token_str:
+        token_str = request.query_params.get("token")
+
+    # Read directly from server-sent browser cookies
+    if not token_str:
+        token_str = request.cookies.get("access_token") or request.cookies.get("token")
+
+    # If the token remains unlocated across all safe avenues, block right here
+    if not token_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Not authenticated"
+        )
 
     try:
-        payload = jwt.decode(token.credentials, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-        if payload.get("type") != "access":
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        payload = jwt.decode(token_str, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+        
+        # Only validate token type if the field exists within the payload claims matrix
+        token_type = payload.get("type")
+        if token_type and token_type != "access":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, 
+                detail="Invalid token type"
+            )
 
         user_id: str | None = payload.get("sub")
         if not user_id:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, 
+                detail="Invalid token: missing user reference identity"
+            )
 
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, 
+                detail="User not found"
+            )
 
         return user
     except jwt.JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Invalid token signature or expired validation timeframe"
+        )

@@ -6,15 +6,17 @@ const BigCalendarContainer = async ({
   type,
   id,
 }: {
-  type: "teacherId" | "classId";
+  type: "teacherId" | "classId" | "studentId";
   id: string | number;
 }) => {
   const dataRes = await prisma.lesson.findMany({
     where: {
       ...(type === "teacherId"
         ? { teacherId: id as string }
+        : type === "studentId"
+        ? { studentId: id as string }
         : { classId: id as number }),
-    },
+    } as any,
   });
 
   const data = dataRes.map((lesson) => ({

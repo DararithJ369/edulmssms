@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { getImageUrl } from "@/lib/image-url";
+import BackButton from "@/components/BackButton";
 import { 
   Globe, FileText, Upload, CheckCircle, Info, Download, 
-  ArrowLeft, Calendar, Award, MessageSquare, AlertCircle
+  Calendar, Award, MessageSquare, AlertCircle
 } from "lucide-react";
 
 type Assignment = {
@@ -169,11 +171,7 @@ export default function AssignmentSubmissionPage({ params }: { params: { id: str
 
       {/* HEADER SECTION */}
       <div className="flex items-center gap-4 select-none mb-6">
-        <Link href="/list/assignments">
-          <button className="p-2 bg-white border border-border text-foreground hover:bg-muted rounded-xl shadow-sm transition-all active:scale-[0.95]">
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-        </Link>
+        <BackButton />
         <div>
           <span className="text-xs font-extrabold text-[#0038A8] uppercase tracking-wider font-mono">
             Assignment Submission Portal
@@ -246,7 +244,7 @@ export default function AssignmentSubmissionPage({ params }: { params: { id: str
                         <span className="truncate">Current file: {submission.submission_file.split("_").slice(1).join("_") || "Uploaded Homework Document"}</span>
                       </span>
                       <a
-                        href={`${API_URL}${submission.submission_file}`}
+                        href={getImageUrl(submission.submission_file) || "#"}
                         download
                         className="p-1.5 hover:bg-muted rounded text-muted-foreground flex items-center gap-1.5 border border-border"
                       >
@@ -306,7 +304,7 @@ export default function AssignmentSubmissionPage({ params }: { params: { id: str
               <Award className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
               <div>
                 <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-tight">Total Available</h4>
-                <p className="text-sm font-black text-gray-900 mt-0.5">{assignment.total_marks} Marks</p>
+                <p className="text-sm font-black text-gray-900 mt-0.5">{assignment.total_marks || 100} Marks</p>
               </div>
             </div>
 
@@ -337,7 +335,7 @@ export default function AssignmentSubmissionPage({ params }: { params: { id: str
               <div className="flex items-baseline gap-1 text-2xl font-black text-indigo-950">
                 <span>Score:</span>
                 <span className="text-3xl text-indigo-600">{submission.score}</span>
-                <span className="text-sm font-bold text-indigo-400">/ {assignment.total_marks}</span>
+                <span className="text-sm font-bold text-indigo-400">/ {assignment.total_marks || 100}</span>
               </div>
 
               {submission.feedback && (

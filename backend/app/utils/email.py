@@ -2,7 +2,7 @@ import logging
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from app.core.config import settings
+from app.config.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -15,13 +15,13 @@ async def send_email(
     """
     Send an email using SMTP. 
     """
-    if not settings.STMP_HOST or not settings.SMTP_PORT:
+    if not settings.SMTP_HOST or not settings.SMTP_PORT:
         logger.warning("SMTP settings are not configured. Email will not be sent.")
         return
     
     message = MIMEMultipart("alternative")
     message["Subject"] = subject
-    message["From"] = f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL}>"
+    message["From"] = f"{settings.EMAILS_FROM_NAME} <{settings.EMAILS_FROM_EMAIL}>"
     message["To"] = email_to
     
     if text_content:
@@ -36,7 +36,7 @@ async def send_email(
             if settings.SMTP_USER and settings.SMTP_PASSWORD:
                 server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
             server.sendmail(
-                settings.SMTP_FROM_EMAIL, 
+                settings.EMAILS_FROM_EMAIL, 
                 email_to, 
                 message.as_string()
             )

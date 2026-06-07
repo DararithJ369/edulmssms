@@ -41,19 +41,53 @@ const QuizListPage = async ({
   const cookieStore = cookies();
   const role = normalizeRole(cookieStore.get("user_role")?.value);
 
-  const { page } = searchParams;
+  const { page, classId } = searchParams;
   const p = page ? parseInt(page) : 1;
 
-  const quizzesResponse = await serverFetch<{
-    data: QuizList[];
-    meta: { total: number };
-  }>(`/quizzes?page=${p}&limit=${ITEM_PER_PAGE}`).catch(() => ({
-    data: [],
-    meta: { total: 0 },
-  }));
+  const exactToken = cookieStore.get("access_token")?.value || cookieStore.get("token")?.value || "";
+  const fetchOptions = { token: exactToken };
 
-  const data = quizzesResponse.data || [];
-  const count = quizzesResponse.meta?.total ?? 0;
+  let data: QuizList[] = [];
+  let count = 0;
+
+  if (classId) {
+    let courseIds: number[] = [];
+    const students = await serverFetch<any[]>(`/classes/${classId}/students`, fetchOptions).catch(() => []);
+    if (students && students.length > 0) {
+      const studentId = students[0].id || students[0].user_id;
+      const overview = await serverFetch<any>(`/students/${studentId}/overview`, fetchOptions).catch(() => null);
+      if (overview && overview.courses) {
+        courseIds = overview.courses.map((c: any) => Number(c.course_id));
+      }
+    }
+
+    const quizzesResponse = await serverFetch<{
+      data: QuizList[];
+      meta: { total: number };
+    }>(`/quizzes?limit=1000`, fetchOptions).catch(() => ({
+      data: [],
+      meta: { total: 0 },
+    }));
+    const allQuizzes = quizzesResponse.data || [];
+
+    const filteredQuizzes = allQuizzes.filter((item) => {
+      return item.course_id ? courseIds.includes(Number(item.course_id)) : false;
+    });
+
+    count = filteredQuizzes.length;
+    data = filteredQuizzes.slice((p - 1) * ITEM_PER_PAGE, p * ITEM_PER_PAGE);
+  } else {
+    const quizzesResponse = await serverFetch<{
+      data: QuizList[];
+      meta: { total: number };
+    }>(`/quizzes?page=${p}&limit=${ITEM_PER_PAGE}`, fetchOptions).catch(() => ({
+      data: [],
+      meta: { total: 0 },
+    }));
+
+    data = quizzesResponse.data || [];
+    count = quizzesResponse.meta?.total ?? 0;
+  }
 
   return (
     <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left">
@@ -148,7 +182,7 @@ const QuizListPage = async ({
 
                 {/* Right Side Actions and Completion tracking */}
                 <div className="flex items-center gap-4 z-10">
-                  <Link href={`/list/courses/${item.course_id}/learn?lessonId=${item.lesson_id}`}>
+                  <Link href={`/list/quizzes/${item.id}`}>
                     <button className="px-4 py-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/25 text-red-700 dark:text-red-400 font-extrabold text-[9px] rounded-lg shadow-sm transition-colors active:scale-[0.98] uppercase tracking-wider">
                       Attempt Quiz
                     </button>

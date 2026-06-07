@@ -1,4 +1,5 @@
 import FormContainer from "@/components/FormContainer";
+import TableRowActions from "@/components/TableRowActions";
 import Pagination from "@/components/Pagination";
 import TableSearch from "@/components/TableSearch";
 import { serverFetch } from "@/lib/server-api";
@@ -156,11 +157,12 @@ const ParentListPage = async ({
                 })()}
 
                 <div className="flex flex-col text-left gap-1">
-                  <h3 className="text-sm font-extrabold text-foreground tracking-tight leading-snug">
-                    <Link href={`/list/parents/${item.id}`} className="hover:text-rose-600 transition-colors">
-                      {item.username}
-                    </Link>
-                  </h3>
+                  <Link
+                    href={`/list/parents/${item.id}`}
+                    className="text-sm font-extrabold text-foreground tracking-tight leading-snug hover:text-[#0038A8] dark:hover:text-[#4f88ef] transition-colors"
+                  >
+                    {item.username}
+                  </Link>
 
                   <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap font-medium">
                     <span>{item.email}</span>
@@ -170,20 +172,15 @@ const ParentListPage = async ({
                 </div>
               </div>
 
-              {/* Right Side Actions */}
+              {/* Right Side Actions Dropdown */}
               <div className="flex items-center gap-4 z-10">
-                <Link
-                  href={`/list/parents/${item.id}`}
-                  className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-100 text-rose-700 font-extrabold text-[10px] rounded-xl transition-all uppercase tracking-wider opacity-40 group-hover:opacity-100"
-                >
-                  View
-                </Link>
-                {role === "admin" && (
-                  <div className="flex items-center gap-1 select-none opacity-40 group-hover:opacity-100 transition-opacity">
-                    <FormContainer table="parent" type="update" data={item} />
-                    <FormContainer table="parent" type="delete" id={item.id} />
-                  </div>
-                )}
+                <TableRowActions
+                  id={item.id}
+                  table="parent"
+                  viewUrl={`/list/parents/${item.id}`}
+                  editData={item}
+                  role={role}
+                />
               </div>
             </div>
           ))}

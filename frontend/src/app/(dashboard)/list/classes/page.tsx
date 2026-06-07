@@ -1,4 +1,5 @@
 import FormContainer from "@/components/FormContainer";
+import TableRowActions from "@/components/TableRowActions";
 import Pagination from "@/components/Pagination";
 import TableSearch from "@/components/TableSearch";
 import { serverFetch } from "@/lib/server-api";
@@ -144,14 +145,15 @@ const ClassListPage = async ({
                   </div>
                 </div>
 
-                {/* Right Side Actions */}
-                <div className="flex items-center gap-4 z-10">
-                  {role === "admin" && (
-                    <div className="flex items-center gap-1 select-none opacity-40 group-hover:opacity-100 transition-opacity">
-                      <FormContainer table="class" type="update" data={item} />
-                      <FormContainer table="class" type="delete" id={item.id} />
-                    </div>
-                  )}
+                {/* Right Side Actions Dropdown */}
+                <div className="flex items-center gap-3 z-10">
+                  <TableRowActions
+                    id={item.id}
+                    table="class"
+                    viewUrl={`/list/classes/${item.id}`}
+                    editData={item}
+                    role={role}
+                  />
                 </div>
 
               </div>

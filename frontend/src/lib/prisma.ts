@@ -27,9 +27,18 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
   const callApi = async (path: string) => {
     try {
       const res = await fetch(`${baseUrl}${path}`, { headers, cache: "no-store" });
-      if (!res.ok) return null;
+      if (!res.ok) {
+        if (res.status === 401) {
+          const { redirect } = require("next/navigation");
+          redirect("/login?clear=1");
+        }
+        return null;
+      }
       return await res.json();
-    } catch (e) {
+    } catch (e: any) {
+      if (e?.message === "NEXT_REDIRECT" || e?.digest?.includes("NEXT_REDIRECT")) {
+        throw e;
+      }
       console.error(`FAILED proxy fetch for ${path}:`, e);
       return null;
     }
@@ -48,12 +57,19 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
         cache: "no-store",
       });
       if (!res.ok) {
+        if (res.status === 401) {
+          const { redirect } = require("next/navigation");
+          redirect("/login?clear=1");
+        }
         const txt = await res.text();
         console.error(`MUTATION ERROR for ${methodType} ${path}:`, txt);
         return null;
       }
       return await res.json();
-    } catch (e) {
+    } catch (e: any) {
+      if (e?.message === "NEXT_REDIRECT" || e?.digest?.includes("NEXT_REDIRECT")) {
+        throw e;
+      }
       console.error(`FAILED proxy mutation for ${methodType} ${path}:`, e);
       return null;
     }
@@ -62,17 +78,188 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
   const today = new Date();
 
   // Model-specific query mapping to bridge Prisma direct calls to FastAPI REST endpoints
+  if (model === "user") {
+    if (method === "findMany") {
+      const page = args?.where?.page || 1;
+      const limit = args?.where?.limit || 10;
+      const search = args?.where?.search || "";
+      const roleFilter = args?.where?.role || "";
+      const res = await callApi(`/users?page=${page}&limit=${limit}&search=${search}&role=${roleFilter}`);
+      const raw = res?.data || [];
+      const meta = res?.meta || { page, total: 0, limit };
+      return {
+        data: raw.map((u: any) => ({
+          id: u.id,
+          username: u.username,
+          email: u.email,
+          roleId: u.role_id,
+          roleName: u.role?.name || "user",
+          isActive: u.is_active,
+          image: u.profile_image || u.image,
+        })),
+        meta,
+      };
+    }
+    if (method === "create") {
+      const fd = new FormData();
+      fd.append("username", args.data.username);
+      fd.append("email", args.data.email);
+      fd.append("password", args.data.password);
+      fd.append("role_id", String(args.data.roleId));
+      return await callApiMutate("/users", "POST", fd, true);
+    }
+    if (method === "update") {
+      const id = args.where.id;
+      const fd = new FormData();
+      fd.append("username", args.data.username);
+      fd.append("email", args.data.email);
+      fd.append("password", args.data.password || "");
+      fd.append("role_id", String(args.data.roleId));
+      return await callApiMutate(`/users/${id}`, "PUT", fd, true);
+    }
+    if (method === "delete") {
+      return await callApiMutate(`/users/${args.where.id}`, "DELETE");
+    }
+  }
+
+  if (model === "role") {
+    if (method === "findMany") {
+      const page = args?.where?.page || 1;
+      const limit = args?.where?.limit || 50;
+      const res = await callApi(`/roles?page=${page}&limit=${limit}`);
+      const raw = res?.data || [];
+      const meta = res?.meta || { page, total: 0, limit };
+      return {
+        data: raw.map((r: any) => ({
+          id: r.id,
+          name: r.name,
+          description: r.description || "",
+          isActive: r.is_active,
+        })),
+        meta,
+      };
+    }
+    if (method === "create") {
+      return await callApiMutate("/roles", "POST", {
+        name: args.data.name,
+        description: args.data.description,
+      });
+    }
+    if (method === "update") {
+      const id = args.where.id;
+      return await callApiMutate(`/roles/${id}`, "PUT", {
+        name: args.data.name,
+        description: args.data.description,
+        is_active: args.data.isActive,
+      });
+    }
+    if (method === "delete") {
+      return await callApiMutate(`/roles/${args.where.id}`, "DELETE");
+    }
+  }
+
+  if (model === "permission") {
+    if (method === "findMany") {
+      const page = args?.where?.page || 1;
+      const limit = args?.where?.limit || 100;
+      const res = await callApi(`/permissions?page=${page}&limit=${limit}`);
+      const raw = res?.data || [];
+      const meta = res?.meta || { page, total: 0, limit };
+      return {
+        data: raw.map((p: any) => ({
+          id: p.id,
+          key: p.key,
+          description: p.description || "",
+          isActive: p.is_active,
+        })),
+        meta,
+      };
+    }
+    if (method === "create") {
+      return await callApiMutate("/permissions", "POST", {
+        key: args.data.key,
+        description: args.data.description,
+        is_active: true,
+      });
+    }
+    if (method === "update") {
+      const id = args.where.id;
+      return await callApiMutate(`/permissions/${id}`, "PUT", {
+        key: args.data.key,
+        description: args.data.description,
+        is_active: args.data.isActive,
+      });
+    }
+    if (method === "delete") {
+      return await callApiMutate(`/permissions/${args.where.id}`, "DELETE");
+    }
+  }
+
+  if (model === "auditLog") {
+    if (method === "findMany") {
+      const page = args?.where?.page || 1;
+      const limit = args?.where?.limit || 10;
+      const search = args?.where?.search || "";
+      const res = await callApi(`/audit-logs?page=${page}&limit=${limit}&search=${search}`);
+      const raw = res?.data || [];
+      const meta = res?.meta || { page, total: 0, limit };
+      return {
+        data: raw.map((log: any) => ({
+          id: log.id,
+          userId: log.user_id,
+          action: log.action,
+          message: log.message,
+          ipAddress: log.ip_address,
+          userAgent: log.user_agent,
+          createdAt: new Date(log.created_at),
+          user: log.user ? {
+            id: log.user.id,
+            username: log.user.username,
+            email: log.user.email,
+          } : null,
+        })),
+        meta,
+      };
+    }
+  }
+
   if (model === "attendance") {
     if (method === "findMany") {
       const res = await callApi("/attendance?limit=1000");
       const raw = res?.data || [];
-      return raw.map((a: any) => ({
+      let mapped = raw.map((a: any) => ({
         id: a.id,
         date: new Date(a.date),
         present: a.status === "present",
         studentId: a.student_id,
         lessonId: a.course_id,
       }));
+      if (args?.where?.studentId) {
+        mapped = mapped.filter((a: any) => a.studentId === args.where.studentId);
+      }
+      return mapped;
+    }
+  }
+
+  if (model === "result") {
+    if (method === "findMany") {
+      const res = await callApi("/results?limit=100");
+      const raw = res?.data || [];
+      let filtered = raw.map((r: any) => ({
+        id: r.id,
+        assessment_title: r.assessment_title || "Assessment",
+        score: r.score,
+        total_marks: r.total_marks || 100,
+        percentage: r.percentage || 0,
+        grade: r.grade,
+        is_passed: r.is_passed,
+        feedback: r.feedback || "",
+        studentId: r.student_id,
+      }));
+      if (args?.where?.studentId) {
+        filtered = filtered.filter((r: any) => r.studentId === args.where.studentId);
+      }
+      return filtered;
     }
   }
 
@@ -89,12 +276,39 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
       ];
     }
     if (method === "findMany") {
+      if (args?.where?.parentId) {
+        // Fetch only children linked to this parent
+        const res = await callApi(`/parents/${args.where.parentId}/students`);
+        const raw = res || [];
+        
+        const mappedStudents = [];
+        for (const u of raw) {
+          const userId = u.profile?.user_id;
+          if (!userId) continue;
+
+          // Fetch student profile details to get class_id
+          const studentProfileRes = await callApi(`/students/${userId}/profile`);
+          const classId = studentProfileRes?.class_id || studentProfileRes?.student_profile?.class_id || null;
+
+          mappedStudents.push({
+            id: userId,
+            user_id: userId,
+            name: u.full_name || "Student",
+            surname: "",
+            classId: classId,
+          });
+        }
+        return mappedStudents;
+      }
+
       const res = await callApi("/users/students?limit=200");
       const raw = res?.data || [];
       return raw.map((u: any) => ({
         id: u.id,
+        user_id: u.id,
         name: u.username,
         surname: "",
+        classId: 1,
       }));
     }
     if (method === "findUnique" || method === "findFirst") {
@@ -255,6 +469,38 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
       const res = await callApi("/lessons?limit=100");
       const raw = res?.data || [];
 
+      // Resolve course-to-instructor mapping
+      const coursesRes = await callApi("/courses?limit=100");
+      const courses = coursesRes?.data || [];
+      const courseToInstructor: Record<number, string> = {};
+      courses.forEach((c: any) => {
+        if (c.id && c.instructor_id) {
+          courseToInstructor[c.id] = c.instructor_id;
+        }
+      });
+
+      // Get filters from query arguments
+      let filterCourseIds: number[] | null = null;
+
+      if (args?.where) {
+        if (args.where.studentId) {
+          const overview = await callApi(`/students/${args.where.studentId}/overview`);
+          const studentCourses = overview?.courses || [];
+          filterCourseIds = studentCourses.map((c: any) => c.course_id);
+        } else if (args.where.teacherId) {
+          const teacherCourses = courses.filter((c: any) => c.instructor_id === args.where.teacherId);
+          filterCourseIds = teacherCourses.map((c: any) => c.id);
+        } else if (args.where.classId) {
+          const students = await callApi(`/classes/${args.where.classId}/students`);
+          if (students && students.length > 0) {
+            const firstStudentId = students[0].id || students[0].user_id;
+            const overview = await callApi(`/students/${firstStudentId}/overview`);
+            const studentCourses = overview?.courses || [];
+            filterCourseIds = studentCourses.map((c: any) => c.course_id);
+          }
+        }
+      }
+
       // Calendar schedules require startTime & endTime dates.
       // We map these dynamically based on the current week for a fully loaded timetable.
       const getDayOffset = (dayIndex: number) => {
@@ -262,20 +508,36 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
         return dayIndex - currentDay;
       };
 
-      return raw.map((item: any, idx: number) => {
+      let mappedLessons = raw.map((item: any, idx: number) => {
         const dayIndex = (idx % 5) + 1; // Mon to Fri
         const dayOffset = getDayOffset(dayIndex);
         
         const startHour = 9 + (idx % 3) * 2; // 9:00, 11:00, 13:00
         const endHour = startHour + 1.5;
 
-        const startTime = new Date();
-        startTime.setDate(today.getDate() + dayOffset);
-        startTime.setHours(startHour, 0, 0, 0);
+        const startTimeDate = new Date();
+        startTimeDate.setDate(today.getDate() + dayOffset);
+        startTimeDate.setHours(startHour, 0, 0, 0);
 
-        const endTime = new Date();
-        endTime.setDate(today.getDate() + dayOffset);
-        endTime.setHours(Math.floor(endHour), (endHour % 1) * 60, 0, 0);
+        const endTimeDate = new Date();
+        endTimeDate.setDate(today.getDate() + dayOffset);
+        endTimeDate.setHours(Math.floor(endHour), (endHour % 1) * 60, 0, 0);
+
+        const toLocalISOString = (d: Date) => {
+          const year = d.getFullYear();
+          const month = String(d.getMonth() + 1).padStart(2, "0");
+          const dateVal = String(d.getDate()).padStart(2, "0");
+          const hours = String(d.getHours()).padStart(2, "0");
+          const minutes = String(d.getMinutes()).padStart(2, "0");
+          const seconds = String(d.getSeconds()).padStart(2, "0");
+          return `${year}-${month}-${dateVal}T${hours}:${minutes}:${seconds}`;
+        };
+
+        const startTime = toLocalISOString(startTimeDate);
+        const endTime = toLocalISOString(endTimeDate);
+
+        const lessonCourseId = item.course_id || item.module?.course_id || 1;
+        const mappedInstructorId = courseToInstructor[lessonCourseId] || "instructor-placeholder";
 
         return {
           id: item.id,
@@ -285,10 +547,19 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
           endTime: endTime,
           day: "MONDAY",
           duration: item.duration || "90min",
-          teacherId: item.teacher_id || "instructor-placeholder",
-          classId: item.class_id || 1,
+          teacherId: mappedInstructorId,
+          classId: args?.where?.classId || 1,
+          courseId: lessonCourseId,
         };
       });
+
+      if (filterCourseIds !== null) {
+        mappedLessons = mappedLessons.filter((l: any) => filterCourseIds!.includes(l.courseId));
+      } else if (args?.where?.teacherId) {
+        mappedLessons = mappedLessons.filter((l: any) => l.teacherId === args.where.teacherId);
+      }
+
+      return mappedLessons;
     }
   }
 

@@ -66,12 +66,17 @@ export default function ParentEditModal({ data, trigger }: { data: ParentEditDat
       const token = getToken();
       const API   = getApiBase();
 
-      // 1. Base profile
+      // 1. Base profile + Parent fields in one call
       const form = new FormData();
       BASE_PROFILE_KEYS.forEach((k) => { if (fields[k]) form.append(k, fields[k] as string); });
       if (fields.website)  form.append("website",  fields.website);
       if (fields.linkedin) form.append("linkedin", fields.linkedin);
-      if (photoUrl) form.append("pfp", photoUrl);
+      if (photoUrl)        form.append("pfp",       photoUrl);
+
+      // Parent-specific extension fields
+      if (fields.occupation)      form.append("occupation",      fields.occupation);
+      if (fields.relationship)    form.append("relationship",    fields.relationship);
+      if (fields.emergency_phone) form.append("emergency_phone", fields.emergency_phone);
 
       const res = await fetch(`${API}/profiles/${data.userId}`, {
         method: "PUT",
@@ -79,18 +84,6 @@ export default function ParentEditModal({ data, trigger }: { data: ParentEditDat
         body: form,
       });
       if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Update failed"); }
-
-      // 2. Parent-specific extension
-      const parentForm = new FormData();
-      if (fields.occupation)      parentForm.append("occupation",     fields.occupation);
-      if (fields.relationship)    parentForm.append("relationship",   fields.relationship);
-      if (fields.emergency_phone) parentForm.append("emergency_phone", fields.emergency_phone);
-
-      await fetch(`${API}/parents/${data.userId}/profile`, {
-        method: "PUT",
-        headers: { Authorization: `Bearer ${token}` },
-        body: parentForm,
-      });
 
       toast.success("Parent profile updated!");
       setOpen(false);

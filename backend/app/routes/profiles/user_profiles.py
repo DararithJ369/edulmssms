@@ -1,5 +1,5 @@
 from typing import Optional, Union
-from fastapi import APIRouter, Depends, UploadFile, File, Form
+from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
 from sqlalchemy.orm import Session
 from app.middleware.guard.permission import PermissionGuard
 from app.config.session import get_db
@@ -55,6 +55,8 @@ def create_user_profile(
     emergency_contact_relationship: Optional[str] = Form(None),
     blood_type: Optional[str] = Form(None),
     medical_conditions: Optional[str] = Form(None),
+    pfp: Optional[str] = Form(None),
+    tier: Optional[str] = Form(None),
     image: Optional[UploadFile] = File(None),
     # Instructor fields
     department: Optional[str] = Form(None),
@@ -72,14 +74,17 @@ def create_user_profile(
     relationship: Optional[str] = Form(None),
     emergency_phone: Optional[str] = Form(None),
     db: Session = Depends(get_db),
-    _: User = Depends(PermissionGuard.get_current_user),
+    current_user: User = Depends(PermissionGuard.get_current_user),
 ):
+    if current_user.role.name.lower() != "admin" and str(current_user.id) != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
     return UserProfileService.create_profile(
         db,
         user_id,
         UserProfileBase(
             full_name=full_name,
             bio=bio,
+            pfp=pfp,
             phone=phone,
             address=address,
             date_of_birth=date_of_birth,
@@ -93,7 +98,9 @@ def create_user_profile(
             emergency_contact_relationship=emergency_contact_relationship,
             blood_type=blood_type,
             medical_conditions=medical_conditions,
+            tier=tier,
         ),
+
         image,
         department=department,
         position=position,
@@ -128,6 +135,8 @@ def update_user_profile(
     emergency_contact_relationship: Optional[str] = Form(None),
     blood_type: Optional[str] = Form(None),
     medical_conditions: Optional[str] = Form(None),
+    pfp: Optional[str] = Form(None),
+    tier: Optional[str] = Form(None),
     image: Optional[UploadFile] = File(None),
     delete_image: Optional[str] = Form(None),
     # Instructor fields
@@ -146,14 +155,17 @@ def update_user_profile(
     relationship: Optional[str] = Form(None),
     emergency_phone: Optional[str] = Form(None),
     db: Session = Depends(get_db),
-    _: User = Depends(PermissionGuard.get_current_user),
+    current_user: User = Depends(PermissionGuard.get_current_user),
 ):
+    if current_user.role.name.lower() != "admin" and str(current_user.id) != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
     return UserProfileService.update_profile(
         db,
         user_id,
         UserProfileBase(
             full_name=full_name,
             bio=bio,
+            pfp=pfp,
             phone=phone,
             address=address,
             date_of_birth=date_of_birth,
@@ -167,7 +179,9 @@ def update_user_profile(
             emergency_contact_relationship=emergency_contact_relationship,
             blood_type=blood_type,
             medical_conditions=medical_conditions,
+            tier=tier,
         ),
+
         image,
         delete_image=delete_image == "true",
         department=department,
@@ -188,6 +202,38 @@ def update_user_profile(
 @profile_router.delete("/{user_id}", dependencies=[Depends(PermissionGuard.admin_only)])
 def delete_user_profile(user_id: str, db: Session = Depends(get_db)):
     return UserProfileService.delete_profile(db, user_id)
+
+
+@profile_router.post("/{user_id}/image", response_model=dict)
+def upload_profile_image(
+    user_id: str,
+    image: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(PermissionGuard.get_current_user),
+):
+    if current_user.role.name.lower() != "admin" and str(current_user.id) != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    from app.models.user_profile import UserProfile
+    profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    from app.utils.get_image import get_image
+    try:
+        saved_path = get_image(image)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    profile.image = saved_path
+    db.commit()
+    db.refresh(profile)
+
+    return {
+        "detail": "Avatar uploaded successfully",
+        "image": saved_path,
+        "image_url": saved_path
+    }
 
 
 @profile_router.patch(

@@ -6,6 +6,7 @@ from datetime import datetime, date
 class attendanceBase(BaseModel):
     student_id: str
     course_id: int
+    session_id: Optional[int] = None
     date: date
     status: str # present, absent, late
     time: Optional[str] = None # e.g. "09:00 AM"
@@ -20,6 +21,7 @@ class AttendanceUpdate(BaseModel):
     status: Optional[str] = None
     time: Optional[str] = None
     note: Optional[str] = None
+    session_id: Optional[int] = None
     
     
 class AttendanceResponse(attendanceBase):
@@ -36,6 +38,7 @@ class Attendance(BaseModel):
     id: int
     student_id: str
     course_id: int
+    session_id: Optional[int] = None
     date: date
     status: str # present, absent, late
     time: Optional[str] = None # e.g. "09:00 AM"
@@ -49,7 +52,14 @@ class Attendance(BaseModel):
 
         
 
+class AttendanceRecord(BaseModel):
+    student_id: str
+    status: str
+    time: Optional[str] = None
+    note: Optional[str] = None
+
+
 class AttendanceBulkCreate(BaseModel):
     course_id: int
     date: date
-    records: List[dict] # list of {student_id, status, time, note}
+    attendance: List[AttendanceRecord]

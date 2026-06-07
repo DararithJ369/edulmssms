@@ -13,7 +13,15 @@ import {
 import { Microscope, Code, Award, Globe, Loader2 } from "lucide-react";
 
 const Stats = () => {
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<any>({
+    totalStudents: 12500,
+    totalInstructors: 450,
+    totalCourses: 280,
+    hireRate: 98,
+    researchLabs: 250,
+    techHubs: 15,
+    globalPartners: 50,
+  });
   const [chartData, setChartData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 

@@ -4,9 +4,22 @@ from sqlalchemy.orm import Session
 from app.middleware.guard.permission import PermissionGuard
 from app.config.session import get_db
 from app.services.attendance_service import AttendanceService
-from app.schemas.attendance import AttendanceBulkCreate, AttendanceUpdate, AttendanceResponse
+from app.schemas.attendance import AttendanceBulkCreate, AttendanceUpdate, AttendanceResponse, AttendanceCreate
 
 attendance_router = APIRouter(tags=["Attendance"])
+
+
+@attendance_router.post(
+    "/attendance",
+    response_model=AttendanceResponse,
+    dependencies=[Depends(PermissionGuard.admin_or_instructor)],
+)
+def create_attendance(
+    payload: AttendanceCreate,
+    db: Session = Depends(get_db),
+    current_user = Depends(PermissionGuard.get_current_user),
+):
+    return AttendanceService.create_attendance(db, payload, str(current_user.id))
 
 
 # ── Generic attendance list & delete ──────────────────────────────────────────

@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Float
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 from app.db.base import Base
 
 class Submission(Base):
@@ -25,3 +26,20 @@ class Submission(Base):
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    student = relationship("User", foreign_keys=[student_id], lazy="selectin")
+
+    @property
+    def student_name(self) -> str:
+        if self.student:
+            if self.student.profile and self.student.profile.full_name:
+                return self.student.profile.full_name
+            return self.student.username
+        return ""
+
+    @property
+    def student_code(self) -> str:
+        if self.student and self.student.profile and self.student.profile.student_profile:
+            return self.student.profile.student_profile.student_id or ""
+        return ""

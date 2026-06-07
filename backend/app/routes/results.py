@@ -1,5 +1,5 @@
 from typing import Optional
-from fastapi import APIRouter, Depends, Form
+from fastapi import APIRouter, Depends, Form, HTTPException
 from sqlalchemy.orm import Session
 from app.middleware.guard.permission import PermissionGuard
 from app.config.session import get_db
@@ -24,8 +24,17 @@ def get_all_results(
 
 
 @result_router.get("/{result_id}", response_model=ResultResponse)
-def get_result(result_id: int, db: Session = Depends(get_db)):
-    return ResultService.get_result_by_id(db, result_id)
+def get_result(
+    result_id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(PermissionGuard.get_current_user)
+):
+    result_obj = db.query(Result).filter(Result.id == result_id).first()
+    if not result_obj:
+        raise HTTPException(status_code=404, detail="Result not found")
+    if not PermissionGuard.can_view_student(db, current_user, result_obj.student_id):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return ResultResponse.model_validate(result_obj)
 
 
 @result_router.post("", response_model=ResultResponse, dependencies=[Depends(PermissionGuard.admin_or_instructor)])
@@ -37,11 +46,11 @@ def create_result(payload: ResultCreate, db: Session = Depends(get_db)):
 def update_result(
     result_id: int,
     score: Optional[float] = Form(None),
-    notes: Optional[str] = Form(None),
+    feedback: Optional[str] = Form(None),
     db: Session = Depends(get_db),
 ):
     return ResultService.update_result(
-        db, result_id, ResultUpdate(score=score, notes=notes)
+        db, result_id, ResultUpdate(score=score, feedback=feedback)
     )
 
 

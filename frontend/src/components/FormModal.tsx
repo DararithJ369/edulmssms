@@ -236,7 +236,33 @@ const FormModal = ({
 
   return (
     <>
-      {triggerText ? (
+      {triggerText === "dropdown-edit" ? (
+        <button
+          type="button"
+          className="w-full text-left px-2.5 py-2 hover:bg-slate-100 hover:text-slate-900 text-sm font-medium transition-colors outline-none cursor-pointer flex items-center gap-2 rounded-lg text-slate-700"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setOpen(true);
+          }}
+        >
+          <Image src="/update.png" alt="" width={14} height={14} className="opacity-75" />
+          <span>Edit Details</span>
+        </button>
+      ) : triggerText === "dropdown-delete" ? (
+        <button
+          type="button"
+          className="w-full text-left px-2.5 py-2 hover:bg-red-50 hover:text-red-600 text-sm font-medium transition-colors outline-none cursor-pointer flex items-center gap-2 text-red-600 rounded-lg"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setOpen(true);
+          }}
+        >
+          <Image src="/delete.png" alt="" width={14} height={14} className="opacity-75" />
+          <span>Delete Record</span>
+        </button>
+      ) : triggerText ? (
         <button
           className="px-4 py-2 bg-[#8b5cf6] text-white hover:bg-[#7c3aed] font-extrabold text-xs rounded-xl transition-all shadow-md shadow-violet-500/10 flex items-center gap-1.5 active:scale-[0.98] select-none"
           onClick={() => setOpen(true)}

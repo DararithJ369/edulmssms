@@ -1,4 +1,5 @@
 import FormContainer from "@/components/FormContainer";
+import TableRowActions from "@/components/TableRowActions";
 import Pagination from "@/components/Pagination";
 import TableSearch from "@/components/TableSearch";
 import { serverFetch } from "@/lib/server-api";
@@ -48,19 +49,40 @@ const ResultListPage = async ({
   const cookieStore = cookies();
   const role = normalizeRole(cookieStore.get("user_role")?.value);
 
-  const { page } = searchParams;
+  const { page, studentId } = searchParams;
   const p = page ? parseInt(page) : 1;
 
-  const resultsResponse = await serverFetch<{
-    data: ResultList[];
-    meta: { total: number };
-  }>(`/results?page=${p}&limit=${ITEM_PER_PAGE}`).catch(() => ({
-    data: [],
-    meta: { total: 0 }
-  }));
+  const exactToken = cookieStore.get("access_token")?.value || cookieStore.get("token")?.value || "";
+  const fetchOptions = { token: exactToken };
 
-  const data = resultsResponse.data || [];
-  const count = resultsResponse.meta?.total ?? 0;
+  let data: ResultList[] = [];
+  let count = 0;
+
+  if (studentId) {
+    const resultsResponse = await serverFetch<{
+      data: ResultList[];
+      meta: { total: number };
+    }>(`/results?limit=1000`, fetchOptions).catch(() => ({
+      data: [],
+      meta: { total: 0 }
+    }));
+    const allResults = resultsResponse.data || [];
+    const filteredResults = allResults.filter((item) => {
+      return item.student_id === studentId;
+    });
+    count = filteredResults.length;
+    data = filteredResults.slice((p - 1) * ITEM_PER_PAGE, p * ITEM_PER_PAGE);
+  } else {
+    const resultsResponse = await serverFetch<{
+      data: ResultList[];
+      meta: { total: number };
+    }>(`/results?page=${p}&limit=${ITEM_PER_PAGE}`, fetchOptions).catch(() => ({
+      data: [],
+      meta: { total: 0 }
+    }));
+    data = resultsResponse.data || [];
+    count = resultsResponse.meta?.total ?? 0;
+  }
 
   return (
     <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left">
@@ -166,13 +188,12 @@ const ResultListPage = async ({
                   </span>
                 )}
 
-                {/* Dynamic actions for admins/teachers */}
-                {(role === "admin" || role === "teacher") && (
-                  <div className="flex items-center gap-1 select-none opacity-40 group-hover:opacity-100 transition-opacity">
-                    <FormContainer table="result" type="update" data={item} />
-                    <FormContainer table="result" type="delete" id={item.id} />
-                  </div>
-                )}
+                <TableRowActions
+                  id={item.id}
+                  table="result"
+                  editData={item}
+                  role={role}
+                />
               </div>
 
             </div>

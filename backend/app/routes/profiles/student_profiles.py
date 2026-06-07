@@ -1,5 +1,5 @@
 from typing import Optional
-from fastapi import APIRouter, Depends, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
 from sqlalchemy.orm import Session
 from app.middleware.guard.permission import PermissionGuard
 from app.config.session import get_db
@@ -26,9 +26,20 @@ student_router = APIRouter(prefix="/students", tags=["Student Profiles"])
 def get_student_profile(
     user_id: str,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user), 
 ):
-    return StudentProfileService.get_student_profile(db, user_id)
+    is_owner = current_user.id == user_id
+    is_staff = current_user.is_superuser or (
+        current_user.role and current_user.role.name in ["admin", "instructor", "teacher"]
+    )
+
+    if not (is_owner or is_staff):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="You do not have permission to view this student profile"
+        )
+        
+    return StudentProfileService.get_student_profile(db, user_id=user_id)
 
 
 @student_router.post(
@@ -92,8 +103,20 @@ def delete_student_profile(user_id: str, db: Session = Depends(get_db)):
 def get_student_overview(
     user_id: str,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user), # 🔐 Bring current user back to the active function
 ):
+    # 💡 SECURE INTERCEPTOR: Ensure the user has the explicit authorization rights!
+    is_owner = current_user.id == user_id
+    is_staff = current_user.is_superuser or (
+        current_user.role and current_user.role.name in ["admin", "instructor", "teacher"]
+    )
+
+    if not (is_owner or is_staff):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="You do not have permission to view this student overview dataset"
+        )
+
     from app.models.user import User as UserModel
     from app.models.assignment import Assignment
     from app.models.exam import Exam
@@ -101,17 +124,16 @@ def get_student_overview(
 
     user = db.query(UserModel).filter(UserModel.id == user_id).first()
     if not user:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail="Student not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")
 
-    profile = user.profile  # UserProfile
-    sp = profile.student_profile if profile else None  # StudentProfile
+    profile = user.profile  
+    sp = profile.student_profile if profile else None  
 
     # ── Parents ───────────────────────────────────────────────────────────────
     parents = []
     if sp and sp.parents:
         for p in sp.parents:
-            pp = p.profile  # UserProfile of parent
+            pp = p.profile  
             parents.append({
                 "id": p.id,
                 "full_name": pp.full_name if pp else None,
@@ -155,7 +177,7 @@ def get_student_overview(
     raw_results = (
         db.query(Result)
         .filter(Result.student_id == user_id)
-        .order_by(Result.created_at.desc())
+        # .order_by(Result.created_at.desc())
         .limit(20)
         .all()
     )
@@ -164,7 +186,6 @@ def get_student_overview(
     total_score = 0
     total_possible = 0
     for r in raw_results:
-        # Determine assessment title & type
         atype, atitle = "Unknown", "Assessment"
         if r.assignment_id:
             atype = "Assignment"
@@ -202,7 +223,7 @@ def get_student_overview(
             "is_passed": r.is_passed,
             "feedback": r.feedback,
             "grader_name": grader_name,
-            "created_at": str(r.created_at) if r.created_at else None,
+            "created_at": None,
         })
 
     avg_score = round((total_score / total_possible) * 100, 1) if total_possible > 0 else None

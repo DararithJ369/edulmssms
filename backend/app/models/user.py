@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from sqlalchemy import Column, String, Boolean, DateTime, Integer, ForeignKey
+from sqlalchemy import Column, String, Boolean, DateTime, Integer, ForeignKey, Table
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.config.base import Base
@@ -32,3 +32,10 @@ class User(Base):
         if self.profile and self.profile.image:
             return self.profile.image
         return self.image  # fall back to user-level image if set
+
+    @property
+    def student_profile_id(self):
+        """Return the ID from StudentProfile (used in linking relations)."""
+        if self.profile and self.profile.student_profile:
+            return self.profile.student_profile.id
+        return None

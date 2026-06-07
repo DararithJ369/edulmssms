@@ -21,24 +21,11 @@ def get_image(file):
         if file.content_type not in allowed_extensions:
             raise ValueError(f"Unsupported file type: {file.content_type}")
         
-        filename = re.sub(r'[^a-zA-Z0-9_.-]', '_', file.filename)
-        file_path = os.path.join(directory, filename)
+        from app.services.storage import StorageService
+        stored_path = StorageService.upload_public_file(file, folder="images")
         
-        if os.path.exists(file_path):
-            base, ext = os.path.splitext(filename)
-            counter = 1
-            while os.path.exists(file_path):
-                filename = f"{base}_{counter}{ext}"
-                file_path = os.path.join(directory, filename)
-                counter += 1
-        
-        print(f"🖼️ get_image - Saving to: {file_path}")
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        
-        result_path = f"/uploads/images/{filename}"
-        print(f"✅ get_image - Success! Saved and returning: {result_path}")
-        return result_path
+        print(f"✅ get_image - Success! Saved and returning: {stored_path}")
+        return stored_path
     except Exception as e:
         print(f"❌ get_image - Error: {str(e)}")
         raise

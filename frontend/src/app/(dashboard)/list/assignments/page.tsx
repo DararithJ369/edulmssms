@@ -1,5 +1,6 @@
 import FormContainer from "@/components/FormContainer";
 import FormModal from "@/components/FormModal";
+import TableRowActions from "@/components/TableRowActions";
 import Pagination from "@/components/Pagination";
 import TableSearch from "@/components/TableSearch";
 import { serverFetch } from "@/lib/server-api";
@@ -44,19 +45,52 @@ const AssignmentListPage = async ({
   const cookieStore = cookies();
   const role = normalizeRole(cookieStore.get("user_role")?.value);
   
-  const { page } = searchParams;
+  const { page, classId } = searchParams;
   const p = page ? parseInt(page) : 1;
 
-  const assignmentsResponse = await serverFetch<{
-    data: AssignmentList[];
-    meta: { total: number };
-  }>(`/assignments?page=${p}&limit=${ITEM_PER_PAGE}`).catch(() => ({
-    data: [],
-    meta: { total: 0 }
-  }));
+  const exactToken = cookieStore.get("access_token")?.value || cookieStore.get("token")?.value || "";
+  const fetchOptions = { token: exactToken };
 
-  const data = assignmentsResponse.data || [];
-  const count = assignmentsResponse.meta?.total ?? 0;
+  let data: AssignmentList[] = [];
+  let count = 0;
+
+  if (classId) {
+    let courseIds: number[] = [];
+    const students = await serverFetch<any[]>(`/classes/${classId}/students`, fetchOptions).catch(() => []);
+    if (students && students.length > 0) {
+      const studentId = students[0].id || students[0].user_id;
+      const overview = await serverFetch<any>(`/students/${studentId}/overview`, fetchOptions).catch(() => null);
+      if (overview && overview.courses) {
+        courseIds = overview.courses.map((c: any) => Number(c.course_id));
+      }
+    }
+
+    const assignmentsResponse = await serverFetch<{
+      data: AssignmentList[];
+      meta: { total: number };
+    }>(`/assignments?limit=1000`, fetchOptions).catch(() => ({
+      data: [],
+      meta: { total: 0 }
+    }));
+    const allAssignments = assignmentsResponse.data || [];
+
+    const filteredAssignments = allAssignments.filter((item) => {
+      return item.course_id ? courseIds.includes(Number(item.course_id)) : false;
+    });
+
+    count = filteredAssignments.length;
+    data = filteredAssignments.slice((p - 1) * ITEM_PER_PAGE, p * ITEM_PER_PAGE);
+  } else {
+    const assignmentsResponse = await serverFetch<{
+      data: AssignmentList[];
+      meta: { total: number };
+    }>(`/assignments?page=${p}&limit=${ITEM_PER_PAGE}`, fetchOptions).catch(() => ({
+      data: [],
+      meta: { total: 0 }
+    }));
+    data = assignmentsResponse.data || [];
+    count = assignmentsResponse.meta?.total ?? 0;
+  }
 
   return (
     <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left">
@@ -156,19 +190,34 @@ const AssignmentListPage = async ({
 
                 {/* Right Side Actions and Completion tracking */}
                 <div className="flex items-center gap-4 z-10">
-                  {/* Dynamic actions for admins/teachers */}
-                  {(role === "admin" || role === "teacher") && (
-                    <div className="flex items-center gap-1 select-none opacity-40 group-hover:opacity-100 transition-opacity">
-                      <FormModal table="assignment" type="update" data={item} />
-                      <FormModal table="assignment" type="delete" id={item.id} />
-                    </div>
-                  )}
+                  <TableRowActions
+                    id={item.id}
+                    table="assignment"
+                    editData={item}
+                    role={role}
+                  />
 
-                  <Link href={`/list/assignments`}>
-                    <button className="px-4 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/25 text-amber-700 dark:text-amber-400 font-extrabold text-[9px] rounded-lg shadow-sm transition-colors active:scale-[0.98] uppercase tracking-wider">
-                      Add Submission
-                    </button>
-                  </Link>
+                  {role === "student" && (
+                    <Link href={`/list/assignments/${item.id}/submit`}>
+                      <button className="px-4 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/25 text-amber-700 dark:text-amber-400 font-extrabold text-[9px] rounded-lg shadow-sm transition-colors active:scale-[0.98] uppercase tracking-wider">
+                        Add Submission
+                      </button>
+                    </Link>
+                  )}
+                  {role === "parent" && (
+                    <Link href={`/list/assignments/${item.id}/submit`}>
+                      <button className="px-4 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/25 text-amber-700 dark:text-amber-400 font-extrabold text-[9px] rounded-lg shadow-sm transition-colors active:scale-[0.98] uppercase tracking-wider">
+                        View Submission
+                      </button>
+                    </Link>
+                  )}
+                  {(role === "teacher" || role === "admin") && (
+                    <Link href={`/list/assignments/${item.id}/submissions`}>
+                      <button className="px-4 py-1.5 bg-[#0038A8]/10 hover:bg-[#0038A8]/20 border border-[#0038A8]/25 text-[#0038A8] dark:text-blue-400 font-extrabold text-[9px] rounded-lg shadow-sm transition-colors active:scale-[0.98] uppercase tracking-wider">
+                        View Submissions
+                      </button>
+                    </Link>
+                  )}
 
                   {/* Completion Status check circle */}
                   {isDone ? (

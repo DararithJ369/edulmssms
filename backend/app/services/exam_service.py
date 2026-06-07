@@ -79,6 +79,14 @@ class ExamService:
             notes=getattr(payload, "notes", None),
         )
         db.add(result)
+        # Record streak activity
+        try:
+            from app.services.streak_service import StreakService
+            # student_id might be a string UUID from current_user.id
+            StreakService.record_activity(db, str(student_id))
+        except Exception as e:
+            print(f"Failed to record streak activity on exam submit: {e}")
+
         db.commit()
         db.refresh(result)
         return ResultResponse.model_validate(result)

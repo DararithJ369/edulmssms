@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
 from datetime import datetime
 from typing import Optional
 
@@ -31,6 +31,11 @@ class AssignmentResponse(AssignmentBase):
     teacher_name: Optional[str] = None
 
     model_config = {"from_attributes": True}
+
+    @field_serializer("attachment_file")
+    def serialize_attachment_file(self, v: Optional[str]) -> Optional[str]:
+        from app.services.storage import StorageService
+        return StorageService.resolve_url(v)
 
 
 class Assignment(AssignmentBase):

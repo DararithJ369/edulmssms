@@ -49,27 +49,22 @@ class FileManager:
                 detail=f"File size exceeds the maximum limit of 10MB (provided: {round(file_size / (1024*1024), 2)}MB)"
             )
 
-        # 3. Save file with a unique secure filename to prevent collisions & directory path attacks
-        unique_id = uuid.uuid4().hex
-        secure_filename = f"{unique_id}_{filename.replace(' ', '_')}"
-        
-        upload_dir = FileManager.get_upload_dir()
-        save_path = upload_dir / secure_filename
-
+        # 3. Save file using StorageService
+        from app.services.storage import StorageService
         try:
-            with open(save_path, "wb") as f:
-                shutil.copyfileobj(file.file, f)
+            stored_path = StorageService.upload_private_file(file, folder="submissions")
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Could not save file to disk: {str(e)}"
+                detail=f"Could not save file to storage: {str(e)}"
             )
 
         # 4. Return structural metadata for DB storage
+        secure_filename = stored_path.split("/")[-1]
         return {
             "filename": secure_filename,
             "original_filename": filename,
             "file_size": file_size,
-            "upload_date": func.now() if hasattr(file, "func") else str(uuid.uuid4()),  # fallback
-            "url": f"/uploads/{secure_filename}"
+            "upload_date": str(uuid.uuid4()),  # fallback unique identifier
+            "url": stored_path
         }

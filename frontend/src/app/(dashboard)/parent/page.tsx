@@ -1,12 +1,14 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { 
   Globe, User, Calendar, Award, BookOpen, 
-  Activity, CheckCircle2, Heart, Phone
+  Activity, CheckCircle2, Heart, Phone, ShieldAlert
 } from "lucide-react";
 import prisma from "@/lib/prisma";
 import BigCalendarContainer from "@/components/BigCalendarContainer";
 import Announcements from "@/components/Announcements";
+import { CalendarSkeleton } from "@/components/student/WidgetSkeleton";
 
 const normalizeRole = (role: string | null | undefined) => {
   if (role === "instructor") {
@@ -22,14 +24,13 @@ type ParentDashboardProps = {
 export default async function ParentDashboardPage({ searchParams }: ParentDashboardProps) {
   const cookieStore = cookies();
   const currentUserId = cookieStore.get("user_id")?.value || null;
-  const role = normalizeRole(cookieStore.get("user_role")?.value);
 
   if (!currentUserId) {
     return (
       <div className="p-6">
-        <div className="bg-white p-6 rounded-md shadow-sm">
-          <h1 className="text-xl font-semibold">Parent Dashboard</h1>
-          <p className="text-gray-500 mt-2">Please sign in to view your children&apos;s schedule.</p>
+        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+          <h1 className="text-xl font-bold text-slate-800">Parent Dashboard</h1>
+          <p className="text-slate-500 mt-2 text-sm">Please sign in to view your children&apos;s schedule.</p>
         </div>
       </div>
     );
@@ -43,7 +44,7 @@ export default async function ParentDashboardPage({ searchParams }: ParentDashbo
   const parentName = parentProfile?.username || "Parent";
   const parentMetadata = parentProfile?.parent_profile;
 
-  // Fetch linked student profiles via Prisma client proxy (which intercepts and calls /parents/{parentId}/students)
+  // Fetch linked student profiles
   const students = (await prisma.student.findMany({
     where: { parentId: currentUserId }
   })) as any[];
@@ -51,7 +52,7 @@ export default async function ParentDashboardPage({ searchParams }: ParentDashbo
   const studentIdParam = searchParams.studentId;
   const activeStudent = students.find(s => s.user_id === studentIdParam) || students[0] || null;
 
-  // Fetch active child attendance & results using Prisma Client Proxy
+  // Fetch active child attendance & results
   const attendance = activeStudent 
     ? await prisma.attendance.findMany({ where: { studentId: activeStudent.user_id } }) 
     : [];
@@ -66,7 +67,7 @@ export default async function ParentDashboardPage({ searchParams }: ParentDashbo
   const attendancePercentage = totalAtt > 0 ? Math.round((presentAtt / totalAtt) * 100) : 100;
 
   return (
-    <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left">
+    <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left transition-all duration-300 animate-in fade-in">
       {/* MOODLE BREADCRUMB */}
       <div className="flex items-center gap-1 text-[11px] font-extrabold text-muted-foreground uppercase tracking-wider mb-2 select-none">
         <Link href="/" className="hover:text-foreground flex items-center gap-1">
@@ -83,82 +84,86 @@ export default async function ParentDashboardPage({ searchParams }: ParentDashbo
           <span className="text-xs font-extrabold text-[#0038A8] uppercase tracking-wider font-mono">
             Parental Oversight Hub • {parentMetadata?.relationship || "GUARDIAN"}
           </span>
-          <h1 className="text-xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight leading-tight mt-0.5">
-            Welcome, {parentName}
+          <h1 className="text-xl md:text-3xl font-black text-slate-800 tracking-tight leading-tight mt-0.5">
+            Welcome back, {parentName}
           </h1>
         </div>
 
-        {/* Dynamic linked children tab selector (Pure Link anchors for Server Component) */}
-        <div className="flex flex-wrap gap-1.5 bg-white dark:bg-muted p-1 border border-border rounded-xl shadow-sm shrink-0">
-          {students.map((std) => (
-            <Link
-              key={std.id}
-              href={`/parent?studentId=${std.user_id}`}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                activeStudent?.user_id === std.user_id
-                  ? "bg-[#0038A8] text-white shadow"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-            >
-              <User className="h-3.5 w-3.5" />
-              <span>{std.name + " " + std.surname}</span>
-            </Link>
-          ))}
-        </div>
+        {/* Dynamic linked children tab selector */}
+        {students.length > 0 && (
+          <div className="flex flex-wrap gap-1 bg-slate-100/80 p-1 rounded-2xl shadow-inner border border-slate-200/40 shrink-0">
+            {students.map((std) => (
+              <Link
+                key={std.id}
+                href={`/parent?studentId=${std.user_id}`}
+                className={`px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all duration-200 flex items-center gap-1.5 hover:scale-[1.02] active:scale-[0.98] ${
+                  activeStudent?.user_id === std.user_id
+                    ? "bg-[#0038A8] text-white shadow-sm"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <User className="h-3.5 w-3.5" />
+                <span>{std.name} {std.surname}</span>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
 
       {activeStudent ? (
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           {/* LEFT COLUMN: ACADEMIC CALENDAR & GRADES */}
           <div className="xl:col-span-2 space-y-6">
-            {/* CHILD LECTURE TIMETABLE */}
-            <div className="bg-card text-card-foreground border border-border p-6 rounded-2xl shadow-sm space-y-4">
-              <h3 className="text-base font-bold text-gray-900 flex items-center gap-2 select-none">
+            {/* CHILD TIMETABLE */}
+            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.015)] space-y-4">
+              <h3 className="text-base font-black text-slate-800 flex items-center gap-2 select-none">
                 <Calendar className="h-5 w-5 text-[#0038A8]" />
-                Timetable Outline: {activeStudent.name + " " + activeStudent.surname}
+                Timetable: {activeStudent.name} {activeStudent.surname}
               </h3>
-              <div className="h-[450px]">
-                <BigCalendarContainer type="classId" id={activeStudent.classId || 1} />
+              <div className="h-[460px]">
+                <Suspense fallback={<CalendarSkeleton />}>
+                  <BigCalendarContainer type="studentId" id={activeStudent.user_id} />
+                </Suspense>
               </div>
             </div>
 
-            {/* CHILD ACADEMIC MARKS SHEET */}
-            <div className="bg-card text-card-foreground border border-border p-6 rounded-2xl shadow-sm space-y-4 text-left select-none">
-              <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+            {/* GRADEBOOK RESULTS */}
+            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.015)] space-y-4 text-left select-none">
+              <h3 className="text-base font-black text-slate-800 flex items-center gap-2">
                 <Award className="h-5 w-5 text-[#0038A8]" />
-                Academic Progress & Gradebook Results
+                Academic Marks & Report Cards
               </h3>
 
               {results.length > 0 ? (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto rounded-2xl border border-slate-100">
                   <table className="w-full text-left text-xs font-semibold font-sans border-collapse">
                     <thead>
-                      <tr className="border-b border-border bg-muted/40 text-muted-foreground uppercase text-[10px] font-black tracking-wider">
-                        <th className="p-3">Assessment Title</th>
-                        <th className="p-3">Dynamic Mark</th>
-                        <th className="p-3 text-center">Grade</th>
-                        <th className="p-3">Teacher Remarks</th>
+                      <tr className="border-b border-slate-100 bg-slate-50/70 text-slate-500 uppercase text-[10px] font-extrabold tracking-wider">
+                        <th className="p-3.5">Assessment Title</th>
+                        <th className="p-3.5">Mark Score</th>
+                        <th className="p-3.5 text-center">Grade</th>
+                        <th className="p-3.5">Faculty Feedback</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-border/60">
+                    <tbody className="divide-y divide-slate-100">
                       {results.map((r: any) => (
-                        <tr key={r.id} className="hover:bg-accent/40 transition-colors">
-                          <td className="p-3 text-foreground font-bold">{r.assessment_title || "Assignment"}</td>
-                          <td className="p-3">
-                            <span className="font-bold text-gray-900">{r.score}</span> / <span className="text-muted-foreground">{r.total_marks || 100}</span>
-                            <span className="text-[10px] text-muted-foreground block font-mono mt-0.5">({r.percentage || 0}%)</span>
+                        <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="p-3.5 text-slate-800 font-extrabold">{r.assessment_title || "Assignment"}</td>
+                          <td className="p-3.5">
+                            <span className="font-extrabold text-slate-800">{r.score}</span> / <span className="text-slate-400">{r.total_marks || 100}</span>
+                            <span className="text-[10px] text-slate-400 block font-mono mt-0.5 font-bold">({r.percentage || 0}%)</span>
                           </td>
-                          <td className="p-3 text-center">
-                            <span className={`inline-block text-[11px] font-black px-2.5 py-0.5 rounded-full select-none ${
+                          <td className="p-3.5 text-center">
+                            <span className={`inline-block text-[10px] font-black px-2.5 py-0.5 rounded-full select-none ${
                               r.is_passed 
-                                ? "bg-emerald-50 text-emerald-700 border border-emerald-100" 
-                                : "bg-red-50 text-red-700 border border-red-100"
+                                ? "bg-emerald-50 text-emerald-700 border border-emerald-100/50" 
+                                : "bg-red-50 text-red-700 border border-red-100/50"
                             }`}>
                               {r.grade || "F"}
                             </span>
                           </td>
-                          <td className="p-3 text-muted-foreground text-xs leading-relaxed max-w-[200px] truncate" title={r.feedback}>
-                            {r.feedback || "-"}
+                          <td className="p-3.5 text-slate-500 text-xs leading-relaxed max-w-[200px] truncate" title={r.feedback}>
+                            {r.feedback || "—"}
                           </td>
                         </tr>
                       ))}
@@ -166,41 +171,43 @@ export default async function ParentDashboardPage({ searchParams }: ParentDashbo
                   </table>
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground py-4 text-center">No graded assessment results recorded for this student yet.</p>
+                <div className="py-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-150">
+                  <p className="text-xs text-slate-450 font-bold">No academic records reported for this child yet.</p>
+                </div>
               )}
             </div>
           </div>
 
-          {/* RIGHT COLUMN: ATTENDANCE METRICS & METADATA */}
+          {/* RIGHT COLUMN: ATTENDANCE & EMERGENCY DATA */}
           <div className="space-y-6">
-            {/* CHILD ATTENDANCE ANALYTICS */}
-            <div className="bg-white border border-border p-6 rounded-2xl shadow-sm text-left select-none relative overflow-hidden">
-              <span className="text-[10px] font-black text-indigo-650 uppercase tracking-widest block mb-1">
+            {/* ATTENDANCE DETAILS */}
+            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.015)] text-left select-none">
+              <span className="text-[9px] font-extrabold text-[#0038A8] uppercase tracking-widest block mb-1">
                 Oversight Statistics
               </span>
-              <h3 className="text-lg font-black text-gray-900 mb-4 leading-none">Attendance Logbook</h3>
+              <h3 className="text-lg font-black text-slate-800 mb-4 leading-none">Attendance Logbook</h3>
 
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-end justify-between">
                   <span className="text-3xl font-black text-[#0038A8]">{attendancePercentage}%</span>
-                  <span className="text-xs font-bold text-muted-foreground">
+                  <span className="text-xs font-bold text-slate-400">
                     {presentAtt} / {totalAtt} Sessions Present
                   </span>
                 </div>
-                <div className="w-full h-3 bg-muted rounded-full overflow-hidden border border-border/40">
+                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-[#0038A8] to-indigo-600 rounded-full transition-all duration-500"
+                    className="h-full bg-gradient-to-r from-[#0038A8] to-indigo-650 rounded-full transition-all duration-700 ease-out"
                     style={{ width: `${attendancePercentage}%` }}
                   />
                 </div>
                 
-                {/* Stats breakdown capsules */}
-                <div className="flex gap-2 justify-between text-[11px] font-extrabold text-muted-foreground bg-muted/20 p-2.5 rounded-xl border border-border/40 mt-2">
-                  <div className="flex flex-col items-center flex-1 border-r border-border/60">
+                {/* Stats breakdown */}
+                <div className="flex gap-2 justify-between text-[11px] font-bold text-slate-450 bg-slate-50/50 p-3 rounded-2xl border border-slate-100/60 mt-2">
+                  <div className="flex flex-col items-center flex-1 border-r border-slate-100">
                     <span className="text-[#0038A8] text-sm font-black">{presentAtt}</span>
                     <span>Present</span>
                   </div>
-                  <div className="flex flex-col items-center flex-1 border-r border-border/60">
+                  <div className="flex flex-col items-center flex-1">
                     <span className="text-amber-600 text-sm font-black">{attendance.filter(a => !a.present).length}</span>
                     <span>Absent</span>
                   </div>
@@ -208,48 +215,50 @@ export default async function ParentDashboardPage({ searchParams }: ParentDashbo
               </div>
             </div>
 
-            {/* FAMILY & CONTACT DETAILS */}
-            <div className="bg-white border border-border p-6 rounded-2xl shadow-sm text-left select-none space-y-4">
-              <h4 className="text-xs font-black text-indigo-700 uppercase tracking-widest block">
+            {/* METADATA DETAILS */}
+            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.015)] text-left select-none space-y-4">
+              <h4 className="text-xs font-black text-[#0038A8] uppercase tracking-widest block">
                 Emergency & Registry Metadata
               </h4>
 
-              <div className="space-y-3.5">
+              <div className="space-y-4">
                 <div className="flex items-start gap-2.5">
                   <Heart className="h-4.5 w-4.5 text-rose-500 shrink-0 mt-0.5" />
                   <div>
-                    <h5 className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">Parent Relationship</h5>
-                    <p className="text-xs font-bold text-gray-900 mt-0.5 capitalize">{parentMetadata?.relationship || "Guardian"}</p>
+                    <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Parent Relationship</h5>
+                    <p className="text-xs font-extrabold text-slate-700 mt-0.5 capitalize">{parentMetadata?.relationship || "Guardian"}</p>
                   </div>
                 </div>
 
                 <div className="flex items-start gap-2.5">
                   <Phone className="h-4.5 w-4.5 text-emerald-500 shrink-0 mt-0.5" />
                   <div>
-                    <h5 className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">Emergency Phone</h5>
-                    <p className="text-xs font-bold text-gray-900 mt-0.5">{parentMetadata?.emergency_phone || "Not Configured"}</p>
+                    <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Emergency Phone</h5>
+                    <p className="text-xs font-extrabold text-slate-700 mt-0.5">{parentMetadata?.emergency_phone || "Not Configured"}</p>
                   </div>
                 </div>
 
                 <div className="flex items-start gap-2.5">
                   <BookOpen className="h-4.5 w-4.5 text-blue-500 shrink-0 mt-0.5" />
                   <div>
-                    <h5 className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">Academic Classroom</h5>
-                    <p className="text-xs font-bold text-gray-900 mt-0.5">{activeStudent.classId ? `Class Room #${activeStudent.classId}` : "University Classroom"}</p>
+                    <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Academic Classroom</h5>
+                    <p className="text-xs font-extrabold text-slate-700 mt-0.5">{activeStudent.classId ? `Class Room #${activeStudent.classId}` : "University Classroom"}</p>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* ANNOUNCEMENTS SIDEBLOCK */}
+            {/* ANNOUNCEMENTS */}
             <Announcements />
           </div>
         </div>
       ) : (
-        <div className="bg-card text-card-foreground border border-border rounded-2xl p-12 text-center text-muted-foreground shadow-sm">
-          <User className="h-12 w-12 text-muted-foreground/60 mx-auto mb-3" />
-          <h3 className="font-bold text-lg">No Students Linked</h3>
-          <p className="text-sm mt-1">Please contact university administration to link your child&apos;s profile to your account.</p>
+        <div className="bg-white rounded-3xl p-12 text-center text-slate-400 border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.015)]">
+          <ShieldAlert className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+          <h3 className="font-extrabold text-lg text-slate-700">No Students Linked</h3>
+          <p className="text-xs mt-1 max-w-[280px] mx-auto leading-relaxed">
+            Please contact university administration to link your child&apos;s profile registry to your account.
+          </p>
         </div>
       )}
     </div>

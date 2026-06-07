@@ -3,22 +3,28 @@ import { redirect } from "next/navigation";
 
 const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
-type FetchOptions = Omit<RequestInit, "headers"> & {
+type FetchOptions = RequestInit & {
   headers?: Record<string, string>;
+  token?: string; // 💡 Custom addition to pass an explicit server-side token string
 };
 
 export const serverFetch = async <T>(path: string, options: FetchOptions = {}): Promise<T> => {
-  let token = "";
-  try {
-    const cookieStore = cookies();
-    token = cookieStore.get("access_token")?.value || cookieStore.get("token")?.value || "";
-  } catch (e) {
-    // cookies() can only be called in server context; ignore if called during pre-render without request context
+  const { headers: customHeaders, token: passedToken, ...restOfOptions } = options;
+  let token = passedToken || "";
+
+  // Only read from cookies fallback if no token was directly forwarded to the utility
+  if (!token) {
+    try {
+      const cookieStore = cookies();
+      token = cookieStore.get("access_token")?.value || cookieStore.get("token")?.value || "";
+    } catch (e) {
+      // cookies() can only be called in server context; ignore during static pre-renders
+    }
   }
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...(options.headers || {}),
+    ...(customHeaders as Record<string, string> || {}),
   };
 
   if (token) {
@@ -27,15 +33,14 @@ export const serverFetch = async <T>(path: string, options: FetchOptions = {}): 
 
   try {
     const res = await fetch(`${baseUrl}${path}`, {
-      ...options,
+      ...restOfOptions,
       headers,
       cache: "no-store",
     });
 
     if (!res.ok) {
       const message = await res.text();
-      // If the token is invalid or the user is not found (e.g. after a database reset),
-      // redirect to the login page cleanly instead of throwing a runtime crash error.
+      // If unauthorized or user missing (e.g. database reset), drop to login page cleanly
       if (res.status === 401 || message.includes("User not found")) {
         redirect("/login?clear=1");
       }
@@ -44,29 +49,21 @@ export const serverFetch = async <T>(path: string, options: FetchOptions = {}): 
 
     return await res.json() as T;
   } catch (err: any) {
+    // 🛠️ Rethrow native Next.js redirect execution triggers immediately
+    if (err?.message === "NEXT_REDIRECT" || err?.digest?.includes("NEXT_REDIRECT")) {
+      throw err;
+    }
+
     console.error(`serverFetch failed for ${path}:`, err.message || err);
     
-    // Split the path into segments to analyze its resource type
     const cleanPath = path.split("?")[0];
     const segments = cleanPath.split("/").filter(Boolean);
     const lastSegment = segments[segments.length - 1] || "";
     
-    // Check if the last segment is a dynamic identifier (number or UUID)
     const isId = /^\d+$/.test(lastSegment) || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(lastSegment);
     
-    if (isId) {
-      // Single-resource detail endpoint (e.g. /lessons/12)
-      return null as unknown as T;
-    }
-    
-    // Sub-resource lists (e.g. /students/123/attendance, /classes/1/sessions) always return raw arrays
-    const isSubResourceList = segments.length >= 3;
-    if (isSubResourceList) {
-      return [] as unknown as T;
-    }
-    
-    // Primary list endpoints (e.g. /assignments, /users/parents) return paginated envelopes
+    if (isId) return null as unknown as T;
+    if (segments.length >= 3) return [] as unknown as T;
     return { data: [], meta: { total: 0 } } as unknown as T;
   }
 };
-

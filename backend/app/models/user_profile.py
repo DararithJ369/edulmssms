@@ -10,6 +10,7 @@ class UserProfile(Base):
     id         = Column(Integer, primary_key=True, index=True)
     user_id    = Column(String, ForeignKey("users.id"), nullable=False, unique=True)
     class_id   = Column(Integer, ForeignKey("classes.id"), nullable=True)
+    tier       = Column(String, default="free", nullable=False)
 
     full_name  = Column(String, nullable=True)
     image      = Column(String, nullable=True)   # profile picture path

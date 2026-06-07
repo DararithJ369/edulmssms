@@ -1,7 +1,23 @@
 import prisma from "@/lib/prisma";
 
 const EventList = async ({ dateParam }: { dateParam: string | undefined }) => {
-  const date = dateParam ? new Date(dateParam) : new Date();
+  let date = new Date();
+  if (dateParam) {
+    const parts = dateParam.split("-");
+    if (parts.length === 3) {
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10) - 1;
+      const d = parseInt(parts[2], 10);
+      if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+        date = new Date(y, m, d);
+      }
+    } else {
+      const parsed = new Date(dateParam);
+      if (!isNaN(parsed.getTime())) {
+        date = parsed;
+      }
+    }
+  }
 
   const data = await prisma.event.findMany({
     where: {

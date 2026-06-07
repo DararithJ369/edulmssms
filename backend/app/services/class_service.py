@@ -68,32 +68,41 @@ class ClassService:
         if not obj:
             raise HTTPException(status_code=404, detail="Class not found")
         from app.schemas.user import UserResponse
-        return [UserResponse.model_validate(s) for s in obj.students]
+        students = [p.user for p in obj.profiles if p.user and p.user.role and p.user.role.name.lower() == "student"]
+        return [UserResponse.model_validate(s) for s in students]
 
     @staticmethod
-    def add_student(db: Session, class_id: int, student_id: int) -> ClassResponse:
+    def add_student(db: Session, class_id: int, student_id: str) -> ClassResponse:
         obj = db.query(Class).filter(Class.id == class_id).first()
         if not obj:
             raise HTTPException(status_code=404, detail="Class not found")
         student = db.query(User).filter(User.id == student_id).first()
         if not student:
             raise HTTPException(status_code=404, detail="Student not found")
-        if student in obj.students:
+        
+        if not student.profile:
+            from app.models.user_profile import UserProfile
+            student.profile = UserProfile(user_id=student.id)
+            db.add(student.profile)
+            
+        if student.profile.class_id == class_id:
             raise HTTPException(status_code=400, detail="Student already in class")
-        obj.students.append(student)
+            
+        student.profile.class_id = class_id
         db.commit()
         db.refresh(obj)
         return ClassResponse.model_validate(obj)
 
     @staticmethod
-    def remove_student(db: Session, class_id: int, student_id: int) -> dict:
+    def remove_student(db: Session, class_id: int, student_id: str) -> dict:
         obj = db.query(Class).filter(Class.id == class_id).first()
         if not obj:
             raise HTTPException(status_code=404, detail="Class not found")
         student = db.query(User).filter(User.id == student_id).first()
-        if not student or student not in obj.students:
+        if not student or not student.profile or student.profile.class_id != class_id:
             raise HTTPException(status_code=404, detail="Student not found in class")
-        obj.students.remove(student)
+            
+        student.profile.class_id = None
         db.commit()
         return {"detail": "Student removed from class"}
 

@@ -1,81 +1,143 @@
 "use client";
 
-import type { LucideIcon } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ChevronDown } from "lucide-react";
 import { SidebarItem } from "@/components/sidebar/SidebarItem";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/ui";
-
-export type MenuItem = {
-  label: string;
-  href?: string;
-  disabled?: boolean;
-  visible: string[];
-  badge?: string | number;
-};
-
-export type MenuSection = {
-  title: string;
-  icon: LucideIcon;
-  items: MenuItem[];
-};
+import { MenuSectionConfig, hasPermission } from "@/lib/navigation";
 
 type SidebarSectionProps = {
-  section: MenuSection;
+  section: MenuSectionConfig;
   isCollapsed?: boolean;
   isActive: (href?: string) => boolean;
   role: string;
 };
 
-export const SidebarSection = ({ section, isCollapsed = false, isActive, role }: SidebarSectionProps) => {
+export const SidebarSection = ({
+  section,
+  isCollapsed = false,
+  isActive,
+  role,
+}: SidebarSectionProps) => {
+  // Persist expand/collapse per section in localStorage
+  const storageKey = `sidebar-section-${section.title.replace(/\s+/g, "-").toLowerCase()}`;
+  const [isOpen, setIsOpen] = useState(!section.defaultCollapsed);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(storageKey);
+      if (saved !== null) setIsOpen(saved === "true");
+      else setIsOpen(!section.defaultCollapsed);
+    }
+  }, [storageKey, section.defaultCollapsed]);
+
+  const toggle = () => {
+    setIsOpen((prev) => {
+      localStorage.setItem(storageKey, String(!prev));
+      return !prev;
+    });
+  };
+
+  // Filter: check role allowlist first, then permission
+  const visibleItems = section.items.filter((item) => {
+    // Item-level role restriction
+    if (item.roles && !item.roles.includes(role)) return false;
+    // Permission check
+    if (!hasPermission(role, item.permission)) return false;
+    return true;
+  });
+
+  if (visibleItems.length === 0) return null;
+
+  // Is any child currently active?
+  const sectionHasActive = visibleItems.some((item) => isActive(item.href));
+
+  const SectionIcon = section.icon;
+
   const header = (
-    <div
+    <button
+      onClick={isCollapsed ? undefined : toggle}
       className={cn(
-        "flex items-center gap-2.5 px-3 py-2 select-none transition-all duration-300 mt-2",
-        isCollapsed ? "justify-center h-8 w-8 mx-auto hover:bg-accent/40 rounded-xl cursor-pointer" : ""
+        "group/header flex w-full items-center gap-2 px-2 py-1.5 rounded-lg transition-all duration-200 select-none",
+        isCollapsed ? "justify-center pointer-events-none" : "hover:bg-accent/20 cursor-pointer",
+        sectionHasActive && "text-foreground"
       )}
-    > 
-      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-gradient-to-tr from-muted/50 to-muted/80 dark:from-muted/20 dark:to-muted/40 border border-border/40 text-muted-foreground/80 shadow-sm transition-all duration-300 hover:scale-105">
-        <section.icon className="h-3 w-3" />
+    >
+      {/* Section icon box */}
+      <div
+        className={cn(
+          "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-all duration-200",
+          sectionHasActive
+            ? "bg-foreground/5 border-foreground/15 text-foreground"
+            : "bg-muted/50 border-border/40 text-muted-foreground/60"
+        )}
+      >
+        <SectionIcon className="h-2.5 w-2.5" />
       </div>
+
       {!isCollapsed && (
-        <div className="flex flex-1 items-center justify-between overflow-hidden">
-          <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-muted-foreground/60 whitespace-nowrap">
+        <>
+          <span
+            className={cn(
+              "flex-1 text-left text-[10px] font-bold uppercase tracking-[0.14em]",
+              sectionHasActive ? "text-foreground/80" : "text-muted-foreground/50"
+            )}
+          >
             {section.title}
           </span>
-        </div>
+          <ChevronDown
+            className={cn(
+              "h-3 w-3 text-muted-foreground/40 transition-transform duration-200",
+              isOpen ? "rotate-0" : "-rotate-90"
+            )}
+          />
+        </>
       )}
-    </div>
+    </button>
   );
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-0.5">
+      {/* Section header with tooltip in collapsed mode */}
       {isCollapsed ? (
         <Tooltip>
           <TooltipTrigger asChild>
             <div className="flex justify-center">{header}</div>
           </TooltipTrigger>
-          <TooltipContent side="right" className="bg-popover/95 backdrop-blur-md font-semibold text-[11px] px-2.5 py-1 border border-border/80 rounded-lg shadow-md z-[99999]">
+          <TooltipContent
+            side="right"
+            className="bg-popover/95 backdrop-blur-md font-semibold text-[11px] px-2.5 py-1 border border-border/80 rounded-lg shadow-md z-[99999]"
+          >
             {section.title}
           </TooltipContent>
         </Tooltip>
       ) : (
         header
       )}
-      
-      <div className="space-y-1 pl-1">
-        {section.items.map((item) => (
-          <SidebarItem
-            key={item.label}
-            label={item.label}
-            href={item.href}
-            disabled={item.disabled}
-            icon={section.icon}
-            isCollapsed={isCollapsed}
-            isActive={isActive(item.href)}
-            role={role}
-            badge={item.badge}
-          />
-        ))}
+
+      {/* Items — animated expand/collapse */}
+      <div
+        className={cn(
+          "overflow-hidden transition-all duration-300 ease-in-out",
+          isOpen || isCollapsed ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0"
+        )}
+      >
+        <div className={cn("space-y-0.5", !isCollapsed && "pl-1")}>
+          {visibleItems.map((item) => (
+            <SidebarItem
+              key={item.label}
+              label={item.label}
+              href={item.href}
+              icon={item.icon}
+              isCollapsed={isCollapsed}
+              isActive={isActive(item.href)}
+              role={role}
+              badge={item.badge}
+              comingSoon={item.comingSoon}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );

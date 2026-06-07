@@ -70,7 +70,9 @@ export const studentSchema = z.object({
   img: z.string().optional(),
   sex: z.enum(["MALE", "FEMALE"]).optional(),
   birthday: z.coerce.date().optional(),
+  tier: z.string().optional(),
 });
+
 
 export type StudentSchema = z.infer<typeof studentSchema>;
 

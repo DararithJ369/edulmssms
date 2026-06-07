@@ -31,6 +31,11 @@ class LessonUpdate(BaseModel):
 class LessonResponse(LessonBase):
     id: int
     created_at: datetime
+    
+    # 🛠️ FIXED: Added relational structural database ID fields to payload tracking signatures
+    module_id: int
+    course_id: Optional[int] = None 
+    
     module_name: Optional[str] = None
     course_name: Optional[str] = None
 
@@ -40,7 +45,7 @@ class LessonResponse(LessonBase):
 class Lesson(LessonBase):
     id: int
     module_id: int
-    created_at: datetime
+    course_id: Optional[int] = None
     updated_at: Optional[datetime]
     module_name: Optional[str] = None
     course_name: Optional[str] = None

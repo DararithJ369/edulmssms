@@ -184,6 +184,18 @@ export const updateTeacher = async (
     return { success: false, error: true };
   }
   try {
+    // 1. Update User account credentials
+    await (prisma as any).user.update({
+      where: { id: data.id },
+      data: {
+        username: data.username,
+        email: data.email,
+        password: data.password || "",
+        roleId: 2, // Instructor
+      } as any,
+    });
+
+    // 2. Update Teacher details
     await prisma.teacher.update({
       where: {
         id: data.id,
@@ -264,6 +276,8 @@ export const createStudent = async (
     if (data.sex)     form.append("gender",  data.sex);
     if (data.birthday) form.append("date_of_birth", typeof data.birthday === "string" ? data.birthday : (data.birthday as Date).toISOString().split("T")[0]);
     if (data.img)     form.append("pfp",     data.img);
+    if (data.tier)    form.append("tier",    data.tier);
+
 
     await fetch(`${API}/profiles/${created.id}`, {
       method: "POST",
@@ -285,6 +299,19 @@ export const updateStudent = async (
   if (!data.id) return { success: false, error: true };
   try {
     const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+
+    // 1. Update User account credentials
+    await (prisma as any).user.update({
+      where: { id: data.id },
+      data: {
+        username: data.username,
+        email: data.email,
+        password: data.password || "",
+        roleId: 3, // Student
+      } as any,
+    });
+
+    // 2. Update Student profile details
     const form = new FormData();
     if (data.name || data.surname) form.append("full_name", `${data.name || ""} ${data.surname || ""}`.trim());
     if (data.phone)   form.append("phone",   data.phone);
@@ -292,6 +319,8 @@ export const updateStudent = async (
     if (data.sex)     form.append("gender",  data.sex);
     if (data.birthday) form.append("date_of_birth", typeof data.birthday === "string" ? data.birthday : (data.birthday as Date).toISOString().split("T")[0]);
     if (data.img)     form.append("pfp",     data.img);
+    if (data.tier)    form.append("tier",    data.tier);
+
 
     const res = await fetch(`${API}/profiles/${data.id}`, {
       method: "PUT",
@@ -465,6 +494,18 @@ export const updateParent = async (
 ) => {
   if (!data.id) return { success: false, error: true };
   try {
+    // 1. Update User account credentials
+    await (prisma as any).user.update({
+      where: { id: data.id },
+      data: {
+        username: data.username,
+        email: data.email,
+        password: data.password || "",
+        roleId: 4, // Parent
+      } as any,
+    });
+
+    // 2. Update Parent profile details
     await prisma.parent.update({
       where: { id: data.id },
       data: {

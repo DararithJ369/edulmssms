@@ -102,11 +102,18 @@ def get_course_grades(
     from app.models.assignment import Assignment
     from app.models.exam import Exam
     from app.models.quiz import Quiz
+    from app.models.course import Lesson, Module
     from app.schemas.result import ResultResponse
 
     # Collect result IDs linked to this course's assessments
     assignment_ids = [r.id for r in db.query(Assignment.id).filter(Assignment.course_id == course_id).all()]
-    exam_ids       = [r.id for r in db.query(Exam.id).filter(Exam.course_id == course_id).all()]
+    exam_ids       = [
+        r.id for r in db.query(Exam.id)
+        .join(Lesson, Exam.lesson_id == Lesson.id)
+        .join(Module, Lesson.module_id == Module.id)
+        .filter(Module.course_id == course_id)
+        .all()
+    ]
     quiz_ids       = [r.id for r in db.query(Quiz.id).filter(Quiz.course_id == course_id).all()]
 
     from sqlalchemy import or_

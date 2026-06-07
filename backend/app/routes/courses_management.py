@@ -8,6 +8,8 @@ from typing import Optional, List
 
 router = APIRouter(prefix="/courses-management", tags=["Course Management"])
 
+# ── Upgraded Request Schemas ──────────────────────────────────────────────────
+
 class ModuleCreate(BaseModel):
     title: str
     description: Optional[str] = None
@@ -18,8 +20,13 @@ class LessonCreate(BaseModel):
     description: Optional[str] = None
     content: Optional[str] = None
     duration: Optional[str] = "0min"
+    material_type: Optional[str] = "article"
+    material_url: Optional[str] = None
+    material_file: Optional[str] = None
+    order: Optional[int] = None
 
-# Get all courses for management
+# ── Course Routes ─────────────────────────────────────────────────────────────
+
 @router.get("")
 def get_courses(
     page: int = Query(1, ge=1),
@@ -47,7 +54,8 @@ def get_courses(
         }
     }
 
-# Create module
+# ── Module Management Routes ──────────────────────────────────────────────────
+
 @router.post("/{course_id}/modules", dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def create_module(
     course_id: int,
@@ -64,65 +72,16 @@ def create_module(
         course_id=course_id,
         title=module_data.title,
         description=module_data.description,
-        order=max_order + 1
+        order=module_data.order if module_data.order is not None else (max_order + 1)
     )
     
     db.add(new_module)
+    course.has_modules = True
     db.commit()
     db.refresh(new_module)
     
     return {"message": "Module created successfully", "data": new_module}
 
-# Create lesson
-@router.post("/modules/{module_id}/lessons", dependencies=[Depends(PermissionGuard.admin_or_instructor)])
-def create_lesson(
-    module_id: int,
-    lesson_data: LessonCreate,
-    db: Session = Depends(get_db)
-):
-    module = db.query(Module).filter(Module.id == module_id).first()
-    if not module:
-        raise HTTPException(status_code=404, detail="Module not found")
-    
-    max_order = db.query(Lesson).filter(Lesson.module_id == module_id).count()
-    
-    new_lesson = Lesson(
-        module_id=module_id,
-        title=lesson_data.title,
-        description=lesson_data.description or "",
-        content=lesson_data.content,
-        duration=lesson_data.duration or "0min",
-        material_type="article",
-        order=max_order + 1
-    )
-    
-    db.add(new_lesson)
-    db.commit()
-    db.refresh(new_lesson)
-    
-    return {"message": "Lesson created successfully", "data": new_lesson}
-
-# Update lesson
-@router.put("/lessons/{lesson_id}", dependencies=[Depends(PermissionGuard.admin_or_instructor)])
-def update_lesson(
-    lesson_id: int,
-    lesson_data: LessonCreate,
-    db: Session = Depends(get_db)
-):
-    lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
-    if not lesson:
-        raise HTTPException(status_code=404, detail="Lesson not found")
-    
-    lesson.title = lesson_data.title
-    lesson.description = lesson_data.description or lesson.description
-    lesson.content = lesson_data.content or lesson.content
-    
-    db.commit()
-    db.refresh(lesson)
-    
-    return {"message": "Lesson updated successfully", "data": lesson}
-
-# Update module
 @router.put("/modules/{module_id}", dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def update_module(
     module_id: int,
@@ -144,7 +103,6 @@ def update_module(
     
     return {"message": "Module updated successfully", "data": module}
 
-# Delete module
 @router.delete("/modules/{module_id}", dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def delete_module(
     module_id: int,
@@ -159,7 +117,63 @@ def delete_module(
     
     return {"message": "Module deleted successfully"}
 
-# Delete lesson
+# ── Lesson Management Routes ──────────────────────────────────────────────────
+
+@router.post("/modules/{module_id}/lessons", dependencies=[Depends(PermissionGuard.admin_or_instructor)])
+def create_lesson(
+    module_id: int,
+    lesson_data: LessonCreate,
+    db: Session = Depends(get_db)
+):
+    module = db.query(Module).filter(Module.id == module_id).first()
+    if not module:
+        raise HTTPException(status_code=404, detail="Module not found")
+    
+    max_order = db.query(Lesson).filter(Lesson.module_id == module_id).count()
+    
+    new_lesson = Lesson(
+        module_id=module_id,
+        title=lesson_data.title,
+        description=lesson_data.description or "",
+        content=lesson_data.content,
+        duration=lesson_data.duration or "0min",
+        material_type=lesson_data.material_type or "article",
+        material_url=lesson_data.material_url,
+        material_file=lesson_data.material_file,
+        order=lesson_data.order if lesson_data.order is not None else (max_order + 1)
+    )
+    
+    db.add(new_lesson)
+    db.commit()
+    db.refresh(new_lesson)
+    
+    return {"message": "Lesson created successfully", "data": new_lesson}
+
+@router.put("/lessons/{lesson_id}", dependencies=[Depends(PermissionGuard.admin_or_instructor)])
+def update_lesson(
+    lesson_id: int,
+    lesson_data: LessonCreate,
+    db: Session = Depends(get_db)
+):
+    lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+    
+    lesson.title = lesson_data.title
+    lesson.description = lesson_data.description or lesson.description
+    lesson.content = lesson_data.content or lesson.content
+    lesson.duration = lesson_data.duration or lesson.duration
+    lesson.material_type = lesson_data.material_type or lesson.material_type
+    lesson.material_url = lesson_data.material_url or lesson.material_url
+    lesson.material_file = lesson_data.material_file or lesson.material_file
+    if lesson_data.order is not None:
+        lesson.order = lesson_data.order
+    
+    db.commit()
+    db.refresh(lesson)
+    
+    return {"message": "Lesson updated successfully", "data": lesson}
+
 @router.delete("/lessons/{lesson_id}", dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def delete_lesson(
     lesson_id: int,
@@ -173,3 +187,41 @@ def delete_lesson(
     db.commit()
     
     return {"message": "Lesson deleted successfully"}
+
+
+class ReorderItemsRequest(BaseModel):
+    ids: List[int]
+
+
+@router.post("/{course_id}/modules/reorder", dependencies=[Depends(PermissionGuard.admin_or_instructor)])
+def reorder_modules(
+    course_id: int,
+    payload: ReorderItemsRequest,
+    db: Session = Depends(get_db)
+):
+    modules = db.query(Module).filter(Module.course_id == course_id).all()
+    module_map = {m.id: m for m in modules}
+    
+    for index, m_id in enumerate(payload.ids):
+        if m_id in module_map:
+            module_map[m_id].order = index + 1
+            
+    db.commit()
+    return {"message": "Modules reordered successfully"}
+
+
+@router.post("/modules/{module_id}/lessons/reorder", dependencies=[Depends(PermissionGuard.admin_or_instructor)])
+def reorder_lessons(
+    module_id: int,
+    payload: ReorderItemsRequest,
+    db: Session = Depends(get_db)
+):
+    lessons = db.query(Lesson).filter(Lesson.module_id == module_id).all()
+    lesson_map = {l.id: l for l in lessons}
+    
+    for index, l_id in enumerate(payload.ids):
+        if l_id in lesson_map:
+            lesson_map[l_id].order = index + 1
+            
+    db.commit()
+    return {"message": "Lessons reordered successfully"}

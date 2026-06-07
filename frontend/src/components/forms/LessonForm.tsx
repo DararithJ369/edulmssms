@@ -1,215 +1,308 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import InputField from "../InputField";
-import Image from "next/image";
-import { Dispatch, SetStateAction, useEffect, useState } from "react";
-import { lessonSchema, LessonSchema } from "@/lib/formValidationSchemas";
-import { useFormState } from "react-dom";
-import { createLesson, updateLesson } from "@/lib/actions";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "react-toastify";
-import { CldUploadWidget } from "next-cloudinary";
+import { api } from "@/lib/api";
+import { X, UploadCloud } from "lucide-react";
+
+const lessonFormSchema = z.object({
+  title: z.string().min(1, { message: "Lesson Name is required" }),
+  content: z.string().nullable().optional(),
+  duration: z.coerce.number().int().nonnegative().nullable().optional(),
+  material_type: z.string().default("video"),
+  material_url: z.string().url().or(z.literal("")).nullable().optional(),
+  material_file: z.string().nullable().optional(),
+  order: z.coerce.number().int().positive().default(1),
+  module_id: z.coerce.number().int().positive({ message: "Required" }),
+});
+
+type LessonFormValues = z.infer<typeof lessonFormSchema>;
+
+interface LessonFormProps {
+  type: "create" | "update";
+  data?: any;
+  setOpen?: React.Dispatch<React.SetStateAction<boolean>>;
+  onCancel?: () => void;
+  relatedData?: any;
+}
 
 const LessonForm = ({
   type,
   data,
   setOpen,
-  relatedData = {},
-}: {
-  type: "create" | "update";
-  data?: any;
-  setOpen: Dispatch<SetStateAction<boolean>>;
-  relatedData?: any;
-}) => {
+  onCancel, 
+  relatedData,
+}: LessonFormProps) => {
+
+  const handleClose = () => {
+    if (setOpen) setOpen(false);
+    if (onCancel) onCancel();
+  };
+
+  const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const initialValues: Partial<LessonFormValues> = {
+    title: data?.title || "",
+    content: data?.content || data?.description || "",
+    duration: data?.duration ? parseInt(String(data.duration).replace(/[^0-9]/g, "")) : 45,
+    material_type: data?.material_type?.toLowerCase() || "video",
+    material_url: data?.material_url || "",
+    material_file: data?.material_file || "",
+    order: data?.order ? parseInt(data.order) : 1,
+    module_id: data?.module_id || data?.module?.id || "",
+  };
+
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors },
-  } = useForm<LessonSchema>({
-    resolver: zodResolver(lessonSchema),
+  } = useForm<LessonFormValues>({
+    resolver: zodResolver(lessonFormSchema),
+    defaultValues: initialValues,
   });
 
-  const [uploadedMaterial, setUploadedMaterial] = useState<any>(data?.materialFile || null);
+  const currentMaterialFile = watch("material_file");
 
-  const [state, formAction] = useFormState(
-    type === "create" ? createLesson : updateLesson,
-    {
-      success: false,
-      error: false,
+  const openCloudinaryWidget = () => {
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "lms_preset";
+    
+    if (!cloudName) {
+      setErrorMessage("Configuration Error: NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME is missing from your env file.");
+      return;
     }
-  );
 
-  const onSubmit = handleSubmit((data) => {
-    formAction({ ...data, materialFile: uploadedMaterial?.secure_url });
-  });
+    if (typeof window !== "undefined" && (window as any).cloudinary) {
+      const myWidget = (window as any).cloudinary.createUploadWidget(
+        {
+          cloudName: cloudName,
+          uploadPreset: uploadPreset,
+          sources: ["local", "url", "camera", "google_drive", "dropbox", "box"],
+          multiple: false,
+          theme: "minimal",
+        },
+        (error: any, result: any) => {
+          if (!error && result && result.event === "success") {
+            const secureUrl = result.info.secure_url;
+            const fileName = result.info.original_filename + "." + result.info.format;
+            
+            setValue("material_url", secureUrl);
+            setValue("material_file", fileName);
+          }
+        }
+      );
+      myWidget.open();
+    } else {
+      setErrorMessage("Cloudinary widget script hasn't loaded yet. Please wait a second and try again.");
+    }
+  };
 
-  const router = useRouter();
+  const onSubmit = async (values: LessonFormValues) => {
+    try {
+      setIsSubmitting(true);
+      setErrorMessage(null);
 
-  useEffect(() => {
-    if (state.success) {
-      toast(`Lesson has been ${type === "create" ? "created" : "updated"}!`);
-      setOpen(false);
+      if (relatedData?.inlineHandler) {
+        relatedData.inlineHandler(values);
+        return; // Stop here, since CourseCreatePage will handle saving the course package later!
+      }
+
+      // Otherwise, fall back to your normal immediate database API calls
+      const payload = {
+        ...values,
+        content: values.content || null,
+        material_url: values.material_url || null,
+        material_file: values.material_file || null,
+      };
+
+      if (type === "create") {
+        await api.post("/lessons", payload);
+      } else {
+        const recordId = data?.id;
+        if (!recordId) throw new Error("Missing Lesson record ID.");
+        await api.put(`/lessons/${recordId}`, payload);
+      }
+
+      handleClose();
       router.refresh();
+    } catch (err: any) {
+      setErrorMessage(err.response?.data?.detail || "An error occurred.");
+    } finally {
+      setIsSubmitting(false);
     }
-  }, [state, router, type, setOpen]);
-
-  const { subjects = [], classes = [], teachers = [] } = relatedData;
+  };
 
   return (
-    <form className="flex flex-col gap-8" onSubmit={onSubmit}>
-      <h1 className="text-xl font-semibold">
-        {type === "create" ? "Create a new lesson" : "Update the lesson"}
-      </h1>
-      <div className="flex justify-between flex-wrap gap-4">
-        <InputField
-          label="Lesson Name"
-          name="name"
-          defaultValue={data?.name}
-          register={register}
-          error={errors.name}
-        />
-        <InputField
-          label="Start Time"
-          name="startTime"
-          type="datetime-local"
-          defaultValue={data?.startTime ? new Date(data.startTime).toISOString().slice(0, 16) : ""}
-          register={register}
-          error={errors.startTime}
-        />
-        <InputField
-          label="End Time"
-          name="endTime"
-          type="datetime-local"
-          defaultValue={data?.endTime ? new Date(data.endTime).toISOString().slice(0, 16) : ""}
-          register={register}
-          error={errors.endTime}
-        />
-        {data && (
-          <InputField
-            label="Id"
-            name="id"
-            defaultValue={data?.id}
-            register={register}
-            error={errors?.id}
-            hidden
-          />
-        )}
-        <div className="flex flex-col gap-2 w-full md:w-1/4">
-          <label className="text-xs text-gray-500">Day</label>
-          <select
-            className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
-            {...register("day")}
-            defaultValue={data?.day || "MONDAY"}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fade-in">
+      <div className="bg-white w-full max-w-[1000px] rounded-[4px] shadow-2xl flex flex-col max-h-[92vh] overflow-hidden border border-slate-200/80 text-left font-sans select-none">
+        
+        {/* HEADER BAR */}
+        <div className="px-8 py-5 border-b border-slate-100 flex items-center justify-between shrink-0">
+          <h2 className="text-base font-bold text-slate-900 tracking-tight">
+            {type === "create" ? "Create a new lesson" : "Edit lesson metrics"}
+          </h2>
+          <button 
+            type="button"
+            onClick={(e) => { e.preventDefault(); handleClose(); }}
+            className="text-slate-400 hover:text-slate-600 transition-colors h-7 w-7 rounded-full hover:bg-slate-50 flex items-center justify-center"
           >
-            <option value="MONDAY">Monday</option>
-            <option value="TUESDAY">Tuesday</option>
-            <option value="WEDNESDAY">Wednesday</option>
-            <option value="THURSDAY">Thursday</option>
-            <option value="FRIDAY">Friday</option>
-          </select>
-          {errors.day?.message && (
-            <p className="text-xs text-red-400">
-              {errors.day.message.toString()}
-            </p>
-          )}
+            <X className="h-4 w-4" />
+          </button>
         </div>
-        <div className="flex flex-col gap-2 w-full md:w-1/4">
-          <label className="text-xs text-gray-500">Subject</label>
-          <select
-            className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
-            {...register("subjectId")}
-            defaultValue={data?.subjectId || data?.subject_id}
-          >
-            {subjects.map((s: { id: number; name: string }) => (
-              <option value={s.id} key={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-          {errors.subjectId?.message && (
-            <p className="text-xs text-red-400">
-              {errors.subjectId.message.toString()}
-            </p>
-          )}
-        </div>
-        <div className="flex flex-col gap-2 w-full md:w-1/4">
-          <label className="text-xs text-gray-500">Class</label>
-          <select
-            className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
-            {...register("classId")}
-            defaultValue={data?.classId || data?.class_id}
-          >
-            {classes.map((c: { id: number; name: string }) => (
-              <option value={c.id} key={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-          {errors.classId?.message && (
-            <p className="text-xs text-red-400">
-              {errors.classId.message.toString()}
-            </p>
-          )}
-        </div>
-        <div className="flex flex-col gap-2 w-full md:w-1/4">
-          <label className="text-xs text-gray-500">Teacher</label>
-          <select
-            className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
-            {...register("teacherId")}
-            defaultValue={data?.teacherId || data?.teacher_id}
-          >
-            {teachers.map((t: { id: string; name: string; surname: string }) => (
-              <option value={t.id} key={t.id}>
-                {t.name + " " + t.surname}
-              </option>
-            ))}
-          </select>
-          {errors.teacherId?.message && (
-            <p className="text-xs text-red-400">
-              {errors.teacherId.message.toString()}
-            </p>
-          )}
-        </div>
-      </div>
 
-      <div className="flex flex-col gap-2">
-        <label className="text-xs text-gray-500 font-medium">Lesson Materials Upload</label>
-        <CldUploadWidget
-          uploadPreset="school"
-          onSuccess={(result, { widget }) => {
-            setUploadedMaterial(result.info);
-            toast.success("Lesson material uploaded successfully!");
-            widget.close();
-          }}
-        >
-          {({ open }) => {
-            return (
-              <div
-                className="text-xs text-gray-500 flex items-center gap-2 cursor-pointer border border-dashed border-gray-300 p-4 rounded-md hover:bg-gray-50 transition"
-                onClick={() => open()}
-              >
-                <Image src="/upload.png" alt="" width={28} height={28} />
-                <span>
-                  {uploadedMaterial?.original_filename
-                    ? `Uploaded: ${uploadedMaterial.original_filename}`
-                    : "Upload Lesson material (PDF, slides, DOCX, video, etc.)"}
-                </span>
+        {/* CONTENT FORM WORKSPACE */}
+        <div className="p-8 overflow-y-auto space-y-6 flex-1 bg-white">
+          {errorMessage && (
+            <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl mb-4 font-medium">
+              {errorMessage}
+            </div>
+          )}
+
+          <form id="lesson-form-element" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            
+            {/* ROW 1: 3-Column balanced grid mapping */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-5 gap-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-semibold text-[#475569]">Lesson Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Introduction to HTML"
+                  {...register("title")}
+                  className="w-full px-3 py-2.5 bg-white border border-[#e2e8f0] focus:border-[#3b82f6] rounded-xl text-sm font-medium text-[#334155] focus:outline-none transition-all placeholder:text-[#cbd5e1]"
+                />
+                {errors.title && <p className="text-xs text-red-500 font-medium">{errors.title.message}</p>}
               </div>
-            );
-          }}
-        </CldUploadWidget>
-      </div>
 
-      {state.error && (
-        <span className="text-red-500">Something went wrong!</span>
-      )}
-      <button type="submit" className="bg-blue-400 text-white p-2 rounded-md">
-        {type === "create" ? "Create" : "Update"}
-      </button>
-    </form>
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-semibold text-[#475569]">Syllabus Order</label>
+                <input
+                  type="number"
+                  placeholder="1"
+                  {...register("order")}
+                  className="w-full px-3 py-2.5 bg-white border border-[#e2e8f0] focus:border-[#3b82f6] rounded-xl text-sm font-medium text-[#334155] focus:outline-none transition-all"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-semibold text-[#475569]">Duration (Minutes)</label>
+                <input
+                  type="number"
+                  placeholder="45"
+                  {...register("duration")}
+                  className="w-full px-3 py-2.5 bg-white border border-[#e2e8f0] focus:border-[#3b82f6] rounded-xl text-sm font-medium text-[#334155] focus:outline-none transition-all"
+                />
+              </div>
+            </div>
+
+            {/* ROW 2: 3-Column balanced grid mapping */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-5 gap-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-semibold text-[#475569]">Parent Module ID</label>
+                <input
+                  type="number"
+                  placeholder="Module reference ID"
+                  {...register("module_id")}
+                  className="w-full px-3 py-2.5 bg-white border border-[#e2e8f0] focus:border-[#3b82f6] rounded-xl text-sm font-medium text-[#334155] focus:outline-none transition-all"
+                />
+                {errors.module_id && <p className="text-xs text-red-500 font-medium">{errors.module_id.message}</p>}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-semibold text-[#475569]">Media Material Type</label>
+                <div className="relative">
+                  <select
+                    {...register("material_type")}
+                    className="w-full px-3 py-2.5 bg-white border border-[#e2e8f0] focus:border-[#3b82f6] rounded-xl text-sm font-medium text-[#334155] focus:outline-none transition-all appearance-none cursor-pointer"
+                  >
+                    <option value="video">Video Player (.mp4)</option>
+                    <option value="document">Document (.pdf)</option>
+                    <option value="article">Text Content</option>
+                    <option value="quiz">Interactive Quiz</option>
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
+                    <svg className="fill-current h-4 w-4" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-semibold text-[#475569]">Uploaded File Name</label>
+                <input
+                  type="text"
+                  disabled
+                  placeholder="No file attached"
+                  {...register("material_file")}
+                  className="w-full px-3 py-2.5 bg-gray-50 border border-[#e2e8f0] rounded-xl text-sm font-medium text-[#64748b] outline-none cursor-not-allowed truncate"
+                />
+              </div>
+            </div>
+
+            {/* ROW 3 */}
+            <div className="space-y-1.5">
+              <label className="text-[13px] font-semibold text-[#475569]">Remote Material URL</label>
+              <input
+                type="text"
+                placeholder="Automatically populated on widget upload..."
+                {...register("material_url")}
+                className="w-full px-3 py-2.5 bg-white border border-[#e2e8f0] focus:border-[#3b82f6] rounded-xl text-sm font-medium text-[#334155] focus:outline-none transition-all placeholder:text-[#cbd5e1] truncate"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[13px] font-semibold text-[#475569]">Lecture Notes & Curriculum Content</label>
+              <textarea
+                rows={2}
+                placeholder="Write core lesson notes or descriptions here..."
+                {...register("content")}
+                className="w-full px-3 py-2.5 bg-white border border-[#e2e8f0] focus:border-[#3b82f6] rounded-xl text-sm font-medium text-[#334155] focus:outline-none transition-all placeholder:text-[#cbd5e1] resize-none"
+              />
+            </div>
+
+            {/* DRAG-AND-DROP FILE UPLOAD ZONE: Matches exact styling tokens */}
+            <div className="space-y-1.5">
+              <label className="text-[13px] font-semibold text-[#475569]">Lesson Materials Upload</label>
+              <div 
+                onClick={openCloudinaryWidget}
+                className="w-full border border-dashed border-slate-200 rounded-[8px] p-6 flex flex-col items-center justify-center bg-white hover:bg-slate-50/50 hover:border-[#0038A8]/30 transition-all cursor-pointer group"
+              >
+                <UploadCloud className="w-5 h-5 text-[#0038A8] mb-1" />
+                <p className="text-xs font-bold text-slate-700 mt-2.5">
+                  {currentMaterialFile ? `Attached: ${currentMaterialFile}` : "Upload Lesson material (PDF, slides, DOCX, video, etc.)"}
+                </p>
+              </div>
+            </div>
+          </form>
+        </div>
+
+        {/* SINGLE UNIFIED ACTION FOOTER SECTION BAR */}
+        <div className="px-8 py-4 border-t border-slate-100 flex items-center justify-end gap-2.5 bg-slate-50/30 shrink-0">
+          <button
+            type="button"
+            onClick={handleClose}
+            className="px-4 py-2 rounded-[8px] border border-slate-200 text-slate-600 bg-white hover:bg-slate-50 active:scale-[0.98] text-xs font-bold transition-all shadow-sm"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form="lesson-form-element" // 💡 Connects directly to our HTML form element ID above cleanly!
+            disabled={isSubmitting}
+            className="px-4 py-2 rounded-[8px] bg-[#0038A8] text-white hover:bg-[#002b80] active:scale-[0.98] text-xs font-bold transition-all disabled:opacity-50 shadow-sm"
+          >
+            {isSubmitting ? "Processing..." : type === "create" ? "Create Lesson" : "Save Changes"}
+          </button>
+        </div>
+
+      </div>
+    </div>
   );
-};
+}
 
 export default LessonForm;

@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, Text, Date, Time, Enum, DateTime, ForeignKey
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 from app.db.base import Base
 
 
@@ -11,6 +12,7 @@ class ClassSession(Base):
     class_id = Column(Integer, ForeignKey("classes.id"), nullable=False)
     subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=False)
     teacher_id = Column(String, ForeignKey("users.id"), nullable=False)
+    schedule_slot_id = Column(Integer, ForeignKey("schedule_slots.id"), nullable=True)
 
     title = Column(String, nullable=False)
     description = Column(Text)
@@ -27,3 +29,9 @@ class ClassSession(Base):
     )
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    class_ = relationship("Class", foreign_keys=[class_id], lazy="selectin")
+    subject = relationship("Subject", foreign_keys=[subject_id], lazy="selectin")
+    teacher = relationship("User", foreign_keys=[teacher_id], lazy="selectin")
+    schedule_slot = relationship("ScheduleSlot", foreign_keys=[schedule_slot_id], lazy="selectin")

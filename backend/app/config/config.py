@@ -58,6 +58,14 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_SECRET: Optional[str] = None
     GOOGLE_REDIRECT_URI: Optional[str] = None
 
+    # Storage settings
+    STORAGE_PROVIDER: str = "local" # local, s3, r2, minio
+    AWS_ACCESS_KEY_ID: Optional[str] = None
+    AWS_SECRET_ACCESS_KEY: Optional[str] = None
+    AWS_REGION: str = "us-east-1"
+    AWS_BUCKET_NAME: Optional[str] = None
+    AWS_ENDPOINT_URL: Optional[str] = None
+    CLOUDFRONT_URL: Optional[str] = None
 
     class Config:
         env_file = ".env"

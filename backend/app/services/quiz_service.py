@@ -175,6 +175,13 @@ class QuizService:
                 # Gracefully log or ignore to avoid blocking submission
                 print(f"Failed to auto-update student progress on quiz submit: {e}")
 
+        # Record streak activity
+        try:
+            from app.services.streak_service import StreakService
+            StreakService.record_activity(db, student_id)
+        except Exception as e:
+            print(f"Failed to record streak activity on quiz submit: {e}")
+
         db.commit()
         db.refresh(result)
         return ResultResponse.model_validate(result)

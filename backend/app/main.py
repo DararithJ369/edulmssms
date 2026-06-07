@@ -9,7 +9,6 @@ from app.middleware.guard.permission import PermissionGuard
 from app.routes import (
     auth_router,
     user_router,
-    grade_router,
     grade_level_router,
     grade_level_alias_router,
     academic_year_router,
@@ -32,7 +31,15 @@ from app.routes import (
     role_permissions_router,
     announcement_router,
     progress_router,
+    schedule_slot_router,
+    ai_tutor_router,
+    notification_router,
+    video_learning_router,
+    audit_log_router,
+    event_router,
+    storage_router,
 )
+
 from app.routes.profiles import profiles_router
 
 
@@ -74,7 +81,6 @@ router.include_router(router=auth_router)
 router.include_router(router=user_router)
 router.include_router(router=profiles_router)
 router.include_router(router=dashboard_router)
-router.include_router(router=grade_router)  
 router.include_router(router=grade_level_router)
 router.include_router(router=grade_level_alias_router)
 router.include_router(router=academic_year_router)
@@ -96,6 +102,14 @@ router.include_router(router=permission_router)
 router.include_router(router=role_permissions_router)
 router.include_router(router=announcement_router)
 router.include_router(router=progress_router)
+router.include_router(router=schedule_slot_router)
+router.include_router(router=ai_tutor_router)
+router.include_router(router=notification_router)
+router.include_router(router=video_learning_router)
+router.include_router(router=audit_log_router)
+router.include_router(router=event_router)
+router.include_router(router=storage_router)
+
 
 
 # Serve static files from the "uploads" directory

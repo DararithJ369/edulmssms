@@ -20,6 +20,13 @@ import { Dispatch, SetStateAction, useEffect } from "react";
 import { toast } from "react-toastify";
 import { useRouter } from "next/navigation";
 
+// Helper function to safely parse and format dates for datetime-local inputs
+const formatDefaultDateTime = (dateString: any): string => {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  return !isNaN(date.getTime()) ? date.toISOString().slice(0, 16) : "";
+};
+
 const ExamForm = ({
   type,
   data,
@@ -64,7 +71,7 @@ const ExamForm = ({
     }
   }, [state, router, type, setOpen]);
 
-  const { lessons } = relatedData;
+  const { lessons = [] } = relatedData || {};
 
   return (
     <form className="flex flex-col gap-8" onSubmit={onSubmit}>
@@ -83,7 +90,7 @@ const ExamForm = ({
         <InputField
           label="Start Date"
           name="startTime"
-          defaultValue={data?.startTime ? new Date(data.startTime).toISOString().slice(0, 16) : (data?.start_time ? new Date(data.start_time).toISOString().slice(0, 16) : "")}
+          defaultValue={formatDefaultDateTime(data?.startTime || data?.start_time)}
           register={register}
           error={errors?.startTime}
           type="datetime-local"
@@ -91,7 +98,7 @@ const ExamForm = ({
         <InputField
           label="End Date"
           name="endTime"
-          defaultValue={data?.endTime ? new Date(data.endTime).toISOString().slice(0, 16) : (data?.end_time ? new Date(data.end_time).toISOString().slice(0, 16) : "")}
+          defaultValue={formatDefaultDateTime(data?.endTime || data?.end_time)}
           register={register}
           error={errors?.endTime}
           type="datetime-local"

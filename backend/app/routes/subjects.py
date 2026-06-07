@@ -43,7 +43,7 @@ def create_subject(
     return SubjectService.create_subject(
         db,
         SubjectCreate(
-            teacher_id=teacher_id,
+            instructor_id=teacher_id,
             name=name,
             code=code,
             description=description,
@@ -78,7 +78,7 @@ def update_subject(
         db,
         subject_id,
         SubjectUpdate(
-            teacher_id=teacher_id,
+            instructor_id=teacher_id,
             name=name,
             code=code,
             description=description,

@@ -11,21 +11,36 @@ export const api = axios.create({
   baseURL,
 });
 
+// Handles Auth Tokens & Guards against Rogue Placeholder Requests
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("access_token");
+  const url = config.url || "";
 
+  const isTargetingInvalidProfileSlot = /\/(students|users|parents)\/1(\/|$)/i.test(url);
+
+  if (isTargetingInvalidProfileSlot) {
+    const errorMessage = `Blocked invalid mock request sequence targeting endpoint: ${url}`;
+    console.warn(errorMessage);
+    
+    // Abort request execution immediately before hitting the server
+    return Promise.reject(new Error(errorMessage));
+  }
+
+  // Inject Authorization Token
+  const token = localStorage.getItem("access_token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
 
   return config;
+}, (error) => {
+  return Promise.reject(error);
 });
 
+// Handles Automated Token Refresh Validation
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-
     const requestUrl = originalRequest?.url || "";
 
     if (requestUrl.includes("/login") || requestUrl.includes("/refresh")) {

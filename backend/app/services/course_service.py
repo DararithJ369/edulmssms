@@ -55,12 +55,70 @@ class CourseService:
             raise HTTPException(status_code=404, detail="Course not found")
         return CourseResponse.model_validate(obj)
 
+    # 🚀 NESTED TRANSACTION ENGINE
     @staticmethod
     def create_course(db: Session, course_in: CourseCreate) -> CourseResponse:
-        obj = Course(**course_in.model_dump())
+        # 1. Extract the modules list to keep it from unpacking into standard database columns
+        course_data = course_in.model_dump()
+        modules_list = course_data.pop("modules", [])
+
+        # 2. Re-verify unique course code before initiating insert transaction layout
+        existing = db.query(Course).filter(Course.course_code == course_data.get("course_code")).first()
+        if existing:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Course code identifier abbreviation '{course_data.get('course_code')}' is already taken."
+            )
+
+        # 3. Save core baseline Course object
+        obj = Course(**course_data)
+        obj.has_modules = len(modules_list) > 0
         db.add(obj)
         db.commit()
         db.refresh(obj)
+
+        try:
+            # 4. Iterate through module layers
+            for mod_data in modules_list:
+                lessons_list = mod_data.pop("lessons", [])
+                
+                db_module = Module(
+                    course_id=obj.id,
+                    title=mod_data.get("title"),
+                    description=mod_data.get("description", ""),
+                    order=mod_data.get("order", 1)
+                )
+                db.add(db_module)
+                db.commit()
+                db.refresh(db_module)
+
+                # 5. Connect deep lessons items to their current structural parent module
+                for les_data in lessons_list:
+                    db_lesson = Lesson(
+                        module_id=db_module.id,
+                        title=les_data.get("title"),
+                        description=les_data.get("description", ""),
+                        content=les_data.get("content", ""),
+                        duration=les_data.get("duration", "10min"),
+                        material_type=les_data.get("material_type", "article"),
+                        material_url=les_data.get("material_url"),
+                        material_file=les_data.get("material_file"),
+                        order=les_data.get("order", 1)
+                    )
+                    db.add(db_lesson)
+            
+            db.commit()
+            db.refresh(obj)  # Ensure session properties pull structural mutations safely
+            
+        except Exception as e:
+            db.rollback()
+            db.delete(obj)   # Safely purge broken course items on relational anomalies
+            db.commit()
+            raise HTTPException(
+                status_code=500, 
+                detail=f"Transactional workflow aborted during compilation: {str(e)}"
+            )
+
         return CourseResponse.model_validate(obj)
 
     @staticmethod
@@ -164,13 +222,13 @@ class CourseService:
         )
         result = []
         for e in enrollments:
-            sp = e.student_profile          # StudentProfile
+            sp = e.student_profile          
             if not sp:
                 continue
-            up = sp.profile                 # UserProfile
+            up = sp.profile                 
             if not up:
                 continue
-            user = up.user                  # User
+            user = up.user                  
             if not user:
                 continue
             result.append({

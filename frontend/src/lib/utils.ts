@@ -2,6 +2,13 @@
 // FOR THIS REASON WE'LL GET THE LAST WEEK AS THE REFERENCE WEEK.
 // IN THE TUTORIAL WE'RE TAKING THE NEXT WEEK AS THE REFERENCE WEEK.
 
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
 const getLatestMonday = (): Date => {
   const today = new Date();
   const dayOfWeek = today.getDay();
@@ -12,12 +19,15 @@ const getLatestMonday = (): Date => {
 };
 
 export const adjustScheduleToCurrentWeek = (
-  lessons: { title: string; start: Date; end: Date }[]
+  lessons: { title: string; start: Date | string; end: Date | string }[]
 ): { title: string; start: Date; end: Date }[] => {
   const latestMonday = getLatestMonday();
 
   return lessons.map((lesson) => {
-    const lessonDayOfWeek = lesson.start.getDay();
+    const startObj = new Date(lesson.start);
+    const endObj = new Date(lesson.end);
+
+    const lessonDayOfWeek = startObj.getDay();
 
     const daysFromMonday = lessonDayOfWeek === 0 ? 6 : lessonDayOfWeek - 1;
 
@@ -25,15 +35,15 @@ export const adjustScheduleToCurrentWeek = (
 
     adjustedStartDate.setDate(latestMonday.getDate() + daysFromMonday);
     adjustedStartDate.setHours(
-      lesson.start.getHours(),
-      lesson.start.getMinutes(),
-      lesson.start.getSeconds()
+      startObj.getHours(),
+      startObj.getMinutes(),
+      startObj.getSeconds()
     );
     const adjustedEndDate = new Date(adjustedStartDate);
     adjustedEndDate.setHours(
-      lesson.end.getHours(),
-      lesson.end.getMinutes(),
-      lesson.end.getSeconds()
+      endObj.getHours(),
+      endObj.getMinutes(),
+      endObj.getSeconds()
     );
 
     return {
