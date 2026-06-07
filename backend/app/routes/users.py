@@ -145,19 +145,19 @@ def change_my_password(
 
 
 
-@user_router.get("/students", response_model=dict)
+@user_router.get("/students", response_model=dict, dependencies=[Depends(PermissionGuard.get_current_user)])
 def get_students(db: Session = Depends(get_db), page: int = 1, limit: int = 10, search: str = ""):
     """Get all users with student role - Updated"""
     return UserService.get_users_by_role(db, role_name="student", page=page, limit=limit, search=search)
 
 
-@user_router.get("/instructors", response_model=dict)
+@user_router.get("/instructors", response_model=dict, dependencies=[Depends(PermissionGuard.get_current_user)])
 def get_instructors(db: Session = Depends(get_db), page: int = 1, limit: int = 10, search: str = ""):
     """Get all users with instructor role"""
     return UserService.get_users_by_role(db, role_name="instructor", page=page, limit=limit, search=search)
 
 
-@user_router.get("/parents", response_model=dict)
+@user_router.get("/parents", response_model=dict, dependencies=[Depends(PermissionGuard.get_current_user)])
 def get_parents(db: Session = Depends(get_db), page: int = 1, limit: int = 10, search: str = ""):
     """Get all users with parent role"""   
     return UserService.get_users_by_role(db, role_name="parent", page=page, limit=limit, search=search)
@@ -255,8 +255,8 @@ def update_user(
             message=f"Updated user {updated.username} ({updated.email}) details."
         )
         return updated
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Failed to update user")
     
     
 @user_router.delete("/{user_id}")
@@ -279,5 +279,5 @@ def delete_user(
             message=f"Deleted user {username} ({email})."
         )
         return {"detail": "User deleted successfully"}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Failed to delete user")

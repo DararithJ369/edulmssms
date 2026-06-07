@@ -19,7 +19,7 @@ def get_all_enrollments(page: int = 1, limit: int = 10, db: Session = Depends(ge
     return EnrollmentService.get_enrollments(db, page, limit)
 
 
-@enrollment_router.get("/{enrollment_id}", response_model=EnrollmentResponse)
+@enrollment_router.get("/{enrollment_id}", response_model=EnrollmentResponse, dependencies=[Depends(PermissionGuard.get_current_user)])
 def get_enrollment(enrollment_id: int, db: Session = Depends(get_db)):
     return EnrollmentService.get_enrollment_by_id(db, enrollment_id)
 

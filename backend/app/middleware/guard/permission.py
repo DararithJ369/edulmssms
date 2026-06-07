@@ -36,8 +36,8 @@ class PermissionGuard:
                 raise HTTPException(status_code=401, detail="Invalid token")
             user = UserService.get_user_by_id(db, user_id)
             return user
-        except Exception as e:
-            raise HTTPException(status_code=401, detail=str(e))
+        except Exception:
+            raise HTTPException(status_code=401, detail="Invalid or expired token")
         
     
     @staticmethod
