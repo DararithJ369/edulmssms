@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 import uuid
@@ -8,6 +9,8 @@ from typing import Optional
 from botocore.exceptions import ClientError
 from fastapi import UploadFile
 from app.config.config import settings
+
+logger = logging.getLogger(__name__)
 
 class StorageService:
     _s3_client = None
@@ -111,8 +114,8 @@ class StorageService:
             )
             return url
         except ClientError as e:
-            print(f"Error generating presigned URL: {e}")
-            return stored_path
+            logger.error("Failed to generate presigned URL for '%s': %s", stored_path, e)
+            raise
 
     @classmethod
     def get_local_path(cls, stored_path: str) -> Path:

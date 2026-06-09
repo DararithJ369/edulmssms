@@ -1,3 +1,4 @@
+import logging
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
@@ -8,6 +9,8 @@ from app.schemas.course import CourseCreate, CourseUpdate, CourseResponse
 from app.schemas.lesson import LessonResponse
 from app.schemas.enrollment import EnrollmentCreate, EnrollmentResponse
 from app.schemas.user import UserResponse
+
+logger = logging.getLogger(__name__)
 
 
 class CourseService:
@@ -112,11 +115,17 @@ class CourseService:
             
         except Exception as e:
             db.rollback()
-            db.delete(obj)   # Safely purge broken course items on relational anomalies
-            db.commit()
+            # Clean up the already-committed course shell
+            try:
+                db.delete(obj)
+                db.commit()
+            except Exception as cleanup_err:
+                db.rollback()
+                logger.error("Failed to clean up orphaned course id=%s: %s", obj.id, cleanup_err)
+            logger.error("Course creation failed during module/lesson insertion: %s", e)
             raise HTTPException(
-                status_code=500, 
-                detail=f"Transactional workflow aborted during compilation: {str(e)}"
+                status_code=500,
+                detail=f"Course creation failed while adding modules: {str(e)}"
             )
 
         return CourseResponse.model_validate(obj)

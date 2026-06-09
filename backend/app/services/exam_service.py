@@ -1,3 +1,4 @@
+import logging
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from app.models.exam import Exam
@@ -5,6 +6,8 @@ from app.models.result import Result
 from app.schemas.exam import ExamCreate, ExamUpdate, ExamResponse, ExamSubmitPayload
 from app.schemas.result import ResultResponse
 from app.services.base_service import get_or_404, paginate, apply_update, create_and_commit, delete_and_commit
+
+logger = logging.getLogger(__name__)
 
 
 class ExamService:
@@ -57,7 +60,7 @@ class ExamService:
             from app.services.streak_service import StreakService
             StreakService.record_activity(db, str(student_id))
         except Exception as e:
-            print(f"Failed to record streak activity on exam submit: {e}")
+            logger.warning("Failed to record streak activity on exam submit: %s", e)
 
         db.commit()
         db.refresh(result)

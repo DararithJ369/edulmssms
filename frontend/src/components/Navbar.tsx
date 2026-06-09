@@ -67,14 +67,18 @@ const Navbar = ({ onOpenCommandPalette }: NavbarProps) => {
     try {
       const { data } = await api.get("/notifications/unread-count");
       setUnreadCount(data.count ?? 0);
-    } catch { /* silent */ }
+    } catch (err) {
+      console.warn("Failed to fetch unread notification count:", err);
+    }
   };
 
   const fetchNotifications = async () => {
     try {
       const { data } = await api.get("/notifications?limit=6");
       setNotifications(data.data || []);
-    } catch { /* silent */ }
+    } catch (err) {
+      console.warn("Failed to fetch notifications:", err);
+    }
   };
 
   const handleMarkAllRead = async () => {
@@ -82,12 +86,14 @@ const Navbar = ({ onOpenCommandPalette }: NavbarProps) => {
       await api.post("/notifications/read-all");
       setUnreadCount(0);
       setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-    } catch { /* silent */ }
+    } catch (err) {
+      console.warn("Failed to mark notifications as read:", err);
+    }
   };
 
   const handleNotificationClick = async (notif: any) => {
     if (!notif.is_read) {
-      try { await api.post(`/notifications/${notif.id}/read`); fetchUnreadCount(); } catch { /* silent */ }
+      try { await api.post(`/notifications/${notif.id}/read`); fetchUnreadCount(); } catch (err) { console.warn("Failed to mark notification as read:", err); }
     }
     const routes: Record<string, string> = {
       assignment:   "/list/assignments",

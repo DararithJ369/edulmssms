@@ -1,3 +1,4 @@
+import logging
 from typing import Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -9,6 +10,8 @@ from app.schemas.submission import SubmissionCreate, SubmissionResponse
 from app.utils.get_image import get_image
 from app.services.base_service import get_or_404, paginate, apply_update, delete_and_commit
 from app.services.notification_helpers import notify_enrolled_students
+
+logger = logging.getLogger(__name__)
 
 
 class AssignmentService:
@@ -120,7 +123,7 @@ class AssignmentService:
             from app.services.streak_service import StreakService
             StreakService.record_activity(db, str(student_id))
         except Exception as e:
-            print(f"Failed to record streak activity on assignment submit: {e}")
+            logger.warning("Failed to record streak activity on assignment submit: %s", e)
 
         db.commit()
         db.refresh(submission)

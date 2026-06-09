@@ -1,3 +1,4 @@
+import logging
 import os
 from datetime import datetime, time
 from typing import List, Tuple
@@ -7,6 +8,8 @@ from sqlalchemy.orm import Session
 from app.models.user_profile import UserProfile
 from app.models.ai_tutor import AIConversation, AIMessage
 from app.models.course import Course, Module, Lesson
+
+logger = logging.getLogger(__name__)
 
 
 class AITutorService:
@@ -160,8 +163,7 @@ class AITutorService:
                 )
                 response_text = completion.choices[0].message.content
             except Exception as e:
-                # Log error and use fallback
-                print(f"Error calling OpenAI API: {e}")
+                logger.error("OpenAI API call failed, falling back to mock response: %s", e)
                 response_text = AITutorService._generate_mock_response(prompt, lesson_title, lesson_content) + "\n\n*(Note: Fallback to local simulator due to API error)*"
         else:
             response_text = AITutorService._generate_mock_response(prompt, lesson_title, lesson_content)
@@ -267,7 +269,7 @@ class AITutorService:
                         full_response.append(content)
                         yield f"data: {json.dumps({'type': 'content', 'delta': content})}\n\n"
             except Exception as e:
-                print(f"Error calling OpenAI API stream: {e}")
+                logger.error("OpenAI API streaming call failed, falling back to mock: %s", e)
                 # Fallback mock streaming
                 mock_text = AITutorService._generate_mock_response(prompt, lesson_title, lesson_content) + "\n\n*(Note: Fallback to local simulator due to API error)*"
                 words = mock_text.split(" ")

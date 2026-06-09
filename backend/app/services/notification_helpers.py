@@ -5,7 +5,11 @@ Extracted from duplicated code in assignment_service.py and announcement_service
 """
 from __future__ import annotations
 
+import logging
+
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 
 def notify_enrolled_students(
@@ -44,4 +48,4 @@ def notify_enrolled_students(
                         reference_id=reference_id,
                     )
     except Exception as e:
-        print(f"Failed to send {notification_type} notifications: {e}")
+        logger.warning("Failed to send %s notifications: %s", notification_type, e)

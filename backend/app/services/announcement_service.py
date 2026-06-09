@@ -1,8 +1,11 @@
+import logging
 from sqlalchemy.orm import Session
 from app.models.announcement import Announcement
 from app.schemas.announcement import AnnouncementCreate, AnnouncementUpdate, AnnouncementResponse
 from app.services.base_service import get_or_404, paginate, apply_update, delete_and_commit
 from app.services.notification_helpers import notify_enrolled_students
+
+logger = logging.getLogger(__name__)
 
 
 class AnnouncementService:

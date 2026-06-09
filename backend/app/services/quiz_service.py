@@ -1,3 +1,4 @@
+import logging
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
@@ -6,6 +7,8 @@ from app.models.result import Result
 from app.schemas.quiz import QuizCreate, QuizUpdate, QuizResponse, QuizSubmitPayload
 from app.schemas.result import ResultResponse
 from app.services.base_service import get_or_404, paginate, apply_update, delete_and_commit
+
+logger = logging.getLogger(__name__)
 
 
 class QuizService:
@@ -155,15 +158,14 @@ class QuizService:
                 # Recalculate course progress percentage
                 recalculate_course_progress(db, student_id, quiz.course_id)
             except Exception as e:
-                # Gracefully log or ignore to avoid blocking submission
-                print(f"Failed to auto-update student progress on quiz submit: {e}")
+                logger.warning("Failed to auto-update student progress on quiz submit: %s", e)
 
         # Record streak activity
         try:
             from app.services.streak_service import StreakService
             StreakService.record_activity(db, student_id)
         except Exception as e:
-            print(f"Failed to record streak activity on quiz submit: {e}")
+            logger.warning("Failed to record streak activity on quiz submit: %s", e)
 
         db.commit()
         db.refresh(result)

@@ -1,8 +1,11 @@
 import asyncio
+import logging
 from sqlalchemy.orm import Session
 from app.models.notification import Notification
 from app.models.user import User
 from app.utils.email import send_email
+
+logger = logging.getLogger(__name__)
 
 class NotificationService:
     @staticmethod
@@ -66,9 +69,10 @@ class NotificationService:
                         loop.create_task(send_email(user.email, subject, html_content, text_content))
                     else:
                         loop.run_until_complete(send_email(user.email, subject, html_content, text_content))
-                except Exception:
+                except Exception as e:
+                    logger.debug("Event loop unavailable for email send, falling back to asyncio.run: %s", e)
                     try:
                         asyncio.run(send_email(user.email, subject, html_content, text_content))
                     except Exception as err:
-                        print(f"Failed to deliver email: {err}")
+                        logger.error("Failed to deliver email to %s: %s", user.email, err)
         return notif
