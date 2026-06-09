@@ -57,7 +57,7 @@ export default async function ParentDashboardPage({ searchParams }: ParentDashbo
 
   // Calculate Attendance Stats
   const totalAtt = attendance.length;
-  const presentAtt = attendance.filter(a => a.present).length;
+  const presentAtt = attendance.filter((a: any) => a.present).length;
   const attendancePercentage = totalAtt > 0 ? Math.round((presentAtt / totalAtt) * 100) : 100;
 
   return (
@@ -217,7 +217,7 @@ export default async function ParentDashboardPage({ searchParams }: ParentDashbo
                     <span>Present</span>
                   </div>
                   <div className="flex flex-col items-center flex-1">
-                    <span className="text-amber-600 text-sm font-black">{attendance.filter(a => !a.present).length}</span>
+                    <span className="text-amber-600 text-sm font-black">{attendance.filter((a: any) => !a.present).length}</span>
                     <span>Absent</span>
                   </div>
                 </div>

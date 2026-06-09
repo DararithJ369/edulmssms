@@ -40,7 +40,7 @@ const Announcements = async () => {
       <div className="flex flex-col gap-4 mt-4">
         {data.length > 0 ? (
           // ──✅ FIXED: Replaced brittle hardcoded indices with a clean, programmatic loop mapping
-          data.map((item) => (
+          data.map((item: any) => (
             <div key={item.id} className="bg-secondary rounded-md p-4">
               <div className="flex items-center justify-between">
                 <h2 className="font-medium text-sm text-foreground">{item.title}</h2>

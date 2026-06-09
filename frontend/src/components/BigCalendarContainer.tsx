@@ -19,7 +19,7 @@ const BigCalendarContainer = async ({
     } as any,
   });
 
-  const data = dataRes.map((lesson) => ({
+  const data = dataRes.map((lesson: any) => ({
     title: lesson.name,
     start: lesson.startTime,
     end: lesson.endTime,

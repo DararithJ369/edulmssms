@@ -4,7 +4,6 @@ import Pagination from "@/components/Pagination";
 import TableSearch from "@/components/TableSearch";
 import prisma from "@/lib/prisma";
 import { ITEM_PER_PAGE } from "@/lib/settings";
-import { Announcement, Class, Prisma } from "@prisma/client";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import {
@@ -18,7 +17,14 @@ import {
 } from "lucide-react";
 import { normalizeRole } from "@/lib/auth";
 
-type AnnouncementList = Announcement & { class: Class };
+type AnnouncementList = {
+  id: number;
+  title: string;
+  description?: string | null;
+  date: Date;
+  classId?: number | null;
+  class?: { id: number; name: string } | null;
+};
 
 const AnnouncementListPage = async ({
   searchParams,
@@ -35,7 +41,7 @@ const AnnouncementListPage = async ({
   const p = pageValue ? parseInt(pageValue) : 1;
 
   // URL PARAMS CONDITION
-  const query: Prisma.AnnouncementWhereInput = {};
+  const query: any = {};
 
   if (queryParams) {
     for (const [key, value] of Object.entries(queryParams)) {
@@ -134,7 +140,7 @@ const AnnouncementListPage = async ({
       {/* ANNOUNCEMENTS LIST */}
       {data.length > 0 ? (
         <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.01)] space-y-3">
-          {data.map((item) => {
+          {data.map((item: any) => {
             return (
               <div 
                 key={item.id} 
