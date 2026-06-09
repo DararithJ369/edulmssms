@@ -4,7 +4,6 @@ from sqlalchemy.orm import relationship
 from app.db.base import Base
 
 
-
 class Result(Base):
     __tablename__ = "results"
     __table_args__ = (
@@ -34,6 +33,13 @@ class Result(Base):
     is_passed = Column(Boolean, default=False)
 
     graded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Database level protection blocking cross-user race conditions or multi-row duplicates per evaluation item
+    __table_args__ = (
+        UniqueConstraint('student_id', 'quiz_id', name='uq_result_student_quiz'),
+        UniqueConstraint('student_id', 'assignment_id', name='uq_result_student_assignment'),
+        UniqueConstraint('student_id', 'exam_id', name='uq_result_student_exam'),
+    )
 
     # Relationships
     student = relationship("User", foreign_keys=[student_id], lazy="selectin")

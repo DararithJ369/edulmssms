@@ -15,8 +15,11 @@ import {
   AttendanceSchema,
 } from "./formValidationSchemas";
 import prisma from "./prisma";
+import { cookies } from "next/headers";
 
 type CurrentState = { success: boolean; error: boolean };
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
 export const createSubject = async (
   currentState: CurrentState,
@@ -184,18 +187,16 @@ export const updateTeacher = async (
     return { success: false, error: true };
   }
   try {
-    // 1. Update User account credentials
     await (prisma as any).user.update({
       where: { id: data.id },
       data: {
         username: data.username,
         email: data.email,
         password: data.password || "",
-        roleId: 2, // Instructor
+        roleId: 2,
       } as any,
     });
 
-    // 2. Update Teacher details
     await prisma.teacher.update({
       where: {
         id: data.id,
@@ -251,16 +252,13 @@ export const createStudent = async (
   data: StudentSchema
 ) => {
   try {
-    const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
-    // We can't access cookies in server action easily, use the internal API
-    // For the student list form (create), post to FastAPI
     const body = {
       username: data.username,
       email: data.email || null,
       password: data.password,
       role: "student",
     };
-    const res = await fetch(`${API}/users`, {
+    const res = await fetch(`${API_URL}/users`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -268,7 +266,6 @@ export const createStudent = async (
     if (!res.ok) throw new Error(await res.text());
     const created = await res.json();
 
-    // Create profile
     const form = new FormData();
     if (data.name || data.surname) form.append("full_name", `${data.name || ""} ${data.surname || ""}`.trim());
     if (data.phone)   form.append("phone",   data.phone);
@@ -278,8 +275,7 @@ export const createStudent = async (
     if (data.img)     form.append("pfp",     data.img);
     if (data.tier)    form.append("tier",    data.tier);
 
-
-    await fetch(`${API}/profiles/${created.id}`, {
+    await fetch(`${API_URL}/profiles/${created.id}`, {
       method: "POST",
       body: form,
     });
@@ -298,20 +294,16 @@ export const updateStudent = async (
 ) => {
   if (!data.id) return { success: false, error: true };
   try {
-    const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
-
-    // 1. Update User account credentials
     await (prisma as any).user.update({
       where: { id: data.id },
       data: {
         username: data.username,
         email: data.email,
         password: data.password || "",
-        roleId: 3, // Student
+        roleId: 3,
       } as any,
     });
 
-    // 2. Update Student profile details
     const form = new FormData();
     if (data.name || data.surname) form.append("full_name", `${data.name || ""} ${data.surname || ""}`.trim());
     if (data.phone)   form.append("phone",   data.phone);
@@ -321,8 +313,7 @@ export const updateStudent = async (
     if (data.img)     form.append("pfp",     data.img);
     if (data.tier)    form.append("tier",    data.tier);
 
-
-    const res = await fetch(`${API}/profiles/${data.id}`, {
+    const res = await fetch(`${API_URL}/profiles/${data.id}`, {
       method: "PUT",
       body: form,
     });
@@ -360,23 +351,7 @@ export const createExam = async (
   currentState: CurrentState,
   data: ExamSchema
 ) => {
-  // const { userId, sessionClaims } = auth();
-  // const role = (sessionClaims?.metadata as { role?: string })?.role;
-
   try {
-    // if (role === "teacher") {
-    //   const teacherLesson = await prisma.lesson.findFirst({
-    //     where: {
-    //       teacherId: userId!,
-    //       id: data.lessonId,
-    //     },
-    //   });
-
-    //   if (!teacherLesson) {
-    //     return { success: false, error: true };
-    //   }
-    // }
-
     await prisma.exam.create({
       data: {
         title: data.title,
@@ -398,23 +373,7 @@ export const updateExam = async (
   currentState: CurrentState,
   data: ExamSchema
 ) => {
-  // const { userId, sessionClaims } = auth();
-  // const role = (sessionClaims?.metadata as { role?: string })?.role;
-
   try {
-    // if (role === "teacher") {
-    //   const teacherLesson = await prisma.lesson.findFirst({
-    //     where: {
-    //       teacherId: userId!,
-    //       id: data.lessonId,
-    //     },
-    //   });
-
-    //   if (!teacherLesson) {
-    //     return { success: false, error: true };
-    //   }
-    // }
-
     await prisma.exam.update({
       where: {
         id: data.id,
@@ -440,15 +399,10 @@ export const deleteExam = async (
   data: FormData
 ) => {
   const id = data.get("id") as string;
-
-  // const { userId, sessionClaims } = auth();
-  // const role = (sessionClaims?.metadata as { role?: string })?.role;
-
   try {
     await prisma.exam.delete({
       where: {
         id: parseInt(id),
-        // ...(role === "teacher" ? { lesson: { teacherId: userId! } } : {}),
       },
     });
 
@@ -494,18 +448,16 @@ export const updateParent = async (
 ) => {
   if (!data.id) return { success: false, error: true };
   try {
-    // 1. Update User account credentials
     await (prisma as any).user.update({
       where: { id: data.id },
       data: {
         username: data.username,
         email: data.email,
         password: data.password || "",
-        roleId: 4, // Parent
+        roleId: 4,
       } as any,
     });
 
-    // 2. Update Parent profile details
     await prisma.parent.update({
       where: { id: data.id },
       data: {
@@ -736,18 +688,50 @@ export const deleteResult = async (
   }
 };
 
+
 export const createAnnouncement = async (
   currentState: CurrentState,
   data: AnnouncementSchema
 ) => {
   try {
+    const cookieStore = cookies();
+    const token = cookieStore.get("access_token")?.value || cookieStore.get("session")?.value;
+
     await prisma.announcement.create({
       data: {
         title: data.title,
         description: data.message,
         date: new Date(),
+        classId: data.courseId ? String(data.courseId) : null,
       } as any,
     });
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_URL}/announcements`, {
+      method: "POST",
+      headers: headers,
+      body: JSON.stringify({
+        title: data.title,
+        type: data.type || "general",
+        message: data.message,
+        course_id: data.courseId ? String(data.courseId) : null,
+        recipient_id: data.recipientId || null
+      }),
+    });
+
+    if (!response.ok) {
+      const logDetails = await response.json();
+      console.error("FastAPI Synchronization Reject Log:", JSON.stringify(logDetails));
+      return { success: false, error: true };
+    }
+
     revalidatePath("/list/announcements");
     revalidatePath("/admin");
     return { success: true, error: false };
@@ -770,6 +754,7 @@ export const updateAnnouncement = async (
         description: data.message,
       } as any,
     });
+
     revalidatePath("/list/announcements");
     revalidatePath("/admin");
     return { success: true, error: false };
@@ -785,9 +770,29 @@ export const deleteAnnouncement = async (
 ) => {
   const id = data.get("id") as string;
   try {
+    const cookieStore = cookies();
+    const token = cookieStore.get("access_token")?.value || cookieStore.get("session")?.value;
+
     await prisma.announcement.delete({
       where: { id: parseInt(id) },
     });
+
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_URL}/announcements/${id}`, {
+      method: "DELETE",
+      headers: headers,
+    });
+
+    if (!response.ok) {
+      const logDetails = await response.json();
+      console.error("FastAPI Deletion Sync Reject Log:", JSON.stringify(logDetails));
+      return { success: false, error: true };
+    }
+
     revalidatePath("/list/announcements");
     revalidatePath("/admin");
     return { success: true, error: false };
@@ -796,6 +801,8 @@ export const deleteAnnouncement = async (
     return { success: false, error: true };
   }
 };
+
+
 
 export const createAttendance = async (
   currentState: CurrentState,

@@ -7,14 +7,22 @@ import { cookies } from "next/headers";
 import { 
   Globe, 
   CheckSquare, 
-  Clock, 
   BookOpen, 
   GraduationCap, 
   CheckCircle2,
   ListFilter,
-  ArrowUpDown
+  ArrowUpDown,
+  Plus
 } from "lucide-react";
+<<<<<<< HEAD
 import { normalizeRole } from "@/lib/auth";
+=======
+
+const normalizeRole = (role: string | null | undefined) => {
+  if (role === "instructor") return "teacher";
+  return role ?? "";
+};
+>>>>>>> 460c2ce (Finalize quiz management and analytics updates)
 
 type QuizList = {
   id: number;
@@ -25,7 +33,6 @@ type QuizList = {
   course_name?: string | null;
   lesson_title?: string | null;
 };
-
 
 const QuizListPage = async ({
   searchParams,
@@ -60,6 +67,22 @@ const QuizListPage = async ({
 
   let data: QuizList[] = [];
   let count = 0;
+  let completedQuizIds = new Set<number>();
+
+  if (role === "student") {
+    try {
+      const resultsResponse = await serverFetch<{
+        data: Array<{ quiz_id: number }>;
+      }>(`/results?type=quiz&limit=1000`, fetchOptions);
+      
+      const resultsData = resultsResponse?.data || [];
+      completedQuizIds = new Set<number>(
+        resultsData.map((result) => Number(result.quiz_id))
+      );
+    } catch (error) {
+      console.error("Failed to fetch user quiz submission records:", error);
+    }
+  }
 
   if (classId) {
     let courseIds: number[] = [];
@@ -122,11 +145,20 @@ const QuizListPage = async ({
             Quizzes & Automated Feedback
           </h1>
         </div>
+<<<<<<< HEAD
         {(role === "admin" || role === "teacher") && (
           <Link href="/list/quizzes/create">
             <button className="flex items-center gap-1.5 px-4 py-2 bg-[#0038A8] text-white rounded-xl text-xs font-black hover:bg-[#0038A8]/90 transition-colors">
               <GraduationCap className="h-4 w-4" />
               Create Quiz
+=======
+
+        {/* Action Button for Lecturers/Admins */}
+        {(role === "admin" || role === "teacher") && (
+          <Link href="/list/quizzes/create">
+            <button className="px-4 py-2 bg-[#0038A8] text-white font-black text-xs rounded-xl hover:bg-[#002D86] flex items-center gap-1.5 transition-all shadow-sm">
+              <Plus className="h-4 w-4" /> Create Quiz
+>>>>>>> 460c2ce (Finalize quiz management and analytics updates)
             </button>
           </Link>
         )}
@@ -155,17 +187,19 @@ const QuizListPage = async ({
       {data.length > 0 ? (
         <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.01)] space-y-3">
           {data.map((item) => {
+<<<<<<< HEAD
             const isDone = role === "student" ? completedQuizIds.has(item.id) : false;
+=======
+            const isDone = completedQuizIds.has(item.id);
+>>>>>>> 460c2ce (Finalize quiz management and analytics updates)
             return (
               <div 
                 key={item.id} 
                 className="relative flex items-center justify-between p-5 bg-card/65 hover:bg-card border border-border/50 hover:border-red-500/25 rounded-3xl transition-all duration-300 shadow-[0_2px_8px_rgba(0,0,0,0.01)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.02)] hover:-translate-y-[1px] group overflow-hidden"
               >
-                {/* Left Active/Hover Indicator Bar */}
                 <span className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-3xl bg-red-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 
                 <div className="flex items-center gap-4 max-w-[70%] z-10">
-                  {/* Red Moodle Quiz Icon */}
                   <div className="h-10 w-10 rounded-2xl bg-red-50 border border-red-100 dark:bg-red-950/20 dark:border-red-950/30 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0 shadow-sm transition-all duration-300 group-hover:scale-105">
                     <CheckSquare className="h-5 w-5" />
                   </div>
@@ -198,26 +232,33 @@ const QuizListPage = async ({
                   </div>
                 </div>
 
-                {/* Right Side Actions and Completion tracking */}
                 <div className="flex items-center gap-4 z-10">
-                  <Link href={`/list/quizzes/${item.id}`}>
-                    <button className="px-4 py-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/25 text-red-700 dark:text-red-400 font-extrabold text-[9px] rounded-lg shadow-sm transition-colors active:scale-[0.98] uppercase tracking-wider">
-                      Attempt Quiz
-                    </button>
-                  </Link>
-
-                  {/* Completion Status check circle */}
-                  {isDone ? (
-                    <div className="h-5.5 w-5.5 rounded-full border border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 shadow-sm" title="Done: Receive a grade">
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                    </div>
+                  {role === "student" ? (
+                    <Link href={`/list/quizzes/${item.id}`}>
+                      <button className="px-4 py-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/25 text-red-700 dark:text-red-400 font-extrabold text-[9px] rounded-lg shadow-sm transition-colors active:scale-[0.98] uppercase tracking-wider">
+                        {isDone ? "Review Attempt" : "Attempt Quiz"}
+                      </button>
+                    </Link>
                   ) : (
-                    <div className="h-5.5 w-5.5 rounded-full border border-dashed border-red-400 flex items-center justify-center shrink-0 shadow-sm" title="To do: Receive a grade">
-                      <div className="h-1.5 w-1.5 rounded-full bg-red-400" />
-                    </div>
+                    <Link href={`/list/quizzes/${item.id}/submissions`}>
+                      <button className="px-4 py-1.5 bg-[#0038A8]/10 hover:bg-[#0038A8]/20 border border-[#0038A8]/25 text-[#0038A8] font-extrabold text-[9px] rounded-lg shadow-sm transition-colors active:scale-[0.98] uppercase tracking-wider">
+                        Review Submissions
+                      </button>
+                    </Link>
+                  )}
+
+                  {role === "student" && (
+                    isDone ? (
+                      <div className="h-5.5 w-5.5 rounded-full border border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 shadow-sm" title="Completed">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                      </div>
+                    ) : (
+                      <div className="h-5.5 w-5.5 rounded-full border border-dashed border-red-400 flex items-center justify-center shrink-0 shadow-sm" title="Pending">
+                        <div className="h-1.5 w-1.5 rounded-full bg-red-400" />
+                      </div>
+                    )
                   )}
                 </div>
-
               </div>
             );
           })}
@@ -229,7 +270,6 @@ const QuizListPage = async ({
         </div>
       )}
 
-      {/* PAGINATION PANEL */}
       <div className="bg-card border border-border/60 rounded-3xl p-4 shadow-sm flex justify-center select-none shrink-0">
         <Pagination page={p} count={count} />
       </div>

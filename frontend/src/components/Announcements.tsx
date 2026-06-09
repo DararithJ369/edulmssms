@@ -1,6 +1,16 @@
 import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
+<<<<<<< HEAD
 import { normalizeRole } from "@/lib/auth";
+=======
+
+const normalizeRole = (role: string | null | undefined) => {
+  if (role === "instructor") {
+    return "teacher";
+  }
+  return role ?? "";
+};
+>>>>>>> 460c2ce (Finalize quiz management and analytics updates)
 
 const Announcements = async () => {
   const cookieStore = cookies();
@@ -30,40 +40,29 @@ const Announcements = async () => {
     <div className="bg-card text-card-foreground p-4 rounded-md border border-border transition-colors duration-300">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Announcements</h1>
-        <span className="text-xs text-muted-foreground">View All</span>
+        <span className="text-xs text-muted-foreground cursor-pointer hover:underline">View All</span>
       </div>
+      
       <div className="flex flex-col gap-4 mt-4">
-        {data[0] && (
-          <div className="bg-secondary rounded-md p-4">
-            <div className="flex items-center justify-between">
-              <h2 className="font-medium">{data[0].title}</h2>
-              <span className="text-xs text-muted-foreground bg-background rounded-md px-1 py-1">
-                {new Intl.DateTimeFormat("en-GB").format(data[0].date)}
-              </span>
+        {data.length > 0 ? (
+          // ──✅ FIXED: Replaced brittle hardcoded indices with a clean, programmatic loop mapping
+          data.map((item) => (
+            <div key={item.id} className="bg-secondary rounded-md p-4">
+              <div className="flex items-center justify-between">
+                <h2 className="font-medium text-sm text-foreground">{item.title}</h2>
+                <span className="text-[10px] text-muted-foreground bg-background rounded-md px-1.5 py-0.5 font-sans">
+                  {new Intl.DateTimeFormat("en-GB").format(item.date)}
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+                {item.description}
+              </p>
             </div>
-            <p className="text-sm text-muted-foreground mt-1">{data[0].description}</p>
-          </div>
-        )}
-        {data[1] && (
-          <div className="bg-secondary rounded-md p-4">
-            <div className="flex items-center justify-between">
-              <h2 className="font-medium">{data[1].title}</h2>
-              <span className="text-xs text-muted-foreground bg-background rounded-md px-1 py-1">
-                {new Intl.DateTimeFormat("en-GB").format(data[1].date)}
-              </span>
-            </div>
-            <p className="text-sm text-muted-foreground mt-1">{data[1].description}</p>
-          </div>
-        )}
-        {data[2] && (
-          <div className="bg-secondary rounded-md p-4">
-            <div className="flex items-center justify-between">
-              <h2 className="font-medium">{data[2].title}</h2>
-              <span className="text-xs text-muted-foreground bg-background rounded-md px-1 py-1">
-                {new Intl.DateTimeFormat("en-GB").format(data[2].date)}
-              </span>
-            </div>
-            <p className="text-sm text-muted-foreground mt-1">{data[2].description}</p>
+          ))
+        ) : (
+          // ──✅ FIXED: Graceful empty state buffer fallback
+          <div className="text-center py-6 border border-dashed border-border/60 rounded-md text-xs text-muted-foreground/70">
+            No active announcements found for your profile.
           </div>
         )}
       </div>

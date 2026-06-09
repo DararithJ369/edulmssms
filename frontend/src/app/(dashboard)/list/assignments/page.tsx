@@ -30,7 +30,6 @@ type AssignmentList = {
   teacher_name?: string | null;
 };
 
-
 const AssignmentListPage = async ({
   searchParams,
 }: {
@@ -60,6 +59,25 @@ const AssignmentListPage = async ({
 
   let data: AssignmentList[] = [];
   let count = 0;
+  let submittedAssignmentIds = new Set<number>();
+
+  // Fetch production assignment completion records if the user role is verified as a student
+  if (role === "student") {
+    try {
+      const resultsResponse = await serverFetch<{
+        data: Array<{ assignment_id: number }>;
+      }>(`/results?type=assignment&limit=1000`, fetchOptions);
+      
+      const resultsData = resultsResponse?.data || [];
+      submittedAssignmentIds = new Set<number>(
+        resultsData
+          .filter((res) => res.assignment_id !== null)
+          .map((res) => Number(res.assignment_id))
+      );
+    } catch (error) {
+      console.error("Failed to fetch user assignment completion records:", error);
+    }
+  }
 
   if (classId) {
     let courseIds: number[] = [];
@@ -153,7 +171,12 @@ const AssignmentListPage = async ({
       {data.length > 0 ? (
         <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.01)] space-y-3">
           {data.map((item) => {
+<<<<<<< HEAD
             const isDone = role === "student" ? submittedAssignmentIds.has(item.id) : false;
+=======
+            // Evaluates real user database submission statuses
+            const isDone = submittedAssignmentIds.has(item.id);
+>>>>>>> 460c2ce (Finalize quiz management and analytics updates)
             return (
               <div 
                 key={item.id} 
@@ -206,7 +229,7 @@ const AssignmentListPage = async ({
                   {role === "student" && (
                     <Link href={`/list/assignments/${item.id}/submit`}>
                       <button className="px-4 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/25 text-amber-700 dark:text-amber-400 font-extrabold text-[9px] rounded-lg shadow-sm transition-colors active:scale-[0.98] uppercase tracking-wider">
-                        Add Submission
+                        {isDone ? "Update Submission" : "Add Submission"}
                       </button>
                     </Link>
                   )}
@@ -225,15 +248,17 @@ const AssignmentListPage = async ({
                     </Link>
                   )}
 
-                  {/* Completion Status check circle */}
-                  {isDone ? (
-                    <div className="h-5.5 w-5.5 rounded-full border border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 shadow-sm" title="Done: Submit assignment">
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                    </div>
-                  ) : (
-                    <div className="h-5.5 w-5.5 rounded-full border border-dashed border-amber-400 flex items-center justify-center shrink-0 shadow-sm" title="To do: Submit assignment">
-                      <div className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-                    </div>
+                  {/* Programmatic Role-conditioned Completion Check UI */}
+                  {role === "student" && (
+                    isDone ? (
+                      <div className="h-5.5 w-5.5 rounded-full border border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 shadow-sm" title="Done: Submit assignment">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                      </div>
+                    ) : (
+                      <div className="h-5.5 w-5.5 rounded-full border border-dashed border-amber-400 flex items-center justify-center shrink-0 shadow-sm" title="To do: Submit assignment">
+                        <div className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                      </div>
+                    )
                   )}
                 </div>
 

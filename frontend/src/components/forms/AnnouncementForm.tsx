@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, FieldError } from "react-hook-form";
 import InputField from "../InputField";
 import { Dispatch, SetStateAction, useEffect, useState } from "react";
 import { announcementSchema, AnnouncementSchema } from "@/lib/formValidationSchemas";
@@ -37,11 +37,24 @@ const AnnouncementForm = ({
     }
   );
 
+<<<<<<< HEAD
   const [saving, setSaving] = useState(false);
 
   const onSubmit = handleSubmit((data) => {
     setSaving(true);
     formAction(data);
+=======
+  // ──✅ FIXED: Intercepts validation data and guarantees the "message" key is set before executing the server action
+  const onSubmit = handleSubmit((hookFormData) => {
+    const rawData = hookFormData as any;
+    const alignedPayload = {
+      ...hookFormData,
+      // Pulls dynamically from 'content', 'description', or 'message' fields to accommodate your Zod definitions
+      message: rawData.content || rawData.description || rawData.message || "",
+    };
+    
+    formAction(alignedPayload);
+>>>>>>> 460c2ce (Finalize quiz management and analytics updates)
   });
 
   const router = useRouter();
@@ -71,7 +84,7 @@ const AnnouncementForm = ({
           name="title"
           defaultValue={data?.title}
           register={register}
-          error={errors.title}
+          error={errors.title as FieldError}
         />
         <div className="flex flex-col gap-2 w-full md:w-1/4">
           <label className="text-xs text-gray-500">Announcement Type</label>
@@ -95,7 +108,7 @@ const AnnouncementForm = ({
           name="recipientId"
           defaultValue={data?.recipientId || data?.recipient_id}
           register={register}
-          error={errors.recipientId}
+          error={errors.recipientId as FieldError}
         />
         <div className="flex flex-col gap-2 w-full md:w-1/4">
           <label className="text-xs text-gray-500">Target Class (Optional)</label>
@@ -123,21 +136,28 @@ const AnnouncementForm = ({
             name="id"
             defaultValue={data?.id}
             register={register}
-            error={errors?.id}
+            error={errors?.id as FieldError}
             hidden
           />
         )}
       </div>
       <div className="flex flex-col gap-2">
         <label className="text-xs text-gray-500 font-medium">Message Body</label>
+        {/* ──✅ FIXED: Registered as "content" so Zod validates it correctly instead of dropping it */}
         <textarea
           className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full h-32"
-          {...register("message")}
-          defaultValue={data?.message || data?.description}
+          {...register("content" as any)}
+          defaultValue={data?.message || data?.description || data?.content}
         />
-        {errors.message?.message && (
+        {/* Handles error display for either key mapping variations cleanly */}
+        {(errors as any).content?.message && (
           <p className="text-xs text-red-400">
-            {errors.message.message.toString()}
+            {(errors as any).content.message.toString()}
+          </p>
+        )}
+        {(errors as any).message?.message && (
+          <p className="text-xs text-red-400">
+            {(errors as any).message.message.toString()}
           </p>
         )}
       </div>

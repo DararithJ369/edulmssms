@@ -1,5 +1,5 @@
 from typing import Optional
-from fastapi import APIRouter, Depends, Form, HTTPException
+from fastapi import APIRouter, Depends, Form, HTTPException, status
 from sqlalchemy.orm import Session
 from app.middleware.guard.permission import PermissionGuard
 from app.config.session import get_db
@@ -45,13 +45,11 @@ def create_result(payload: ResultCreate, db: Session = Depends(get_db)):
 @result_router.put("/{result_id}", response_model=ResultResponse, dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def update_result(
     result_id: int,
-    score: Optional[float] = Form(None),
-    feedback: Optional[str] = Form(None),
+    payload: ResultUpdate, # ──✅ FIXED: Now safely parses raw JSON applications packets coming from the client UI
     db: Session = Depends(get_db),
 ):
-    return ResultService.update_result(
-        db, result_id, ResultUpdate(score=score, feedback=feedback)
-    )
+    # Passes clean structural types right down into your internal service layers
+    return ResultService.update_result(db, result_id, payload)
 
 
 @result_router.delete("/{result_id}", dependencies=[Depends(PermissionGuard.admin_only)])
