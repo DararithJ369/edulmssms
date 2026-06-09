@@ -130,21 +130,14 @@ const AnnouncementForm = ({
       </div>
       <div className="flex flex-col gap-2">
         <label className="text-xs text-gray-500 font-medium">Message Body</label>
-        {/* ──✅ FIXED: Registered as "content" so Zod validates it correctly instead of dropping it */}
         <textarea
           className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full h-32"
-          {...register("content" as any)}
+          {...register("message")}
           defaultValue={data?.message || data?.description || data?.content}
         />
-        {/* Handles error display for either key mapping variations cleanly */}
-        {(errors as any).content?.message && (
+        {errors.message?.message && (
           <p className="text-xs text-red-400">
-            {(errors as any).content.message.toString()}
-          </p>
-        )}
-        {(errors as any).message?.message && (
-          <p className="text-xs text-red-400">
-            {(errors as any).message.message.toString()}
+            {errors.message.message.toString()}
           </p>
         )}
       </div>

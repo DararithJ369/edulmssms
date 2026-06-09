@@ -66,7 +66,8 @@ export default function QuizAttemptPage() {
 
   const [quiz, setQuiz] = useState<QuizDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [phase, setPhase] = useState<"loading" | "intro" | "attempt" | "submitted">("loading");
+  const [phase, setPhase] = useState<"loading" | "intro" | "attempt" | "submitted" | "manage">("loading");
+  const [quizAttempts, setQuizAttempts] = useState<any[]>([]);
 
   const [answers, setAnswers] = useState<Record<number, string | string[]>>({});
   const [currentQ, setCurrentQ] = useState(0);
@@ -121,6 +122,8 @@ export default function QuizAttemptPage() {
         }
 
         // Teachers/admins see management view
+        const userRole = typeof window !== "undefined" ? (localStorage.getItem("user_role") || document.cookie.match(/user_role=([^;]+)/)?.[1] || "") : "";
+        const normalized = userRole === "instructor" ? "teacher" : userRole;
         if (normalized === "teacher" || normalized === "admin") {
           try {
             const attemptsRes = await api.get(`/quizzes/${quizId}/results`);
@@ -281,6 +284,69 @@ export default function QuizAttemptPage() {
             <button className="w-full px-4 py-2.5 bg-[#0038A8] text-white font-bold text-xs rounded-xl">Return to List</button>
           </Link>
         </div>
+      </div>
+    );
+  }
+
+  if (phase === "manage") {
+    const avgScore = quizAttempts.length > 0
+      ? (quizAttempts.reduce((sum: number, a: any) => sum + (a.score || 0), 0) / quizAttempts.length).toFixed(1)
+      : "N/A";
+    return (
+      <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen font-sans text-left">
+        <div className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase tracking-wider font-bold">
+          <Link href="/" className="hover:text-foreground flex items-center gap-1"><Globe className="h-3 w-3" />Home</Link>
+          <span>/</span>
+          <Link href="/list/quizzes" className="hover:text-foreground">Quizzes</Link>
+          <span>/</span>
+          <span className="text-foreground">{quiz.title} — Management</span>
+        </div>
+        <h1 className="text-2xl font-black">{quiz.title}</h1>
+        <div className="grid grid-cols-3 gap-4">
+          <div className="bg-card border rounded-2xl p-4 text-center">
+            <p className="text-xs font-bold text-muted-foreground">Total Attempts</p>
+            <p className="text-2xl font-black">{quizAttempts.length}</p>
+          </div>
+          <div className="bg-card border rounded-2xl p-4 text-center">
+            <p className="text-xs font-bold text-muted-foreground">Avg Score</p>
+            <p className="text-2xl font-black">{avgScore}</p>
+          </div>
+          <div className="bg-card border rounded-2xl p-4 text-center">
+            <p className="text-xs font-bold text-muted-foreground">Questions</p>
+            <p className="text-2xl font-black">{questions.length}</p>
+          </div>
+        </div>
+        <div className="bg-card border rounded-2xl overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-secondary">
+              <tr>
+                <th className="text-left px-4 py-2 font-bold text-xs">Student</th>
+                <th className="text-left px-4 py-2 font-bold text-xs">Score</th>
+                <th className="text-left px-4 py-2 font-bold text-xs">Percentage</th>
+                <th className="text-left px-4 py-2 font-bold text-xs">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {quizAttempts.length === 0 ? (
+                <tr><td colSpan={4} className="px-4 py-6 text-center text-muted-foreground text-xs">No attempts yet.</td></tr>
+              ) : quizAttempts.map((attempt: any, idx: number) => (
+                <tr key={idx} className="border-t">
+                  <td className="px-4 py-2">{attempt.student_name || attempt.student_id || "—"}</td>
+                  <td className="px-4 py-2">{attempt.score ?? "—"} / {attempt.total_marks ?? quiz.total_marks ?? "—"}</td>
+                  <td className="px-4 py-2">{attempt.percentage != null ? `${attempt.percentage.toFixed(1)}%` : "—"}</td>
+                  <td className="px-4 py-2">
+                    <span className={`px-2 py-0.5 rounded text-xs font-bold ${attempt.is_passed ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
+                      {attempt.is_passed ? "Passed" : "Failed"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <Link href="/list/quizzes">
+          <button className="px-4 py-2 bg-[#0038A8] text-white font-bold text-xs rounded-xl">← Back to Quizzes</button>
+        </Link>
       </div>
     );
   }
