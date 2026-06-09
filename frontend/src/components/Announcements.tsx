@@ -1,16 +1,6 @@
 import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
-<<<<<<< HEAD
 import { normalizeRole } from "@/lib/auth";
-=======
-
-const normalizeRole = (role: string | null | undefined) => {
-  if (role === "instructor") {
-    return "teacher";
-  }
-  return role ?? "";
-};
->>>>>>> 460c2ce (Finalize quiz management and analytics updates)
 
 const Announcements = async () => {
   const cookieStore = cookies();

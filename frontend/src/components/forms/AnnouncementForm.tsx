@@ -37,24 +37,11 @@ const AnnouncementForm = ({
     }
   );
 
-<<<<<<< HEAD
   const [saving, setSaving] = useState(false);
 
   const onSubmit = handleSubmit((data) => {
     setSaving(true);
     formAction(data);
-=======
-  // ──✅ FIXED: Intercepts validation data and guarantees the "message" key is set before executing the server action
-  const onSubmit = handleSubmit((hookFormData) => {
-    const rawData = hookFormData as any;
-    const alignedPayload = {
-      ...hookFormData,
-      // Pulls dynamically from 'content', 'description', or 'message' fields to accommodate your Zod definitions
-      message: rawData.content || rawData.description || rawData.message || "",
-    };
-    
-    formAction(alignedPayload);
->>>>>>> 460c2ce (Finalize quiz management and analytics updates)
   });
 
   const router = useRouter();

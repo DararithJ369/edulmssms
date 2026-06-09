@@ -59,25 +59,6 @@ const AssignmentListPage = async ({
 
   let data: AssignmentList[] = [];
   let count = 0;
-  let submittedAssignmentIds = new Set<number>();
-
-  // Fetch production assignment completion records if the user role is verified as a student
-  if (role === "student") {
-    try {
-      const resultsResponse = await serverFetch<{
-        data: Array<{ assignment_id: number }>;
-      }>(`/results?type=assignment&limit=1000`, fetchOptions);
-      
-      const resultsData = resultsResponse?.data || [];
-      submittedAssignmentIds = new Set<number>(
-        resultsData
-          .filter((res) => res.assignment_id !== null)
-          .map((res) => Number(res.assignment_id))
-      );
-    } catch (error) {
-      console.error("Failed to fetch user assignment completion records:", error);
-    }
-  }
 
   if (classId) {
     let courseIds: number[] = [];
@@ -171,12 +152,7 @@ const AssignmentListPage = async ({
       {data.length > 0 ? (
         <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.01)] space-y-3">
           {data.map((item) => {
-<<<<<<< HEAD
             const isDone = role === "student" ? submittedAssignmentIds.has(item.id) : false;
-=======
-            // Evaluates real user database submission statuses
-            const isDone = submittedAssignmentIds.has(item.id);
->>>>>>> 460c2ce (Finalize quiz management and analytics updates)
             return (
               <div 
                 key={item.id} 
