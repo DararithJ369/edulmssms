@@ -203,14 +203,28 @@ interface ModalShellProps {
   onClose: () => void;
   children: React.ReactNode;
   className?: string; // 💡 FIXED: Explicitly support className overrides
+  cloudName?: string;
+  uploadPreset?: string;
 }
 
 export function ModalShell({
-  title, data, fields, tabs, activeTab, setTab,
-  photoUrl, setPhotoUrl,
-  saving, onSave, onClose, children,
-  className = "", // 💡 FIXED: Destructure fallback mapping default values
+  title,
+  data,
+  fields,
+  tabs,
+  activeTab,
+  setTab,
+  photoUrl,
+  setPhotoUrl,
+  saving,
+  onSave,
+  onClose,
+  children,
+  className = "",
+  cloudName = "dlykcgjdh",
+  uploadPreset = "lms_preset",
 }: ModalShellProps) {
+  
   const displayName = fields.full_name || data.username || "User";
   const currentPhoto = photoUrl || getImageUrl(data.pfp);
   const { bg, text: textColor } = getInitialsColor(displayName);
@@ -235,8 +249,20 @@ export function ModalShell({
         <div className="px-6 pt-4 shrink-0">
           <div className="flex items-center gap-4 mb-5">
 
-            {/* Avatar — click to open Cloudinary widget */}
-            <CldUploadWidget uploadPreset="school" onSuccess={(result: any) => { const url = result?.info?.secure_url; if (url) setPhotoUrl(url); }}>
+            {/* Avatar — Dynamic Cloudinary Widget Hookup */}
+            <CldUploadWidget 
+              signatureEndpoint="" // Unsigned upload configuration selector block fallback
+              options={{
+                cloudName: cloudName,
+                uploadPreset: uploadPreset,
+                multiple: false,
+                sources: ["local", "url", "camera"]
+              }} 
+              onSuccess={(result: any) => { 
+                const url = result?.info?.secure_url; 
+                if (url) setPhotoUrl(url); 
+              }}
+            >
               {({ open }) => (
                 <div
                   className="relative h-16 w-16 rounded-2xl overflow-hidden flex items-center justify-center shrink-0 cursor-pointer border border-border/50"
@@ -256,7 +282,17 @@ export function ModalShell({
 
             <div>
               <p className="text-xs font-bold text-foreground">{displayName}</p>
-              <CldUploadWidget uploadPreset="school" onSuccess={(result: any) => { const url = result?.info?.secure_url; if (url) setPhotoUrl(url); }}>
+              <CldUploadWidget 
+                options={{
+                  cloudName: cloudName,
+                  uploadPreset: uploadPreset,
+                  multiple: false
+                }}
+                onSuccess={(result: any) => { 
+                  const url = result?.info?.secure_url; 
+                  if (url) setPhotoUrl(url); 
+                }}
+              >
                 {({ open }) => (
                   <button type="button" onClick={() => open()} className="mt-1 text-[10px] font-semibold text-[#0038A8] hover:underline">
                     {photoUrl ? "Change photo" : "Upload photo via Cloudinary"}

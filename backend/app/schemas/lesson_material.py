@@ -8,8 +8,9 @@ class LessonMaterialBase(BaseModel):
     uploaded_by: str
     title: str
     description: Optional[str] = None
-    file_url: str
+    file_url: Optional[str] = None  
     type: str
+    external_url: Optional[str] = None
     file_size: Optional[int] = None
     is_visible: Optional[bool] = True
 
@@ -22,6 +23,7 @@ class LessonMaterialUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     file_url: Optional[str] = None
+    external_url: Optional[str] = None 
     type: Optional[str] = None
     file_size: Optional[int] = None
     is_visible: Optional[bool] = None

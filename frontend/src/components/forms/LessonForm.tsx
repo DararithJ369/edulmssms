@@ -69,6 +69,7 @@ const LessonForm = ({
   });
 
   const currentMaterialFile = watch("material_file");
+  const selectedMaterialType = watch("material_type");
 
   const openCloudinaryWidget = () => {
     const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
@@ -80,11 +81,17 @@ const LessonForm = ({
     }
 
     if (typeof window !== "undefined" && (window as any).cloudinary) {
+      // 🍏 FIX: Dynamically specify the resource type block to prevent file corruption
+      const isDocument = selectedMaterialType === "document" || selectedMaterialType === "pdf";
+      const calculatedResourceType = isDocument ? "raw" : "auto";
+
       const myWidget = (window as any).cloudinary.createUploadWidget(
         {
           cloudName: cloudName,
           uploadPreset: uploadPreset,
-          sources: ["local", "url", "camera", "google_drive", "dropbox", "box"],
+          resourceType: calculatedResourceType, // 👈 Forces 'raw' for PDFs, keeping formatting intact
+          clientAllowedFormats: ["pdf", "mp4", "mov", "png", "jpg"],
+          sources: ["local", "url", "camera", "google_drive", "dropbox"],
           multiple: false,
           theme: "minimal",
         },
@@ -111,29 +118,47 @@ const LessonForm = ({
 
       if (relatedData?.inlineHandler) {
         relatedData.inlineHandler(values);
-        return; // Stop here, since CourseCreatePage will handle saving the course package later!
+        return;
       }
 
-      // Otherwise, fall back to your normal immediate database API calls
       const payload = {
-        ...values,
+        title: values.title,
         content: values.content || null,
+        description: values.content || null,
+        duration: values.duration ? String(values.duration) : "45min",
+        material_type: values.material_type,
         material_url: values.material_url || null,
         material_file: values.material_file || null,
+        order: Number(values.order) || 1,
+        module_id: Number(values.module_id) || Number(data?.module_id)
       };
 
+      let res;
       if (type === "create") {
-        await api.post("/lessons", payload);
+        res = await api.post("/lessons", payload);
       } else {
         const recordId = data?.id;
         if (!recordId) throw new Error("Missing Lesson record ID.");
-        await api.put(`/lessons/${recordId}`, payload);
+        res = await api.put(`/lessons/${recordId}`, payload);
       }
 
-      handleClose();
-      router.refresh();
+      if (res.status === 200 || res.status === 201) {
+        if (res.data && !res.data.detail && !res.data.loc) {
+          handleClose();
+          router.refresh();
+          if (typeof window !== "undefined") window.location.reload();
+        } else {
+          throw new Error("Invalid format received from database validation rules.");
+        }
+      }
     } catch (err: any) {
-      setErrorMessage(err.response?.data?.detail || "An error occurred.");
+      console.error("Form transmission rejected:", err);
+      const backendRawError = err.response?.data?.detail;
+      setErrorMessage(
+        typeof backendRawError === "object" 
+          ? "Validation Error: Please check that Module ID and required fields match database specs." 
+          : backendRawError || "An error occurred while updating the lesson metrics."
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -167,7 +192,7 @@ const LessonForm = ({
 
           <form id="lesson-form-element" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             
-            {/* ROW 1: 3-Column balanced grid mapping */}
+            {/* ROW 1 */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-5 gap-y-4">
               <div className="space-y-1.5">
                 <label className="text-[13px] font-semibold text-[#475569]">Lesson Name</label>
@@ -201,7 +226,7 @@ const LessonForm = ({
               </div>
             </div>
 
-            {/* ROW 2: 3-Column balanced grid mapping */}
+            {/* ROW 2 */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-5 gap-y-4">
               <div className="space-y-1.5">
                 <label className="text-[13px] font-semibold text-[#475569]">Parent Module ID</label>
@@ -222,6 +247,7 @@ const LessonForm = ({
                     className="w-full px-3 py-2.5 bg-white border border-[#e2e8f0] focus:border-[#3b82f6] rounded-xl text-sm font-medium text-[#334155] focus:outline-none transition-all appearance-none cursor-pointer"
                   >
                     <option value="video">Video Player (.mp4)</option>
+                    <option value="url">External Link (YouTube)</option>
                     <option value="document">Document (.pdf)</option>
                     <option value="article">Text Content</option>
                     <option value="quiz">Interactive Quiz</option>
@@ -249,7 +275,7 @@ const LessonForm = ({
               <label className="text-[13px] font-semibold text-[#475569]">Remote Material URL</label>
               <input
                 type="text"
-                placeholder="Automatically populated on widget upload..."
+                placeholder="Automatically populated on widget upload or enter custom streaming link..."
                 {...register("material_url")}
                 className="w-full px-3 py-2.5 bg-white border border-[#e2e8f0] focus:border-[#3b82f6] rounded-xl text-sm font-medium text-[#334155] focus:outline-none transition-all placeholder:text-[#cbd5e1] truncate"
               />
@@ -258,14 +284,14 @@ const LessonForm = ({
             <div className="space-y-1.5">
               <label className="text-[13px] font-semibold text-[#475569]">Lecture Notes & Curriculum Content</label>
               <textarea
-                rows={2}
+                rows={4}
                 placeholder="Write core lesson notes or descriptions here..."
                 {...register("content")}
                 className="w-full px-3 py-2.5 bg-white border border-[#e2e8f0] focus:border-[#3b82f6] rounded-xl text-sm font-medium text-[#334155] focus:outline-none transition-all placeholder:text-[#cbd5e1] resize-none"
               />
             </div>
 
-            {/* DRAG-AND-DROP FILE UPLOAD ZONE: Matches exact styling tokens */}
+            {/* FILE UPLOAD ZONE */}
             <div className="space-y-1.5">
               <label className="text-[13px] font-semibold text-[#475569]">Lesson Materials Upload</label>
               <div 
@@ -281,7 +307,7 @@ const LessonForm = ({
           </form>
         </div>
 
-        {/* SINGLE UNIFIED ACTION FOOTER SECTION BAR */}
+        {/* FOOTER BAR */}
         <div className="px-8 py-4 border-t border-slate-100 flex items-center justify-end gap-2.5 bg-slate-50/30 shrink-0">
           <button
             type="button"
@@ -292,7 +318,7 @@ const LessonForm = ({
           </button>
           <button
             type="submit"
-            form="lesson-form-element" // 💡 Connects directly to our HTML form element ID above cleanly!
+            form="lesson-form-element"
             disabled={isSubmitting}
             className="px-4 py-2 rounded-[8px] bg-[#0038A8] text-white hover:bg-[#002b80] active:scale-[0.98] text-xs font-bold transition-all disabled:opacity-50 shadow-sm"
           >
@@ -303,6 +329,6 @@ const LessonForm = ({
       </div>
     </div>
   );
-}
+};
 
 export default LessonForm;

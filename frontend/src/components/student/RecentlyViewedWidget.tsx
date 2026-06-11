@@ -63,7 +63,7 @@ const RecentlyViewedWidget = async () => {
           {recentlyViewed.map((view) => (
             <Link 
               key={view.lesson_id}
-              href={`/list/courses/${view.course_id}/learn?lesson=${view.lesson_id}`}
+              href={`/student?lessonId=${view.lesson_id}`}
               className="group flex flex-col p-3 border border-slate-100 bg-slate-50/20 hover:bg-white hover:border-[#0038A8]/30 rounded-xl transition-all duration-300 hover:shadow-[0_8px_30px_rgba(0,56,168,0.02)]"
             >
               <div className="flex justify-between items-start">

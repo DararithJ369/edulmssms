@@ -1,6 +1,8 @@
 from typing import Optional, Dict, Any
-from fastapi import APIRouter, Depends, UploadFile, File, Form
+from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status
 from sqlalchemy.orm import Session
+import cloudinary.uploader
+
 from app.middleware.guard.permission import PermissionGuard
 from app.config.session import get_db
 from app.services.lesson_service import LessonService
@@ -24,20 +26,16 @@ def delete_material(material_id: int, db: Session = Depends(get_db)):
 
 @lesson_router.get("")
 def get_all_lessons(page: int = 1, limit: int = 10, db: Session = Depends(get_db)):
-    # Fetch base response dictionary payload metadata from service layers
     result = LessonService.get_lessons(db, page, limit)
     
-    # 🛠️ CRITICAL STEP: Hydrate course_id and module_id directly inside the row dictionaries
-    # so your Next.js application receives valid numeric properties instead of empty tracks!
+    # 🛠️ Hydrate course_id and module_id directly inside the row dictionaries
     if isinstance(result, dict) and "data" in result:
         for lesson_node in result["data"]:
-            # If the database returns an ORM entity or instance object wrapper
             if hasattr(lesson_node, "module") and lesson_node.module:
                 lesson_node.course_id = lesson_node.module.course_id
                 lesson_node.module_name = lesson_node.module.title
                 if hasattr(lesson_node.module, "course") and lesson_node.module.course:
                     lesson_node.course_name = lesson_node.module.course.course_name
-            # If the database layer returns raw dictionary sets instead
             elif isinstance(lesson_node, dict) and "module" in lesson_node and lesson_node["module"]:
                 lesson_node["course_id"] = lesson_node["module"].get("course_id")
                 lesson_node["module_name"] = lesson_node["module"].get("title")
@@ -58,12 +56,10 @@ def create_lesson(payload: LessonCreate, db: Session = Depends(get_db)):
 
 # ── Dynamic /{lesson_id} — MUST be last ──────────────────────────────────────
 
-# 🛠️ FIXED: Standardized response serialization to prevent key mismatches
 @lesson_router.get("/{lesson_id}", response_model=LessonResponse)
 def get_lesson(lesson_id: int, db: Session = Depends(get_db)):
     lesson_node = LessonService.get_lesson_by_id(db, lesson_id)
     
-    # Hydrate tracking identifiers cleanly prior to component payload serialization dispatch
     if lesson_node and hasattr(lesson_node, "module") and lesson_node.module:
         lesson_node.course_id = lesson_node.module.course_id
         lesson_node.module_name = lesson_node.module.title
@@ -90,14 +86,60 @@ def delete_lesson(lesson_id: int, db: Session = Depends(get_db)):
     return LessonService.delete_lesson(db, lesson_id)
 
 
-@lesson_router.post("/{lesson_id}/materials", dependencies=[Depends(PermissionGuard.admin_or_instructor)])
+# ── Materials Multi-form Controller ──────────────────────────────────────────
+
+@lesson_router.post(
+    "/{lesson_id}/materials", 
+    dependencies=[Depends(PermissionGuard.admin_or_instructor)]
+)
 def add_material(
     lesson_id: int,
     title: str = Form(...),
+    type: str = Form(...),
+    uploaded_by: str = Form(...),
     description: Optional[str] = Form(None),
+    external_url: Optional[str] = Form(None),
     file: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
 ):
-    return LessonService.add_material(
-        db, lesson_id, LessonMaterialCreate(title=title, description=description), file
+    final_file_url = None
+    final_file_size = None
+
+    if file:
+        try:
+            content_type = file.content_type or ""
+            is_video_type = "video" in content_type or type.lower() == "video"
+            resource_type_spec = "video" if is_video_type else "raw"
+            
+            # Send file object straight to Cloudinary bucket namespaces
+            upload_result = cloudinary.uploader.upload(
+                file.file,
+                resource_type=resource_type_spec,
+                folder="lms_classroom_materials"
+            )
+            
+            final_file_url = upload_result.get("secure_url")
+            
+            # Calculate file sizes accurately in bytes
+            file.file.seek(0, 2)  
+            final_file_size = file.file.tell()
+            
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Cloudinary pipeline failure: {str(e)}"
+            )
+
+    material_payload = LessonMaterialCreate(
+        lesson_id=lesson_id,
+        uploaded_by=uploaded_by,
+        title=title,
+        description=description,
+        type=type.lower(),
+        external_url=external_url,
+        file_url=final_file_url,
+        file_size=final_file_size,
+        is_visible=True
     )
+
+    return LessonService.add_material(db, lesson_id, material_payload)

@@ -17,6 +17,8 @@ export interface StudentEditData extends BaseEditData {
   previous_school?: string;
   scholarship_status?: string;
   special_needs?: string;
+  cloudinaryCloudName?: string;
+  cloudinaryUploadPreset?: string; 
 }
 
 const TABS = [
@@ -116,6 +118,8 @@ export default function StudentEditModal({ data, trigger }: { data: StudentEditD
       tabs={TABS} activeTab={tab} setTab={setTab}
       photoUrl={photoUrl} setPhotoUrl={setPhotoUrl}
       saving={saving} onSave={handleSave} onClose={() => setOpen(false)}
+      cloudName={data.cloudinaryCloudName || "dlykcgjdh"}
+      uploadPreset={data.cloudinaryUploadPreset || "lms_preset"}
     >
       {tab === "personal"  && <PersonalTab  fields={fields} set={set} />}
       {tab === "academic"  && <AcademicTab  fields={fields} set={set} />}

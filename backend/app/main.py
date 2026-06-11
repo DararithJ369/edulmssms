@@ -52,7 +52,7 @@ from app.config.base import Base
 from app.models import *  # ensures all tables are known
 
 # create database tables
-Base.metadata.create_all(bind=engine)
+# Base.metadata.create_all(bind=engine)
 
 
 app = FastAPI(

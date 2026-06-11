@@ -12,7 +12,7 @@ from sqlalchemy import inspect
 
 # revision identifiers, used by Alembic.
 revision = 'add_payment_and_published_fields'
-down_revision = None
+down_revision = '88db4dab6490'
 branch_labels = None
 depends_on = None
 

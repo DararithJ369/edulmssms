@@ -1,959 +1,809 @@
 "use client";
- 
-import { useEffect, useState, useRef } from "react";
+
+import { useEffect, useState, useCallback } from "react";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { api } from "@/lib/api";
-import { cn } from "@/lib/ui";
-import { 
-  Globe, BookOpen, Video, FileText, CheckCircle, Circle, 
-  ChevronDown, ChevronUp, Download, Play, GraduationCap, Clock, Award, CheckSquare
+import BackButton from "@/components/BackButton";
+import {
+  BookOpen,
+  ChevronDown,
+  ChevronUp,
+  Layers,
+  Edit,
+  MessageSquare,
+  Globe,
+  CheckSquare,
+  Users,
+  User,
+  BarChart2,
+  FileUp,
+  FileText,
+  ExternalLink,
+  Download,
+  Pencil,
+  Check,
+  X,
+  ClipboardList,
+  Info,
+  Settings,
 } from "lucide-react";
+import { api } from "@/lib/api";
+import { getImageUrl } from "@/lib/image-url";
 
-type Lesson = {
-  id: number;
-  title: string;
-  content?: string;
-  duration?: string;
-  material_type?: string;
-  material_url?: string;
-  material_file?: string;
-  order: number;
-};
+// ── Grade utilities ────────────────────────────────────────────────────────
+function gradePillClass(grade: string | null | undefined) {
+  switch ((grade || "").toUpperCase()) {
+    case "A": return "bg-emerald-50 text-emerald-700 border-emerald-200";
+    case "B": return "bg-blue-50 text-blue-700 border-blue-200";
+    case "C": return "bg-amber-50 text-amber-700 border-amber-200";
+    case "D": return "bg-orange-50 text-orange-700 border-orange-200";
+    case "E": return "bg-rose-50 text-rose-600 border-rose-200";
+    case "F": return "bg-red-50 text-red-700 border-red-200";
+    default:  return "bg-muted text-muted-foreground border-border";
+  }
+}
 
-type Module = {
-  id: number;
-  title: string;
-  lessons: Lesson[];
-};
+function exportCSV(grades: any[], courseName: string) {
+  const headers = ["Student", "Assessment", "Score", "Total", "Percentage", "Grade", "Status", "Feedback"];
+  const rows = grades.map((g) => [
+    g.student_name || "",
+    g.assessment_title || "",
+    g.score ?? "",
+    g.total_marks ?? "",
+    g.percentage != null ? `${g.percentage.toFixed(1)}%` : "",
+    g.grade || "",
+    g.is_passed ? "Passed" : "Failed",
+    (g.feedback || "").replace(/,/g, ";"),
+  ]);
+  const csv = [headers, ...rows].map((r) => r.join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `${courseName.replace(/\s+/g, "_")}_grades.csv`;
+  a.click();
+}
 
-type Course = {
-  id: number;
-  title: string;
-  description: string;
-  difficulty: string;
-  credits: number;
-  specialisation: string;
-  modules: Module[];
-};
-
-type Progress = {
-  progress_percentage: number;
-  completed_lessons_count: number;
-  total_lessons_count: number;
-  completed_modules_count: number;
-  total_modules_count: number;
-  completed_lesson_ids: number[];
-  completed_module_ids: number[];
-};
-
-export default function CourseLearnHub({ params }: { params: { id: string } }) {
-  const courseId = parseInt(params.id);
+export default function CourseDetailPage() {
+  const router = useRouter();
+  const params = useParams();
   const searchParams = useSearchParams();
-  const lessonIdParam = searchParams.get("lessonId");
-  const [course, setCourse] = useState<Course | null>(null);
-  const [progress, setProgress] = useState<Progress | null>(null);
-  const [streak, setStreak] = useState<any | null>(null);
-  const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
-  const [expandedModules, setExpandedModules] = useState<Record<number, boolean>>({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [mutating, setMutating] = useState<number | null>(null);
+  const courseId = params.id as string;
+  const activeModuleIdParam = searchParams.get("expandedModuleId");
 
-  // Video and watch notes states
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
-  const [notes, setNotes] = useState<any[]>([]);
-  const [newNoteContent, setNewNoteContent] = useState("");
-  const [activeTab, setActiveTab] = useState<"content" | "notes">("content");
+  const tabParam = searchParams.get("tab") as "course" | "participants" | "grades" | "analytics" | null;
+  const [activeTab, setActiveTab] = useState<"course" | "participants" | "grades" | "analytics">(
+    tabParam && ["course", "participants", "grades", "analytics"].includes(tabParam) ? tabParam : "course"
+  );
+  const [role, setRole] = useState<string>("");
 
-  // Quiz-taking states
-  const [activeQuiz, setActiveQuiz] = useState<any | null>(null);
-  const [quizAnswers, setQuizAnswers] = useState<Record<number, number>>({});
-  const [quizResult, setQuizResult] = useState<any | null>(null);
-  const [submittingQuiz, setSubmittingQuiz] = useState(false);
-  const [quizMessage, setQuizMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-
-  // Helper to obtain cookies dynamically
-  const getAccessToken = () => {
-    if (typeof window === "undefined") return "";
-    const match = document.cookie.match(new RegExp('(^| )access_token=([^;]+)'));
-    if (match) return match[2];
-    const tokenMatch = document.cookie.match(new RegExp('(^| )token=([^;]+)'));
-    return tokenMatch ? tokenMatch[2] : "";
-  };
-
-  const getHeaders = () => {
-    const token = getAccessToken();
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  };
-
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-
-      // Fetch course details
-      const courseRes = await api.get(`/courses/${courseId}`);
-      setCourse(courseRes.data);
-
-      // Fetch modules outlines
-      const modulesRes = await api.get(`/courses/${courseId}/modules`);
-      const modulesData = modulesRes.data || [];
-
-      // Fetch dynamic progress
-      const progRes = await api.get(`/progress/course/${courseId}`);
-      setProgress(progRes.data);
-
-      try {
-        const streakRes = await api.get("/progress/streak");
-        setStreak(streakRes.data);
-      } catch (err) {
-        console.error("Failed to load streak details:", err);
-      }
-
-      if (courseRes.data) {
-        if (lessonIdParam) {
-          const targetLessonId = parseInt(lessonIdParam);
-          let found = false;
-          
-          for (const mod of modulesData) {
-            const matchingLesson = mod.lessons?.find((l: any) => l.id === targetLessonId);
-            if (matchingLesson) {
-              setExpandedModules({ [mod.id]: true });
-              setActiveLesson(matchingLesson);
-              found = true;
-              break;
-            }
-          }
-          
-          if (!found && modulesData.length > 0) {
-            setExpandedModules({ [modulesData[0].id]: true });
-            if (modulesData[0].lessons?.length > 0) {
-              setActiveLesson(modulesData[0].lessons[0]);
-            }
-          }
-        } else {
-          // Expand the first module by default
-          if (modulesData.length > 0) {
-            setExpandedModules({ [modulesData[0].id]: true });
-            if (modulesData[0].lessons?.length > 0) {
-              setActiveLesson(modulesData[0].lessons[0]);
-            }
-          }
-        }
-      }
-      setLoading(false);
-    } catch (err: any) {
-      console.error(err);
-      setError("Failed to load learning data. Please make sure you are signed in and the API is running.");
-      setLoading(false);
+  useEffect(() => {
+    const currentTab = searchParams.get("tab") as "course" | "participants" | "grades" | "analytics" | null;
+    if (currentTab && ["course", "participants", "grades", "analytics"].includes(currentTab)) {
+      setActiveTab(currentTab);
     }
-  };
+  }, [searchParams]);
+
+  // Course data
+  const [courseName, setCourseName] = useState("");
+  const [courseCode, setCourseCode] = useState("");
+  const [description, setDescription] = useState("");
+  const [category, setCategory] = useState("Computer Science");
+  const [difficulty, setDifficulty] = useState("beginner");
+  const [thumbnail, setThumbnail] = useState(
+    "https://images.unsplash.com/photo-1610962381137-50ef93055125?auto=format&fit=crop&q=80&w=800"
+  );
+  const [instructorName, setInstructorName] = useState("");
+  const [courseAssignments, setCourseAssignments] = useState<any[]>([]);
+
+  // Module/syllabus
+  const [modules, setModules] = useState<any[]>([]);
+  const [expandedSyllabus, setExpandedSyllabus] = useState<Record<number, boolean>>({});
+  const [loading, setLoading] = useState(true);
+
+  // Tab data
+  const [participants, setParticipants] = useState<any[]>([]);
+  const [grades, setGrades] = useState<any[]>([]);
+  const [analyticsData, setAnalyticsData] = useState<any>(null);
+  const [tabLoading, setTabLoading] = useState(false);
+
+  // Inline grade edit state (teacher/admin)
+  const [editingGrade, setEditingGrade] = useState<number | null>(null);
+  const [editScore, setEditScore] = useState<string>("");
+  const [editFeedback, setEditFeedback] = useState<string>("");
+  const [savingGrade, setSavingGrade] = useState(false);
 
   useEffect(() => {
-    loadData();
-  }, [courseId]);
+    if (typeof window !== "undefined") {
+      const userRole = localStorage.getItem("user_role") || "student";
+      setRole(userRole === "instructor" ? "teacher" : userRole);
+    }
 
-  useEffect(() => {
-    if (!activeLesson) return;
-    
-    // Clear quiz states
-    setActiveQuiz(null);
-    setQuizAnswers({});
-    setQuizResult(null);
-    setQuizMessage(null);
-
-    const checkQuiz = async () => {
+    const fetchCourse = async () => {
       try {
-        const quizzesRes = await api.get(`/quizzes?limit=100`);
-        const list = quizzesRes.data?.data || [];
-        const foundQuiz = list.find((q: any) => q.lesson_id === activeLesson.id);
-        
-        if (foundQuiz) {
-          const detailedRes = await api.get(`/quizzes/${foundQuiz.id}`);
-          setActiveQuiz(detailedRes.data);
-          
-          // Check if there is already a result
-          const resultsRes = await api.get(`/results?limit=1000`);
-          const userResult = (resultsRes.data || []).find((r: any) => r.quiz_id === foundQuiz.id);
-          if (userResult) {
-            setQuizResult(userResult);
-          }
+        setLoading(true);
+        const { data } = await api.get(`/courses/${courseId}`);
+        if (data) {
+          setCourseName(data.course_name || "");
+          setCourseCode(data.course_code || "");
+          setDescription(data.description || "");
+          setCategory(data.category || "Computer Science");
+          setDifficulty(data.difficulty || "beginner");
+          setInstructorName(data.instructor_name || "Faculty Staff");
+          if (data.thumbnail) setThumbnail(data.thumbnail);
         }
+        const { data: modulesData } = await api.get(`/courses/${courseId}/modules`);
+        if (modulesData?.length > 0) {
+          setModules(modulesData);
+          const activeId = activeModuleIdParam ? parseInt(activeModuleIdParam) : modulesData[0].id;
+          setExpandedSyllabus({ [activeId]: true });
+        }
+        // Pre-fetch assignments for "Add Grade" links
+        try {
+          const { data: asgn } = await api.get(`/assignments?course_id=${courseId}&limit=50`);
+          setCourseAssignments(Array.isArray(asgn) ? asgn : asgn?.data ?? []);
+        } catch { /* non-critical */ }
       } catch (err) {
-        console.error("Failed to check quiz for lesson:", err);
+        console.error("Failed to load course:", err);
+        setModules([]);
+      } finally {
+        setLoading(false);
       }
     };
-    
-    checkQuiz();
-  }, [activeLesson]);
+    fetchCourse();
+  }, [courseId, activeModuleIdParam]);
 
-  // Video progress, watch notes, and view-recording helper effects
+  // Fetch tab-specific data
   useEffect(() => {
-    if (!activeLesson) return;
-    
-    const isVideo = activeLesson.material_type?.toLowerCase() === "video";
-    if (isVideo) {
-      // Fetch progress
-      api.get(`/lessons/${activeLesson.id}/video/progress`)
-        .then(({ data }) => {
-          if (data && videoRef.current) {
-            if (data.current_time > 0) {
-              videoRef.current.currentTime = data.current_time;
-            }
-          }
-        })
-        .catch(console.error);
-
-      // Fetch watch notes
-      api.get(`/lessons/${activeLesson.id}/video/notes`)
-        .then(({ data }) => {
-          setNotes(data || []);
-        })
-        .catch(console.error);
-
-      // Record lesson view
-      api.post(`/lessons/${activeLesson.id}/view`).catch(console.error);
-    }
-  }, [activeLesson]);
-
-  const handleTimeUpdate = async () => {
-    if (!videoRef.current || !activeLesson) return;
-    const currentTime = videoRef.current.currentTime;
-    const duration = videoRef.current.duration || 0;
-
-    const lastSaved = (videoRef.current as any).lastSavedTime || 0;
-    if (Math.abs(currentTime - lastSaved) >= 5) {
-      (videoRef.current as any).lastSavedTime = currentTime;
+    if (activeTab === "course") return;
+    const fetchTab = async () => {
+      setTabLoading(true);
       try {
-        await api.post(`/lessons/${activeLesson.id}/video/progress`, {
-          current_time: currentTime,
-          duration: duration
-        });
-      } catch (err) {
-        console.error("Failed to sync video progress:", err);
-      }
-    }
-  };
-
-  const handleVideoPause = async () => {
-    if (!videoRef.current || !activeLesson) return;
-    const currentTime = videoRef.current.currentTime;
-    const duration = videoRef.current.duration || 0;
-    try {
-      await api.post(`/lessons/${activeLesson.id}/video/progress`, {
-        current_time: currentTime,
-        duration: duration
-      });
-      // Refresh course progress aggregate
-      const progRes = await api.get(`/progress/course/${courseId}`);
-      setProgress(progRes.data);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleAddNote = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newNoteContent.trim() || !activeLesson) return;
-    
-    const timestamp = videoRef.current ? videoRef.current.currentTime : 0;
-    
-    try {
-      const { data } = await api.post(`/lessons/${activeLesson.id}/video/notes`, {
-        timestamp: timestamp,
-        content: newNoteContent
-      });
-      
-      setNotes(prev => [...prev, data.data].sort((a, b) => a.timestamp - b.timestamp));
-      setNewNoteContent("");
-    } catch (err) {
-      console.error("Failed to add watch note", err);
-    }
-  };
-
-  const handleSeekTo = (timestamp: number) => {
-    if (videoRef.current) {
-      videoRef.current.currentTime = timestamp;
-      videoRef.current.play().catch(() => {});
-    }
-  };
-
-  const changeSpeed = (speed: number) => {
-    if (videoRef.current) {
-      videoRef.current.playbackRate = speed;
-      setPlaybackSpeed(speed);
-    }
-  };
-
-  const togglePip = async () => {
-    if (videoRef.current) {
-      try {
-        if (document.pictureInPictureElement) {
-          await document.exitPictureInPicture();
-        } else {
-          await videoRef.current.requestPictureInPicture();
+        if (activeTab === "participants") {
+          const { data } = await api.get(`/courses/${courseId}/students`);
+          setParticipants(Array.isArray(data) ? data : data?.data ?? []);
+        } else if (activeTab === "grades") {
+          const { data } = await api.get(`/courses/${courseId}/grades`);
+          setGrades(Array.isArray(data) ? data : data?.data ?? []);
+        } else if (activeTab === "analytics") {
+          const { data } = await api.get(`/analytics/course/${courseId}`);
+          setAnalyticsData(data);
         }
-      } catch (e) {
-        console.error("PiP not supported or failed:", e);
+      } catch (err) {
+        console.error("Failed to load tab data", err);
+      } finally {
+        setTabLoading(false);
       }
+    };
+    fetchTab();
+  }, [activeTab, courseId]);
+
+  const toggleSyllabusExpand = (id: number) =>
+    setExpandedSyllabus((prev) => ({ ...prev, [id]: !prev[id] }));
+
+  const renderActivityIcon = (type: string) => {
+    switch (type) {
+      case "file": return <FileUp className="h-4 w-4 text-emerald-600 shrink-0" />;
+      case "url":  return <ExternalLink className="h-4 w-4 text-amber-600 shrink-0" />;
+      default:     return <BookOpen className="h-4 w-4 text-sky-600 shrink-0" />;
     }
   };
 
-  const formatTime = (secs: number) => {
-    const m = Math.floor(secs / 60);
-    const s = Math.floor(secs % 60);
-    return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  // ── Inline grading (teacher/admin only) ─────────────────────────────────
+  const startEdit = (g: any) => {
+    setEditingGrade(g.id);
+    setEditScore(String(g.score ?? ""));
+    setEditFeedback(g.feedback ?? "");
   };
+  const cancelEdit = () => { setEditingGrade(null); setEditScore(""); setEditFeedback(""); };
 
-  const handleSubmitQuiz = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeQuiz) return;
-    
-    const unansweredCount = activeQuiz.questions.length - Object.keys(quizAnswers).length;
-    if (unansweredCount > 0) {
-      setQuizMessage({ type: "error", text: `Please answer all questions before submitting. (${unansweredCount} remaining)` });
-      return;
-    }
-    
+  const saveGrade = useCallback(async (resultId: number) => {
+    setSavingGrade(true);
     try {
-      setSubmittingQuiz(true);
-      setQuizMessage(null);
-      const payload = { answers: quizAnswers };
-      
-      const res = await api.post(`/quizzes/${activeQuiz.id}/submit`, payload);
-      setQuizResult(res.data);
-      setQuizMessage({ type: "success", text: `Quiz submitted successfully! You scored ${res.data.score}% (${res.data.grade}).` });
-      
-      // Refresh progress to reflect new completions
-      const progRes = await api.get(`/progress/course/${courseId}`);
-      setProgress(progRes.data);
-      try {
-        const streakRes = await api.get("/progress/streak");
-        setStreak(streakRes.data);
-      } catch (err) {}
-      setSubmittingQuiz(false);
-    } catch (err: any) {
-      console.error(err);
-      const errMsg = err.response?.data?.detail || "Failed to submit quiz attempt.";
-      setQuizMessage({ type: "error", text: errMsg });
-      setSubmittingQuiz(false);
-    }
-  };
-
-  const toggleModuleAccordion = (modId: number) => {
-    setExpandedModules(prev => ({
-      ...prev,
-      [modId]: !prev[modId]
-    }));
-  };
-
-  const handleToggleLesson = async (lessonId: number, currentlyCompleted: boolean) => {
-    try {
-      setMutating(lessonId);
-      const payload = { completed: !currentlyCompleted };
-
-      const progRes = await api.post(`/progress/lesson/${lessonId}`, payload);
-      setProgress(progRes.data);
-      try {
-        const streakRes = await api.get("/progress/streak");
-        setStreak(streakRes.data);
-      } catch (err) {}
-      setMutating(null);
+      const fd = new FormData();
+      fd.append("score", editScore);
+      if (editFeedback) fd.append("feedback", editFeedback);
+      await api.put(`/results/${resultId}`, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      // Refresh grades
+      const { data } = await api.get(`/courses/${courseId}/grades`);
+      setGrades(Array.isArray(data) ? data : data?.data ?? []);
+      cancelEdit();
     } catch (err) {
-      console.error("Failed to toggle completion status:", err);
-      setMutating(null);
+      console.error("Grade save failed:", err);
+    } finally {
+      setSavingGrade(false);
     }
-  };
+  }, [editScore, editFeedback, courseId]);
 
-  const handleToggleModule = async (moduleId: number, currentlyCompleted: boolean) => {
-    try {
-      setMutating(moduleId);
-      const payload = { completed: !currentlyCompleted };
-
-      const progRes = await api.post(`/progress/module/${moduleId}`, payload);
-      setProgress(progRes.data);
-      try {
-        const streakRes = await api.get("/progress/streak");
-        setStreak(streakRes.data);
-      } catch (err) {}
-      setMutating(null);
-    } catch (err) {
-      console.error("Failed to toggle completion status:", err);
-      setMutating(null);
-    }
-  };
+  const isTeacher = role === "admin" || role === "teacher";
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#F7F8FA] flex-col gap-3">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0038A8]"></div>
-        <p className="text-sm font-semibold text-muted-foreground">Loading interactive learning workspace...</p>
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#F7F8FA]">
+        <div className="h-10 w-10 border-4 border-[#0038A8] border-t-transparent rounded-full animate-spin mb-3" />
+        <p className="text-sm font-semibold select-none">Loading Course Details...</p>
       </div>
     );
   }
-
-  if (error || !course) {
-    return (
-      <div className="p-6 bg-red-50 border border-red-200 text-red-800 rounded-xl m-6 flex flex-col gap-3 max-w-xl mx-auto">
-        <GraduationCap className="h-10 w-10 text-red-600" />
-        <h1 className="text-xl font-bold">Unable to Load Learn Hub</h1>
-        <p className="text-sm">{error || "The requested course could not be found."}</p>
-        <Link href="/list/courses" className="mt-2 text-sm font-bold text-blue-600 underline hover:text-blue-800">
-          Return to Course Catalog
-        </Link>
-      </div>
-    );
-  }
-
-  // Get active modules list from course or custom map
-  const modules = course.modules || [];
-  const progressPercentage = progress?.progress_percentage ?? 0;
 
   return (
-    <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left">
-      {/* MOODLE BREADCRUMB */}
-      <div className="flex items-center gap-1 text-[11px] font-extrabold text-muted-foreground uppercase tracking-wider mb-2 select-none">
-        <Link href="/" className="hover:text-foreground flex items-center gap-1">
-          <Globe className="h-3 w-3" />
-          Home
-        </Link>
-        <span>/</span>
-        <Link href="/list/courses" className="hover:text-foreground">
-          My Courses
-        </Link>
-        <span>/</span>
-        <Link href={`/list/courses/${courseId}`} className="hover:text-foreground">
-          {course.title}
-        </Link>
-        <span>/</span>
-        <span className="text-foreground">Learn Hub</span>
-      </div>
+    <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans">
 
-      {/* HEADER SECTION */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 select-none mb-6">
-        <div>
-          <span className="text-xs font-extrabold text-[#0038A8] uppercase tracking-wider font-mono">
-            {course.specialisation || "ACADEMIC DEPARTMENT"} • {course.difficulty || "INTRODUCTORY"}
-          </span>
-          <h1 className="text-xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight leading-tight mt-0.5">
-            {course.title} Learn Workspace
-          </h1>
-        </div>
+      {/* BREADCRUMB + HEADER */}
+      <div className="flex flex-col gap-4 select-none text-left">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase tracking-wider font-bold">
+            <Link href="/" className="hover:text-foreground flex items-center gap-1">
+              <Globe className="h-3 w-3" />Home
+            </Link>
+            <span>/</span>
+            <Link href="/list/courses" className="hover:text-foreground">My Courses</Link>
+            <span>/</span>
+            <span className="text-foreground font-mono">{courseCode || "CS-LMS"}</span>
+          </div>
 
-        <Link href={`/list/courses/${courseId}`}>
-          <button className="px-4 py-2 bg-white border border-border text-foreground hover:bg-muted font-extrabold text-xs rounded-xl shadow-sm transition-all active:scale-[0.98]">
-            View Course Home
-          </button>
-        </Link>
-      </div>
-
-      {/* WORKSPACE CONTENT GRID */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* LEFT COLUMN: ACTIVE LECTURE & LESSON PLAYER */}
-        <div className="lg:col-span-2 space-y-6">
-          {activeLesson ? (
-            <div className="bg-card text-card-foreground border border-border rounded-2xl shadow-sm overflow-hidden flex flex-col">
-              {/* VIDEO FRAME OR MEDIA BANNER */}
-              {activeLesson.material_type?.toLowerCase() === "video" ? (
-                <div className="relative w-full aspect-video bg-black flex flex-col justify-center items-center group">
-                  {activeLesson.material_file ? (
-                    <video
-                      ref={videoRef}
-                      src={`${API_URL}/lessons/${activeLesson.id}/video/stream?token=${getAccessToken()}`}
-                      controls
-                      onTimeUpdate={handleTimeUpdate}
-                      onPause={handleVideoPause}
-                      onEnded={handleVideoPause}
-                      className="w-full h-full object-contain"
-                    />
-                  ) : activeLesson.material_url ? (
-                    activeLesson.material_url.includes("youtube.com") || activeLesson.material_url.includes("youtu.be") ? (
-                      <iframe
-                        src={activeLesson.material_url.replace("watch?v=", "embed/")}
-                        className="absolute inset-0 w-full h-full border-0"
-                        allowFullScreen
-                      />
-                    ) : (
-                      <video
-                        ref={videoRef}
-                        src={activeLesson.material_url}
-                        controls
-                        onTimeUpdate={handleTimeUpdate}
-                        onPause={handleVideoPause}
-                        onEnded={handleVideoPause}
-                        className="w-full h-full object-contain"
-                      />
-                    )
-                  ) : (
-                    <div className="text-white text-xs">No video source found</div>
-                  )}
-                  
-                  {/* Custom Speed & PiP control panel */}
-                  {(activeLesson.material_file || (activeLesson.material_url && !activeLesson.material_url.includes("youtube.com") && !activeLesson.material_url.includes("youtu.be"))) && (
-                    <div className="flex items-center justify-between w-full p-3 bg-slate-900 text-white text-xs select-none">
-                      <div className="flex items-center gap-3">
-                        <span className="font-bold text-slate-400">Speed:</span>
-                        <div className="flex gap-1">
-                          {[0.5, 1.0, 1.25, 1.5, 2.0].map((speed) => (
-                            <button
-                              key={speed}
-                              onClick={() => changeSpeed(speed)}
-                              className={cn(
-                                "px-2 py-0.5 rounded transition-all font-mono",
-                                playbackSpeed === speed ? "bg-[#0038A8] text-white font-bold" : "hover:bg-slate-800 text-slate-300"
-                              )}
-                            >
-                              {speed}x
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <button
-                        onClick={togglePip}
-                        className="px-3 py-1 bg-slate-800 hover:bg-slate-700 font-bold rounded-lg transition-all"
-                      >
-                        Picture-in-Picture
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="w-full h-40 bg-gradient-to-r from-indigo-550 to-indigo-650 p-6 flex flex-col justify-end text-white select-none">
-                  <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-white/80">
-                    <BookOpen className="h-4 w-4" />
-                    Lecture Workspace
-                  </div>
-                  <h2 className="text-2xl font-black mt-1 leading-tight">{activeLesson.title}</h2>
-                </div>
-              )}
-
-              {/* TABS SELECTOR */}
-              <div className="border-b border-border flex bg-muted/20 select-none">
-                <button
-                  onClick={() => setActiveTab("content")}
-                  className={cn(
-                    "px-6 py-3 text-xs font-bold transition-all border-b-2",
-                    activeTab === "content" ? "border-[#0038A8] text-[#0038A8]" : "border-transparent text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  Lecture Content
-                </button>
-                <button
-                  onClick={() => setActiveTab("notes")}
-                  className={cn(
-                    "px-6 py-3 text-xs font-bold transition-all border-b-2",
-                    activeTab === "notes" ? "border-[#0038A8] text-[#0038A8]" : "border-transparent text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  Watch Notes ({notes.length})
-                </button>
-              </div>
-
-              {/* LECTURE DESCRIPTION, QUIZZES, OR NOTES */}
-              <div className="p-6 space-y-6 text-left">
-                {/* Header details */}
-                <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border/80 pb-4">
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">{activeLesson.title}</h3>
-                    <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1 select-none">
-                      <Clock className="h-3.5 w-3.5" />
-                      Duration: {activeLesson.duration || "45min"}
-                    </p>
-                  </div>
-
-                  <button
-                    onClick={() => handleToggleLesson(activeLesson.id, progress?.completed_lesson_ids.includes(activeLesson.id) ?? false)}
-                    disabled={mutating !== null}
-                    className={`px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all shadow-sm active:scale-[0.98] ${
-                      progress?.completed_lesson_ids.includes(activeLesson.id)
-                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
-                        : "bg-[#0038A8] text-white hover:bg-[#002e8c]"
-                    }`}
-                  >
-                    {progress?.completed_lesson_ids.includes(activeLesson.id) ? (
-                      <>
-                        <CheckCircle className="h-4 w-4" />
-                        <span>Completed!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Circle className="h-4 w-4" />
-                        <span>Mark as Completed</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                {activeTab === "content" ? (
-                  <div className="space-y-6">
-                    {/* Quiz or standard body notes */}
-                    {activeQuiz ? (
-                      <div className="space-y-6">
-                        {quizMessage && (
-                          <div className={`p-4 rounded-xl text-xs font-bold flex items-center gap-2 ${
-                            quizMessage.type === "success" 
-                              ? "bg-emerald-50 border border-emerald-200 text-emerald-800" 
-                              : "bg-red-50 border border-red-200 text-red-800"
-                          }`}>
-                            <CheckCircle className="h-4 w-4 shrink-0 text-emerald-600" />
-                            <span>{quizMessage.text}</span>
-                          </div>
-                        )}
-
-                        {quizResult ? (
-                          /* ALREADY SUBMITTED VIEW */
-                          <div className="p-6 bg-gradient-to-br from-indigo-550/5 to-indigo-650/5 border border-indigo-250/20 dark:border-indigo-950/50 rounded-2xl space-y-4">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <span className="text-[10px] font-black text-[#0038A8] dark:text-blue-400 uppercase tracking-widest block">
-                                  Evaluation Report
-                                </span>
-                                <h4 className="text-lg font-black text-gray-900 dark:text-white mt-1">Quiz Attempt Completed</h4>
-                              </div>
-                              <span className="text-3xl font-black text-[#0038A8] dark:text-blue-400">
-                                {quizResult.score}%
-                              </span>
-                            </div>
-
-                            <div className="flex flex-wrap gap-2 text-[10px] font-extrabold select-none">
-                              <span className={`px-2.5 py-0.5 rounded-full ${
-                                quizResult.is_passed
-                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                                  : "bg-red-50 text-red-700 border border-red-100"
-                              }`}>
-                                Grade: {quizResult.grade} • {quizResult.is_passed ? "PASSED" : "FAILED"}
-                              </span>
-                              <span className="bg-white dark:bg-[#1a1a20] text-muted-foreground border border-border px-2.5 py-0.5 rounded-full font-mono">
-                                Submitted: {new Date(quizResult.graded_at).toLocaleDateString("en-GB")}
-                              </span>
-                            </div>
-
-                            {quizResult.feedback && (
-                              <div className="space-y-1.5 border-t border-indigo-200/45 pt-3">
-                                <h5 className="text-xs font-black text-foreground">Instructor Remarks</h5>
-                                <p className="text-xs text-muted-foreground leading-relaxed font-sans bg-white/70 dark:bg-card p-3 rounded-lg border border-indigo-200/30">
-                                  {quizResult.feedback}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          /* ACTIVE QUIZ FORM */
-                          <form onSubmit={handleSubmitQuiz} className="space-y-6">
-                            <div className="p-4 bg-[#0038A8]/5 border border-[#0038A8]/10 rounded-xl">
-                              <span className="text-[10px] font-black text-[#0038A8] dark:text-blue-400 uppercase tracking-widest block mb-1">
-                                Quiz Overview
-                              </span>
-                              <p className="text-xs text-muted-foreground leading-relaxed">
-                                {activeQuiz.description || "Answer all multiple-choice questions below. Tapping submit instantly records your score in the student gradebook."}
-                              </p>
-                            </div>
-
-                            <div className="space-y-6">
-                              {activeQuiz.questions?.map((q: any, qIdx: number) => (
-                                <div key={q.id} className="p-5 border border-border/80 bg-white dark:bg-[#15151b] rounded-2xl space-y-3 shadow-sm text-left">
-                                  <h4 className="text-sm font-extrabold text-foreground leading-snug">
-                                    <span className="text-[#0038A8] dark:text-blue-400 font-black mr-1 font-mono">Q{qIdx + 1}.</span>
-                                    {q.question_text}
-                                  </h4>
-
-                                  <div className="flex flex-col gap-2.5">
-                                    {q.options?.map((opt: any) => {
-                                      const isSelected = quizAnswers[q.id] === opt.id;
-                                      return (
-                                        <div
-                                          key={opt.id}
-                                          onClick={() => setQuizAnswers(prev => ({ ...prev, [q.id]: opt.id }))}
-                                          className={`flex items-center justify-between p-3 rounded-xl border text-xs font-bold transition-all cursor-pointer select-none ${
-                                            isSelected
-                                              ? "bg-indigo-50/50 dark:bg-blue-500/10 border-indigo-500 text-indigo-755 dark:text-blue-300 shadow-sm"
-                                              : "hover:bg-muted/40 border-border/60 text-foreground"
-                                          }`}
-                                        >
-                                          <span>{opt.option_text}</span>
-                                          <div className={`h-4.5 w-4.5 rounded-full border shrink-0 transition-all flex items-center justify-center ${
-                                            isSelected
-                                              ? "border-indigo-650 bg-[#0038A8] text-white"
-                                              : "border-muted-foreground/30 bg-background"
-                                          }`}>
-                                            {isSelected && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-
-                            <button
-                              type="submit"
-                              disabled={submittingQuiz}
-                              className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-muted text-white font-extrabold text-xs rounded-xl shadow-md transition-all active:scale-[0.98]"
-                            >
-                              {submittingQuiz ? "Evaluating Answers..." : "Submit Quiz Attempt"}
-                            </button>
-                          </form>
-                        )}
-                      </div>
-                    ) : (
-                      /* Standard lecture description body notes */
-                      <>
-                        <div className="text-sm leading-relaxed text-muted-foreground font-sans whitespace-pre-wrap">
-                          {activeLesson.content || "No detailed curriculum notes added for this lecture. Please download handbooks or reference attachments below."}
-                        </div>
-
-                        {/* Handbooks / Lecture Materials Download Area */}
-                        {(activeLesson.material_file || activeLesson.material_url) && (
-                          <div className="bg-muted/40 border border-border/60 rounded-xl p-4 space-y-3">
-                            <h4 className="text-xs font-black text-foreground uppercase tracking-wider select-none">
-                              Lecture Attachments & Handbooks
-                            </h4>
-                            <div className="flex flex-col gap-2">
-                              {activeLesson.material_file && (
-                                <a
-                                  href={activeLesson.material_file}
-                                  download
-                                  className="flex items-center justify-between p-2.5 bg-white dark:bg-card border border-border hover:bg-accent rounded-lg text-xs font-semibold text-foreground transition-all"
-                                >
-                                  <span className="flex items-center gap-2 truncate">
-                                    <FileText className="h-4 w-4 text-rose-600 shrink-0" />
-                                    <span className="truncate">Official Syllabus Material & PDFs</span>
-                                  </span>
-                                  <Download className="h-4 w-4 text-muted-foreground shrink-0" />
-                                </a>
-                              )}
-                              {activeLesson.material_url && (
-                                <a
-                                  href={activeLesson.material_url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="flex items-center justify-between p-2.5 bg-white dark:bg-card border border-border hover:bg-accent rounded-lg text-xs font-semibold text-foreground transition-all"
-                                >
-                                  <span className="flex items-center gap-2 truncate">
-                                    {activeLesson.material_type?.toLowerCase() === "video" ? (
-                                      <Video className="h-4 w-4 text-blue-650 shrink-0" />
-                                    ) : (
-                                      <Globe className="h-4 w-4 text-[#0038A8] shrink-0" />
-                                    )}
-                                    <span className="truncate">External Video/Handbook Resource</span>
-                                  </span>
-                                  <Play className="h-4 w-4 text-muted-foreground shrink-0" />
-                                </a>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                ) : (
-                  /* Watch Notes Sidebar Panel */
-                  <div className="space-y-6">
-                    <form onSubmit={handleAddNote} className="space-y-3">
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          placeholder="Type your watch note here..."
-                          value={newNoteContent}
-                          onChange={(e) => setNewNoteContent(e.target.value)}
-                          className="flex-1 px-4 py-2 border border-border/80 bg-background text-foreground rounded-xl text-xs outline-none focus:ring-1 focus:ring-[#0038A8]"
-                        />
-                        <button
-                          type="submit"
-                          className="px-4 py-2 bg-[#0038A8] hover:bg-[#002e8c] text-white font-extrabold text-xs rounded-xl shadow-md transition-all active:scale-[0.98]"
-                        >
-                          Add Note
-                        </button>
-                      </div>
-                      <span className="text-[10px] text-muted-foreground block font-mono">
-                        Current Timestamp: {videoRef.current ? formatTime(videoRef.current.currentTime) : "00:00"}
-                      </span>
-                    </form>
-
-                    <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
-                      {notes.length === 0 ? (
-                        <p className="text-xs text-muted-foreground py-4 text-center">No watch notes added yet. Take notes as you watch the lecture!</p>
-                      ) : (
-                        notes.map((note) => (
-                          <div 
-                            key={note.id}
-                            className="flex items-start gap-3 p-3 border border-border/60 bg-card dark:bg-[#15151b] rounded-xl select-none"
-                          >
-                            <button
-                              onClick={() => handleSeekTo(note.timestamp)}
-                              className="px-2.5 py-1 bg-[#0038A8]/10 hover:bg-[#0038A8]/20 text-[#0038A8] dark:text-blue-400 font-mono text-[10px] font-bold rounded-lg shrink-0"
-                              title="Click to seek video"
-                            >
-                              {formatTime(note.timestamp)}
-                            </button>
-                            <p className="text-xs text-foreground mt-0.5 leading-relaxed font-sans">{note.content}</p>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                )}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-1">
+            <div className="flex items-center gap-3">
+              <BackButton />
+              <div>
+                <span className="text-xs font-extrabold text-[#0038A8] uppercase tracking-wider font-mono">
+                  {courseCode} • {category}
+                </span>
+                <h1 className="text-xl md:text-2xl font-black text-gray-900 tracking-tight leading-tight mt-0.5">
+                  {courseName}
+                </h1>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* TAB BAR */}
+        <div className="flex border-b border-border/60 gap-6 select-none text-xs font-extrabold text-muted-foreground pt-2">
+          {(["course", "participants", "grades", ...(role === "teacher" || role === "admin" ? ["analytics" as const] : [])] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab as any)}
+              className={`pb-3 border-b-2 transition-colors capitalize flex items-center gap-1.5 ${
+                activeTab === tab ? "border-[#0038A8] text-foreground" : "border-transparent hover:text-foreground"
+              }`}
+            >
+              {tab === "course" && <BookOpen className="h-3 w-3" />}
+              {tab === "participants" && <Users className="h-3 w-3" />}
+              {tab === "grades" && <BarChart2 className="h-3 w-3" />}
+              {tab === "analytics" && <BarChart2 className="h-3 w-3" />}
+              <span>{tab === "course" ? "Course" : tab.charAt(0).toUpperCase() + tab.slice(1)}</span>
+            </button>
+          ))}
+          {isTeacher && (
+            <Link
+              href={`/list/courses/${courseId}/edit`}
+              className="pb-3 border-b-2 border-transparent transition-colors hover:text-foreground flex items-center gap-1.5"
+            >
+              <Settings className="h-3 w-3" />
+              <span>Settings</span>
+            </Link>
+          )}
+          <button className="pb-3 border-b-2 border-transparent opacity-50 cursor-not-allowed flex items-center gap-1.5" disabled>
+            <FileText className="h-3 w-3" />
+            <span>Reports</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ── PARTICIPANTS TAB ─────────────────────────────────────────── */}
+      {activeTab === "participants" && (
+        <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.01)] text-left">
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-[#0038A8]" />
+              <h2 className="text-sm font-black text-gray-900 uppercase tracking-wider">Course Participants</h2>
+            </div>
+            <span className="px-3 py-1 bg-[#0038A8]/8 text-[#0038A8] font-black text-xs rounded-xl border border-[#0038A8]/15">
+              {participants.length} Enrolled
+            </span>
+          </div>
+          {tabLoading ? (
+            <div className="flex justify-center py-12">
+              <div className="h-8 w-8 border-4 border-[#0038A8] border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : participants.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Users className="h-10 w-10 mx-auto mb-3 opacity-20" />
+              <p className="text-sm font-bold">No participants enrolled yet.</p>
+              <p className="text-xs mt-1 opacity-70">Students who enroll in this course will appear here.</p>
+            </div>
           ) : (
-            <div className="bg-card text-card-foreground border border-border rounded-2xl p-12 text-center text-muted-foreground shadow-sm">
-              <BookOpen className="h-12 w-12 text-muted-foreground/60 mx-auto mb-3" />
-              <h3 className="font-bold text-lg">No Lecture Selected</h3>
-              <p className="text-sm mt-1">Please select an outline topic and click a lesson from the outline sidebar.</p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border/60 text-[10px] uppercase tracking-wider text-muted-foreground font-black">
+                    <th className="text-left py-2 px-3">Name</th>
+                    <th className="text-left py-2 px-3">Username</th>
+                    <th className="text-left py-2 px-3">Email</th>
+                    <th className="text-left py-2 px-3">Enrolled</th>
+                    <th className="text-left py-2 px-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/40">
+                  {participants.map((p: any) => (
+                    <tr key={p.id ?? p.student_id} className="hover:bg-muted/20 transition-colors group">
+                      <td className="py-3 px-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="h-7 w-7 rounded-full bg-[#0038A8]/10 text-[#0038A8] flex items-center justify-center text-[10px] font-black shrink-0">
+                            {(p.full_name || p.username || "?")[0].toUpperCase()}
+                          </div>
+                          <span className="font-bold text-foreground text-xs">{p.full_name || p.username || "—"}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-3 text-muted-foreground font-mono text-xs">{p.username || "—"}</td>
+                      <td className="py-3 px-3 text-muted-foreground text-xs">{p.email || "—"}</td>
+                      <td className="py-3 px-3 text-muted-foreground text-xs">{p.enrolled_date ? new Date(p.enrolled_date).toLocaleDateString() : "—"}</td>
+                      <td className="py-3 px-3">
+                        <span className={`px-2 py-0.5 text-[10px] font-bold rounded border uppercase ${
+                          p.is_active !== false ? "bg-emerald-50 text-emerald-700 border-emerald-100" : "bg-red-50 text-red-600 border-red-100"
+                        }`}>
+                          {p.is_active !== false ? "Enrolled" : "Dropped"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
+      )}
 
-        {/* RIGHT COLUMN: MODULES OUTLINE & PROGRESS GAUGES */}
-        <div className="space-y-6">
-          {/* COMPLETION GAUGE CARD */}
-          <div className="bg-white border border-border p-6 rounded-2xl shadow-sm text-left select-none relative overflow-hidden">
-            <div className="absolute right-[-20px] top-[-20px] opacity-[0.03]">
-              <Award className="h-32 w-32 text-indigo-950" />
+      {/* ── GRADES TAB ───────────────────────────────────────────────── */}
+      {activeTab === "grades" && (
+        <div className="space-y-4">
+          {/* Header bar */}
+          <div className="bg-card border border-border/60 rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.01)]">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <BarChart2 className="h-4 w-4 text-[#0038A8]" />
+                <h2 className="text-sm font-black text-gray-900 uppercase tracking-wider">
+                  {isTeacher ? "Gradebook — All Students" : "My Grade Report"}
+                </h2>
+              </div>
+              <div className="flex items-center gap-2">
+                {isTeacher && courseAssignments.length > 0 && (
+                  <Link href={`/list/assignments/${courseAssignments[0]?.id}/submissions`}>
+                    <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-black text-[#8b5cf6] hover:text-[#7c3aed] border border-[#8b5cf6]/20 bg-[#8b5cf6]/5 rounded-xl transition-colors">
+                      <ClipboardList className="h-3.5 w-3.5" />
+                      Review Submissions
+                    </button>
+                  </Link>
+                )}
+                {grades.length > 0 && (
+                  <button
+                    onClick={() => exportCSV(grades, courseName)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-black text-muted-foreground hover:text-foreground border border-border/60 bg-background rounded-xl transition-colors"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Export CSV
+                  </button>
+                )}
+              </div>
             </div>
 
-            <span className="text-[10px] font-black text-indigo-650 uppercase tracking-widest block mb-1">
-              Course Statistics
-            </span>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-black text-gray-900 leading-none">Learning Progress</h3>
-              {streak && streak.current_streak > 0 && (
-                <div 
-                  className="flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/20 text-orange-600 rounded-full text-[10px] font-black tracking-tight hover:scale-105 transition-all duration-200 cursor-help"
-                  title={`Longest streak: ${streak.longest_streak} days`}
-                >
-                  <span>🔥</span>
-                  <span>{streak.current_streak} Day Streak!</span>
-                </div>
-              )}
-            </div>
-
-            {/* Circular Gauge or Progress Bar */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-3xl font-black text-[#0038A8]">{progressPercentage}%</span>
-                <span className="text-xs font-bold text-muted-foreground">
-                  {progress?.completed_lessons_count} / {progress?.total_lessons_count} Lessons
+            {/* Grade legend */}
+            <div className="flex items-center gap-2 mt-4 flex-wrap">
+              {["A","B","C","D","F"].map((g) => (
+                <span key={g} className={`px-2.5 py-0.5 text-[10px] font-black rounded border ${gradePillClass(g)}`}>
+                  {g} {g==="A"?"≥90%":g==="B"?"≥80%":g==="C"?"≥70%":g==="D"?"≥60%":"<60%"}
                 </span>
-              </div>
-              <div className="w-full h-3 bg-muted rounded-full overflow-hidden border border-border/40">
-                <div
-                  className="h-full bg-gradient-to-r from-[#0038A8] to-indigo-600 rounded-full transition-all duration-500"
-                  style={{ width: `${progressPercentage}%` }}
-                />
-              </div>
-              <p className="text-xs text-muted-foreground leading-normal">
-                Complete modules and watch video lectures to raise your overall gradebook syllabus marks.
-              </p>
+              ))}
             </div>
           </div>
 
-          {/* COURSE MODULES ACCORDION OUTLINE */}
-          <div className="bg-card text-card-foreground border border-border rounded-2xl shadow-sm overflow-hidden flex flex-col text-left">
-            <div className="p-4 border-b border-border bg-muted/40 select-none">
-              <h3 className="font-bold text-sm text-foreground">Course Topic Outlines</h3>
-            </div>
-
-            <div className="divide-y divide-border/60">
-              {modules.map((mod: Module) => {
-                const isExpanded = !!expandedModules[mod.id];
-                const isModuleCompleted = progress?.completed_module_ids.includes(mod.id) ?? false;
-
-                return (
-                  <div key={mod.id} className="flex flex-col">
-                    {/* Module Accordion Header */}
-                    <div className="flex items-center justify-between p-4 bg-muted/20 hover:bg-muted/40 transition-all select-none cursor-pointer">
-                      <div 
-                        className="flex items-center gap-2 font-bold text-xs text-foreground shrink truncate pr-2"
-                        onClick={() => toggleModuleAccordion(mod.id)}
-                      >
-                        {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                        <span className="truncate">{mod.title}</span>
-                      </div>
-
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleToggleModule(mod.id, isModuleCompleted);
-                        }}
-                        disabled={mutating !== null}
-                        className={`p-1 rounded-md shrink-0 transition-all ${
-                          isModuleCompleted 
-                            ? "bg-emerald-50 text-emerald-600 hover:bg-emerald-100" 
-                            : "bg-muted text-muted-foreground hover:bg-border"
-                        }`}
-                        title={isModuleCompleted ? "Mark module incomplete" : "Mark module completed"}
-                      >
-                        <CheckCircle className="h-4 w-4" />
-                      </button>
-                    </div>
-
-                    {/* Nested Lessons Accordion Body */}
-                    {isExpanded && (
-                      <div className="bg-white dark:bg-card px-2 py-1 flex flex-col divide-y divide-border/30">
-                        {mod.lessons?.length > 0 ? (
-                          mod.lessons.map((l: Lesson) => {
-                            const isLessonCompleted = progress?.completed_lesson_ids.includes(l.id) ?? false;
-                            const isActive = activeLesson?.id === l.id;
-
-                            return (
-                              <div
-                                key={l.id}
-                                className={`flex items-center justify-between p-3 rounded-lg text-xs font-semibold select-none transition-all cursor-pointer ${
-                                  isActive 
-                                    ? "bg-lamaSkyLight/40 text-[#0038A8] border-l-4 border-[#0038A8]" 
-                                    : "hover:bg-muted/50 text-foreground"
-                                }`}
-                                onClick={() => setActiveLesson(l)}
-                              >
-                                <span className="flex items-center gap-2 truncate pr-2">
-                                  {l.material_type?.toLowerCase() === "video" ? (
-                                    <Video className="h-4 w-4 text-blue-500 shrink-0" />
-                                  ) : l.material_type?.toLowerCase() === "interactive quiz" || l.material_type?.toLowerCase() === "quiz" ? (
-                                    <CheckSquare className="h-4 w-4 text-rose-500 shrink-0" />
-                                  ) : (
-                                    <BookOpen className="h-4 w-4 text-[#0038A8] shrink-0" />
-                                  )}
-                                  <span className="truncate">{l.title}</span>
-                                </span>
-
+          {/* Grades table */}
+          <div className="bg-card border border-border/60 rounded-3xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.01)]">
+            {tabLoading ? (
+              <div className="flex justify-center py-16">
+                <div className="h-8 w-8 border-4 border-[#0038A8] border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : grades.length === 0 ? (
+              <div className="text-center py-16 text-muted-foreground">
+                <BarChart2 className="h-10 w-10 mx-auto mb-3 opacity-20" />
+                <p className="text-sm font-bold">No grades recorded yet.</p>
+                <p className="text-xs mt-1 opacity-70">Grades will appear here once assessments are evaluated.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border/60 bg-[#F7F8FA]/80 text-[10px] uppercase tracking-wider text-muted-foreground font-black">
+                      {isTeacher && <th className="text-left py-3 px-4">Student</th>}
+                      <th className="text-left py-3 px-4">Assessment</th>
+                      <th className="text-left py-3 px-4">Score</th>
+                      <th className="text-left py-3 px-4">%</th>
+                      <th className="text-left py-3 px-4">Grade</th>
+                      <th className="text-left py-3 px-4">Status</th>
+                      <th className="text-left py-3 px-4">Feedback</th>
+                      {isTeacher && <th className="text-left py-3 px-4">Action</th>}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/40">
+                    {grades.map((g: any) => (
+                      <tr key={g.id} className="hover:bg-muted/20 transition-colors">
+                        {isTeacher && (
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2">
+                              <div className="h-6 w-6 rounded-full bg-[#0038A8]/10 text-[#0038A8] flex items-center justify-center text-[9px] font-black shrink-0">
+                                {(g.student_name || "?")[0].toUpperCase()}
+                              </div>
+                              <span className="font-bold text-xs text-foreground">{g.student_name || "—"}</span>
+                            </div>
+                          </td>
+                        )}
+                        <td className="py-3 px-4 text-xs text-muted-foreground font-medium max-w-[200px] truncate">{g.assessment_title || "—"}</td>
+                        <td className="py-3 px-4">
+                          {editingGrade === g.id ? (
+                            <input
+                              type="number"
+                              value={editScore}
+                              onChange={(e) => setEditScore(e.target.value)}
+                              className="w-16 px-2 py-1 text-xs font-bold border border-[#0038A8]/30 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0038A8]/20 bg-muted/30"
+                              min={0}
+                              max={g.total_marks ?? 100}
+                            />
+                          ) : (
+                            <span className="font-bold text-xs">
+                              {g.score ?? "—"}<span className="text-muted-foreground font-normal">/{g.total_marks ?? "—"}</span>
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-xs font-mono text-muted-foreground">
+                          {g.percentage != null ? `${g.percentage.toFixed(1)}%` : "—"}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className={`px-2.5 py-0.5 text-xs font-black rounded border ${gradePillClass(g.grade)}`}>
+                            {g.grade || "—"}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className={`px-2 py-0.5 text-[10px] font-bold rounded border uppercase ${
+                            g.is_passed ? "bg-emerald-50 text-emerald-700 border-emerald-100" : "bg-red-50 text-red-600 border-red-100"
+                          }`}>
+                            {g.is_passed ? "Passed" : "Failed"}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 max-w-[200px]">
+                          {editingGrade === g.id ? (
+                            <input
+                              type="text"
+                              value={editFeedback}
+                              onChange={(e) => setEditFeedback(e.target.value)}
+                              placeholder="Add feedback..."
+                              className="w-full px-2 py-1 text-xs border border-[#0038A8]/30 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0038A8]/20 bg-muted/30"
+                            />
+                          ) : (
+                            <span className="text-xs text-muted-foreground truncate block max-w-[180px]">{g.feedback || <em className="opacity-40">—</em>}</span>
+                          )}
+                        </td>
+                        {isTeacher && (
+                          <td className="py-3 px-4">
+                            {editingGrade === g.id ? (
+                              <div className="flex items-center gap-1.5">
                                 <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleToggleLesson(l.id, isLessonCompleted);
-                                  }}
-                                  disabled={mutating !== null}
-                                  className={`p-0.5 rounded transition-all shrink-0 ${
-                                    isLessonCompleted ? "text-emerald-600" : "text-muted-foreground/40 hover:text-emerald-500"
-                                  }`}
+                                  onClick={() => saveGrade(g.id)}
+                                  disabled={savingGrade}
+                                  className="p-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors disabled:opacity-50"
                                 >
-                                  {isLessonCompleted ? (
-                                    <CheckCircle className="h-4 w-4 fill-emerald-50" />
-                                  ) : (
-                                    <Circle className="h-4 w-4" />
-                                  )}
+                                  <Check className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  onClick={cancelEdit}
+                                  className="p-1.5 bg-muted text-muted-foreground border border-border rounded-lg hover:bg-muted/80 transition-colors"
+                                >
+                                  <X className="h-3.5 w-3.5" />
                                 </button>
                               </div>
-                            );
-                          })
-                        ) : (
-                          <div className="p-3 text-center text-xs text-muted-foreground font-medium select-none">
-                            No lessons listed in this topic outline.
+                            ) : (
+                              <button
+                                onClick={() => startEdit(g)}
+                                className="p-1.5 text-muted-foreground hover:text-[#8b5cf6] border border-border/60 hover:border-[#8b5cf6]/40 rounded-lg transition-colors bg-background"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── ANALYTICS TAB (Teacher/Admin) ────────────────────────────── */}
+      {activeTab === "analytics" && (
+        <div className="space-y-6">
+          {tabLoading ? (
+            <div className="text-center py-12 text-muted-foreground text-sm font-bold">Loading analytics...</div>
+          ) : analyticsData ? (
+            <>
+              {/* Summary Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { label: "Enrolled", value: analyticsData.enrolled_students, color: "text-[#0038A8]" },
+                  { label: "Attendance", value: `${analyticsData.attendance_rate}%`, color: "text-emerald-600" },
+                  { label: "Avg Grade", value: `${analyticsData.avg_grade_percentage}%`, color: "text-amber-600" },
+                  { label: "Pass / Fail", value: `${analyticsData.pass_count} / ${analyticsData.fail_count}`, color: "text-foreground" },
+                ].map(({ label, value, color }) => (
+                  <div key={label} className="bg-card border border-border/60 rounded-2xl p-4 text-center">
+                    <p className={`text-2xl font-black ${color}`}>{value}</p>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-1">{label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Grade Distribution */}
+              <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-sm">
+                <h3 className="text-sm font-black text-foreground uppercase tracking-wider mb-4">Grade Distribution</h3>
+                <div className="flex items-end gap-3 h-40">
+                  {Object.entries(analyticsData.grade_distribution || {}).map(([grade, count]) => {
+                    const total = Object.values(analyticsData.grade_distribution || {}).reduce((s: number, v: any) => s + (v as number), 0) as number;
+                    const pct = total > 0 ? ((count as number) / total) * 100 : 0;
+                    const colors: Record<string, string> = { A: "bg-emerald-500", B: "bg-blue-500", C: "bg-amber-500", D: "bg-orange-500", F: "bg-red-500" };
+                    return (
+                      <div key={grade} className="flex-1 flex flex-col items-center gap-1">
+                        <span className="text-xs font-black text-muted-foreground">{count as number}</span>
+                        <div className="w-full rounded-t-lg transition-all" style={{ height: `${Math.max(pct, 4)}%` }}>
+                          <div className={`w-full h-full rounded-t-lg ${colors[grade] || "bg-muted"}`} />
+                        </div>
+                        <span className="text-xs font-black">{grade}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Quiz Performance */}
+              {analyticsData.quiz_stats?.length > 0 && (
+                <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-sm">
+                  <h3 className="text-sm font-black text-foreground uppercase tracking-wider mb-4">Quiz Performance</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border">
+                          <th className="text-left py-2 px-3 text-xs font-black text-muted-foreground uppercase">Quiz</th>
+                          <th className="text-left py-2 px-3 text-xs font-black text-muted-foreground uppercase">Attempts</th>
+                          <th className="text-left py-2 px-3 text-xs font-black text-muted-foreground uppercase">Avg Score</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {analyticsData.quiz_stats.map((q: any) => (
+                          <tr key={q.quiz_id} className="border-b border-border/40">
+                            <td className="py-2.5 px-3 font-bold">{q.title}</td>
+                            <td className="py-2.5 px-3">{q.attempts}</td>
+                            <td className="py-2.5 px-3">{q.avg_percentage != null ? `${q.avg_percentage}%` : "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Assignment Completion */}
+              {analyticsData.assignment_stats?.length > 0 && (
+                <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-sm">
+                  <h3 className="text-sm font-black text-foreground uppercase tracking-wider mb-4">Assignment Completion</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border">
+                          <th className="text-left py-2 px-3 text-xs font-black text-muted-foreground uppercase">Assignment</th>
+                          <th className="text-left py-2 px-3 text-xs font-black text-muted-foreground uppercase">Submissions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {analyticsData.assignment_stats.map((a: any) => (
+                          <tr key={a.assignment_id} className="border-b border-border/40">
+                            <td className="py-2.5 px-3 font-bold">{a.title}</td>
+                            <td className="py-2.5 px-3">{a.submissions}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* At-Risk Students */}
+              {analyticsData.at_risk_students?.length > 0 && (
+                <div className="bg-card border border-red-200/60 rounded-3xl p-6 shadow-sm">
+                  <h3 className="text-sm font-black text-red-600 uppercase tracking-wider mb-4">At-Risk Students (Attendance &lt; 80%)</h3>
+                  <div className="space-y-2">
+                    {analyticsData.at_risk_students.map((s: any) => (
+                      <div key={s.student_id} className="flex items-center justify-between p-3 bg-red-50/50 rounded-xl border border-red-100">
+                        <span className="text-sm font-bold text-foreground">{s.student_name}</span>
+                        <span className="text-xs font-black text-red-600">{s.attendance_rate}% attendance</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-center py-12 text-muted-foreground text-sm">No analytics data available.</div>
+          )}
+        </div>
+      )}
+
+      {/* ── COURSE TAB ───────────────────────────────────────────────── */}
+      {activeTab === "course" && (
+        <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 text-left">
+
+          {/* LEFT: Syllabus */}
+          <div className="lg:col-span-7 space-y-6">
+
+            {/* Hero cover */}
+            <div className="bg-card border border-border/60 rounded-3xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.01)]">
+              <div className="relative aspect-[21/9] w-full bg-muted border-b border-border/60">
+                <img src={getImageUrl(thumbnail) || "https://images.unsplash.com/photo-1610962381137-50ef93055125?auto=format&fit=crop&q=80&w=800"} alt={courseName} className="h-full w-full object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
+                <span className="absolute bottom-4 left-4 px-3 py-1 bg-white/95 backdrop-blur shadow-sm rounded-xl text-xs font-black uppercase text-[#0038A8] tracking-widest">
+                  {category}
+                </span>
+              </div>
+              <div className="p-6 space-y-3">
+                <h2 className="text-lg font-black text-foreground tracking-tight select-none">Course Overview</h2>
+                <p className="text-sm text-muted-foreground leading-relaxed font-medium">
+                  {description || "No description provided for this course."}
+                </p>
+              </div>
+            </div>
+
+            {/* General section */}
+            <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.01)] text-left space-y-4">
+              <h2 className="text-sm font-black text-gray-900 uppercase tracking-wider select-none">General</h2>
+              <div className="flex items-center justify-between p-3.5 bg-[#f4f6fa]/60 hover:bg-[#eef2fa] border border-border/40 rounded-2xl transition-all shadow-sm">
+                <div className="flex items-center gap-3.5 max-w-[80%]">
+                  <div className="h-9 w-9 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                    <MessageSquare className="h-4 w-4" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-foreground">Announcements & Course News</span>
+                    <span className="text-[10px] text-muted-foreground font-semibold">Critical course announcements and news.</span>
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 bg-blue-50 text-blue-600 font-bold text-[8px] rounded border uppercase">Forum</span>
+              </div>
+            </div>
+
+            {/* Topic Outline */}
+            <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.01)]">
+              <h2 className="text-sm font-black text-gray-900 uppercase tracking-wider mb-6 select-none">Topic Outline</h2>
+              {modules.length > 0 ? (
+                <div className="space-y-4">
+                  {modules.map((module, idx) => {
+                    const isExpanded = !!expandedSyllabus[module.id];
+                    return (
+                      <div key={module.id} className="border border-border/80 rounded-2xl overflow-hidden shadow-sm bg-[#F7F8FA]/30">
+                        <div className="flex items-center gap-3 px-4 py-3.5 bg-[#F7F8FA]/80 select-none">
+                          <button onClick={() => toggleSyllabusExpand(module.id)} className="text-muted-foreground/60 hover:text-foreground shrink-0 transition-colors">
+                            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          </button>
+                          <span className="text-xs font-black text-foreground truncate flex-1 text-left uppercase tracking-wide">
+                            Topic {idx + 1}: {module.title}
+                          </span>
+                          <span className="px-2.5 py-1 bg-white border border-border/80 text-muted-foreground font-black text-[9px] rounded-lg shadow-sm">
+                            {module.lessons?.length || 0} Activities
+                          </span>
+                        </div>
+                        {isExpanded && (
+                          <div className="p-5 border-t border-border/50 bg-card text-left space-y-5">
+                            {module.description && (
+                              <p className="text-xs text-muted-foreground leading-relaxed font-medium bg-muted/20 p-3.5 border rounded-2xl">{module.description}</p>
+                            )}
+                            <div className="space-y-3">
+                              <p className="text-[9px] font-black text-muted-foreground uppercase tracking-wider">Learning Activities & Resources</p>
+                              <div className="space-y-2.5">
+                                {module.lessons?.length > 0 ? module.lessons.map((lesson: any, lIdx: number) => (
+                                  <div key={lesson.id} className="flex items-center justify-between p-3 bg-[#f8fafc]/50 border border-border/40 hover:border-border/80 rounded-2xl transition-all shadow-sm">
+                                    <div className="flex items-center gap-3 max-w-[70%]">
+                                      <div className="h-8 w-8 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
+                                        {renderActivityIcon(lesson.material_type || "article")}
+                                      </div>
+                                      <div className="flex flex-col gap-0.5">
+                                        <span className="text-xs font-bold text-foreground truncate">Lecture {lIdx + 1}: {lesson.title}</span>
+                                        {lesson.duration && <span className="text-[10px] text-muted-foreground font-semibold font-mono">Duration: {lesson.duration}</span>}
+                                      </div>
+                                    </div>
+                                    {/* FINALLY CORRECTED LINK: Force navigation into the authorized student path namespace */}
+                                    <Link 
+                                      href={
+                                        role === "student"
+                                          ? `/student?lessonId=${lesson.id}`
+                                          : `/list/courses/${courseId}/learn?lessonId=${lesson.id}` 
+                                      }
+                                    >
+                                      <button className="px-3 py-1.5 bg-[#0038A8]/10 hover:bg-[#0038A8]/20 border border-[#0038A8]/20 text-[#0038A8] font-bold text-[9px] rounded-lg shadow-sm transition-colors active:scale-[0.98]">
+                                        Enter Activity
+                                      </button>
+                                    </Link>
+                                  </div>
+                                )) : (
+                                  <p className="text-xs text-muted-foreground italic">No learning resources in this topic.</p>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         )}
                       </div>
-                    )}
-                  </div>
-                );
-              })}
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic text-center py-6">No syllabus topics registered.</p>
+              )}
             </div>
           </div>
+
+          {/* RIGHT: Sidebar */}
+          <div className="lg:col-span-3 space-y-6">
+            <div className="bg-card border border-border/60 rounded-3xl p-5 text-left space-y-4">
+              <div className="flex items-center gap-2 select-none pb-2 border-b">
+                <CheckSquare className="h-4 w-4 text-[#0038A8]" />
+                <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Course Completion</h3>
+              </div>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-xs font-bold text-foreground">
+                  <span>Progress</span>
+                  <span className="text-[#0038A8]">100%</span>
+                </div>
+                <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-[#0038A8] to-[#4f88ef] rounded-full" style={{ width: "100%" }} />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-card border border-border/60 rounded-3xl p-5 text-left space-y-4">
+              <div className="flex items-center gap-2 select-none pb-2 border-b">
+                <Info className="h-4 w-4 text-[#0038A8]" />
+                <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Course Admin</h3>
+              </div>
+              <div className="space-y-3">
+                {[
+                  { icon: <User className="h-4 w-4" />, label: "Instructor", value: instructorName, color: "bg-blue-50 text-[#0038A8]" },
+                  { icon: <BookOpen className="h-4 w-4" />, label: "Course Code", value: courseCode, color: "bg-emerald-50 text-emerald-600", mono: true },
+                  { icon: <Layers className="h-4 w-4" />, label: "Difficulty", value: difficulty, color: "bg-amber-50 text-amber-600", cap: true },
+                ].map(({ icon, label, value, color, mono, cap }) => (
+                  <div key={label} className="flex items-center gap-3">
+                    <div className={`h-8 w-8 rounded-xl ${color} flex items-center justify-center shrink-0`}>{icon}</div>
+                    <div>
+                      <p className="text-[9px] font-bold text-muted-foreground uppercase select-none">{label}</p>
+                      <p className={`text-xs font-extrabold text-foreground ${mono ? "font-mono" : ""} ${cap ? "capitalize" : ""}`}>{value || "—"}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Quick links */}
+            {isTeacher && courseAssignments[0] && (
+              <div className="bg-card border border-border/60 rounded-3xl p-5 text-left space-y-3">
+                <div className="flex items-center gap-2 select-none pb-2 border-b">
+                  <ClipboardList className="h-4 w-4 text-[#0038A8]" />
+                  <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Quick Actions</h3>
+                </div>
+                <Link href={`/list/assignments/${courseAssignments[0].id}/submissions`}>
+                  <button className="w-full text-left px-3 py-2.5 text-xs font-bold text-foreground hover:bg-muted border border-border/60 rounded-xl transition-colors flex items-center gap-2">
+                    <CheckSquare className="h-3.5 w-3.5 text-[#0038A8]" />Review Submissions
+                  </button>
+                </Link>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -5,7 +5,7 @@ import EventCalendar from "@/components/EventCalendar";
 import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
 import Link from "next/link";
-import { Globe } from "lucide-react";
+import { Globe, Video, ArrowLeft, AlertCircle } from "lucide-react";
 
 // Widgets
 import StreakWidget from "@/components/student/StreakWidget";
@@ -24,9 +24,14 @@ import {
   CalendarSkeleton,
 } from "@/components/student/WidgetSkeleton";
 
-const StudentPage = async () => {
+interface PageProps {
+  searchParams: { [key: string]: string | string[] | undefined };
+}
+
+const StudentPage = async ({ searchParams }: PageProps) => {
   const cookieStore = cookies();
   const userId = cookieStore.get("user_id")?.value || null;
+  const token = cookieStore.get("access_token")?.value || cookieStore.get("token")?.value || "";
 
   if (!userId) {
     return (
@@ -37,6 +42,25 @@ const StudentPage = async () => {
         </div>
       </div>
     );
+  }
+
+  const activeLessonId = searchParams?.lessonId;
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+
+  // Quick lookup of lesson metadata to display an elegant layout headline
+  let lessonTitle = `Lesson #${activeLessonId}`;
+  if (activeLessonId) {
+    try {
+      const lessonRes = await fetch(`${baseUrl}/lessons/${activeLessonId}`, {
+        headers: { "Authorization": `Bearer ${token}` },
+      });
+      if (lessonRes.ok) {
+        const lessonData = await lessonRes.json();
+        lessonTitle = lessonData.title || lessonTitle;
+      }
+    } catch (e) {
+      console.error("Failed to pre-fetch lesson details:", e);
+    }
   }
 
   // Quick check for student class
@@ -57,6 +81,57 @@ const StudentPage = async () => {
         <span>/</span>
         <span className="text-foreground">Dashboard</span>
       </div>
+
+      {/* ── 🍏 ACTUAL INTERACTIVE VIDEO LEARNING HUB WORKSPACE ── */}
+      {activeLessonId && (
+        <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-[0_8px_30px_rgb(0,0,0,0.015)] space-y-4 animate-in fade-in zoom-in-95 duration-300">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-[#0038A8]/10 text-[#0038A8] rounded-xl">
+                <Video className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-sm font-black text-slate-800 uppercase tracking-wide leading-tight">
+                  {lessonTitle}
+                </h2>
+                <p className="text-[10px] text-slate-400 font-bold font-mono mt-0.5">RESOURCE ENDPOINT SPECIFIER: ID #{activeLessonId}</p>
+              </div>
+            </div>
+            
+            <Link 
+              href="/student" 
+              className="flex items-center gap-1 px-3 py-1.5 bg-slate-50 hover:bg-rose-50 text-slate-500 hover:text-rose-600 text-xs font-bold rounded-xl border border-slate-200/60 transition-colors"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              <span>Back to Dashboard</span>
+            </Link>
+          </div>
+
+          {/* Dynamic Video Media Stream Wrapper Block */}
+          <div className="relative aspect-video w-full rounded-2xl overflow-hidden bg-slate-950 border border-slate-900 shadow-inner flex items-center justify-center">
+            <video 
+              src={`${baseUrl}/lessons/${activeLessonId}/video/stream`}
+              controls
+              autoPlay
+              className="w-full h-full object-contain"
+              poster="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=1200"
+            >
+              {/* Fallback component template if backend throws an unhandled stream asset block */}
+              <div className="p-6 text-center text-white flex flex-col items-center gap-2">
+                <AlertCircle className="h-8 w-8 text-amber-500" />
+                <p className="text-xs font-bold">Media Resource Offline</p>
+              </div>
+            </video>
+          </div>
+          
+          <div className="p-4 bg-amber-50/40 border border-amber-200/50 rounded-2xl flex items-start gap-3">
+            <span className="text-sm">⚠️</span>
+            <p className="text-[11px] text-amber-800 font-semibold leading-relaxed">
+              If the media player above stays gray or shows an empty wheel, the lesson record is active but **no raw video file has been uploaded on the teacher's dashboard yet**. Please report this to your instructor for asset synchronization.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* HEADER SECTION */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 select-none mb-6">

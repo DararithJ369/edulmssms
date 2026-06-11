@@ -38,8 +38,11 @@ cp backend/.env.example backend/.env
 # Generate a secure SECRET_KEY
 openssl rand -hex 32
 
-# Start everything
-docker compose up --build
+# Start the containers
+docker compose up -d --build
+
+# Run the migrations sequentially
+docker compose exec backend alembic upgrade head
 
 # Seed the database
 docker compose exec backend python app/db/seed/run_seeder.py seed

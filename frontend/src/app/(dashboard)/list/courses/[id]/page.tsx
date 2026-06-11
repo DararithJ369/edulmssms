@@ -717,8 +717,17 @@ export default function CourseDetailPage() {
                                         {lesson.duration && <span className="text-[10px] text-muted-foreground font-semibold font-mono">Duration: {lesson.duration}</span>}
                                       </div>
                                     </div>
-                                    <Link href={`/list/lessons/${lesson.id}?courseId=${courseId}&moduleId=${module.id}`}>
-                                      <button className="px-3 py-1.5 bg-[#0038A8]/10 hover:bg-[#0038A8]/20 border border-[#0038A8]/20 text-[#0038A8] font-bold text-[9px] rounded-lg shadow-sm transition-colors active:scale-[0.98]">
+                                    <Link 
+                                      href={
+                                        role === "student"
+                                          ? `/student/lessons/${lesson.id}?courseId=${courseId}&moduleId=${module.id}`
+                                          : `/list/lessons/${lesson.id}?courseId=${courseId}&moduleId=${module.id}`
+                                      }
+                                    >
+                                      <button 
+                                        type="button" // 👈 Prevents accidental form submissions/page refreshes
+                                        className="px-3 py-1.5 bg-[#0038A8]/10 hover:bg-[#0038A8]/20 border border-[#0038A8]/20 text-[#0038A8] font-bold text-[9px] rounded-lg shadow-sm transition-colors active:scale-[0.98]"
+                                      >
                                         Enter Activity
                                       </button>
                                     </Link>

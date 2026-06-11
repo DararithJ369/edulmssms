@@ -211,6 +211,8 @@ const SingleStudentPage = async ({ params: { id } }: PageProps) => {
     previous_school: sp?.previous_school || "",
     scholarship_status: sp?.scholarship_status || "",
     special_needs: sp?.special_needs || "",
+    cloudinaryCloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || "dlykcgjdh",
+    cloudinaryUploadPreset: process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "lms_preset"
   };
 
   const displayName = student.full_name || user.username;

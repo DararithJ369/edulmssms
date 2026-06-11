@@ -70,7 +70,7 @@ const ResumeLearningWidget = async () => {
 
         <div className="mt-6 flex items-center gap-3">
           <Link 
-            href={`/list/courses/${resumeLearning.course_id}/learn?lesson=${resumeLearning.lesson_id}`}
+            href={`/student?lessonId=${resumeLearning.lesson_id}`}
             className="inline-flex px-5 py-2.5 bg-white text-[#0038A8] hover:bg-slate-50 text-xs font-black rounded-xl shadow-md transition-all duration-200 items-center gap-1.5 hover:scale-[1.02] active:scale-[0.99]"
           >
             <PlayCircle className="h-4 w-4" />
