@@ -58,10 +58,6 @@ def get_current_user(
         if auth_header and auth_header.startswith("Bearer "):
             token_str = auth_header.split(" ")[1]
 
-    # Read from URL query params fallback (?token=...)
-    if not token_str:
-        token_str = request.query_params.get("token")
-
     # Read directly from server-sent browser cookies
     if not token_str:
         token_str = request.cookies.get("access_token") or request.cookies.get("token")

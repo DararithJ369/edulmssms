@@ -703,7 +703,7 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
         const fdUser = new FormData();
         fdUser.append("username", args.data.username);
         fdUser.append("email", args.data.email);
-        fdUser.append("password", args.data.password || "teacher123");
+        fdUser.append("password", args.data.password || crypto.randomUUID().slice(0, 16));
         fdUser.append("role_id", "2"); // Instructor Role
         const userRes = await callApiMutate("/users", "POST", fdUser, true);
         if (!userRes?.id) return null;
@@ -746,7 +746,7 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
         const fdUser = new FormData();
         fdUser.append("username", args.data.username);
         fdUser.append("email", args.data.email);
-        fdUser.append("password", args.data.password || "student123");
+        fdUser.append("password", args.data.password || crypto.randomUUID().slice(0, 16));
         fdUser.append("role_id", "3"); // Student Role
         const userRes = await callApiMutate("/users", "POST", fdUser, true);
         if (!userRes?.id) return null;
@@ -792,7 +792,7 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
         const fdUser = new FormData();
         fdUser.append("username", args.data.username);
         fdUser.append("email", args.data.email);
-        fdUser.append("password", args.data.password || "parent123");
+        fdUser.append("password", args.data.password || crypto.randomUUID().slice(0, 16));
         fdUser.append("role_id", "4"); // Parent Role
         const userRes = await callApiMutate("/users", "POST", fdUser, true);
         if (!userRes?.id) return null;

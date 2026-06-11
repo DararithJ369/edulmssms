@@ -62,9 +62,10 @@ app = FastAPI(
 
 
 # CORS (needed for frontend)
+_origins = settings.BACKEND_CORS_ORIGINS or ["http://localhost:3000"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # change later in production
+    allow_origins=_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

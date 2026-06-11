@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
     JWT_ALGORITHM: str = "HS256"
 
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 30
 
     # CORS
@@ -47,7 +47,7 @@ class Settings(BaseSettings):
 
     # Admin
     FIRST_SUPERUSER_EMAIL: EmailStr = "admin@example.com"
-    FIRST_SUPERUSER_PASSWORD: str = "admin123"
+    FIRST_SUPERUSER_PASSWORD: str
 
     # File Upload
     UPLOAD_FOLDER: str = os.path.join(os.getcwd(), "uploads")

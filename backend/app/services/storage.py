@@ -117,7 +117,11 @@ class StorageService:
     @classmethod
     def get_local_path(cls, stored_path: str) -> Path:
         backend_root = Path(__file__).parent.parent.parent.parent
-        return backend_root / "uploads" / stored_path
+        uploads_root = (backend_root / "uploads").resolve()
+        resolved = (uploads_root / stored_path).resolve()
+        if not str(resolved).startswith(str(uploads_root)):
+            raise ValueError("Invalid file path")
+        return resolved
 
     @classmethod
     def resolve_url(cls, stored_path: Optional[str]) -> Optional[str]:
