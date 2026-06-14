@@ -28,6 +28,7 @@ type QuizList = {
   due_date: string;
   course_name?: string | null;
   lesson_title?: string | null;
+  module_name?: string | null;
 };
 
 const QuizListPage = async ({
@@ -63,44 +64,23 @@ const QuizListPage = async ({
     }
   }
 
+  const queryParams = new URLSearchParams();
+  queryParams.set("page", String(p));
+  queryParams.set("limit", String(ITEM_PER_PAGE));
   if (classId) {
-    let courseIds: number[] = [];
-    const students = await serverFetch<any[]>(`/classes/${classId}/students`, fetchOptions).catch(() => []);
-    if (students && students.length > 0) {
-      const studentId = students[0].id || students[0].user_id;
-      const overview = await serverFetch<any>(`/students/${studentId}/overview`, fetchOptions).catch(() => null);
-      if (overview && overview.courses) {
-        courseIds = overview.courses.map((c: any) => Number(c.course_id));
-      }
-    }
-
-    const quizzesResponse = await serverFetch<{
-      data: QuizList[];
-      meta: { total: number };
-    }>(`/quizzes?limit=1000`, fetchOptions).catch(() => ({
-      data: [],
-      meta: { total: 0 },
-    }));
-    const allQuizzes = quizzesResponse.data || [];
-
-    const filteredQuizzes = allQuizzes.filter((item) => {
-      return item.course_id ? courseIds.includes(Number(item.course_id)) : false;
-    });
-
-    count = filteredQuizzes.length;
-    data = filteredQuizzes.slice((p - 1) * ITEM_PER_PAGE, p * ITEM_PER_PAGE);
-  } else {
-    const quizzesResponse = await serverFetch<{
-      data: QuizList[];
-      meta: { total: number };
-    }>(`/quizzes?page=${p}&limit=${ITEM_PER_PAGE}`, fetchOptions).catch(() => ({
-      data: [],
-      meta: { total: 0 },
-    }));
-
-    data = quizzesResponse.data || [];
-    count = quizzesResponse.meta?.total ?? 0;
+    queryParams.set("class_id", classId);
   }
+
+  const quizzesResponse = await serverFetch<{
+    data: QuizList[];
+    meta: { total: number };
+  }>(`/quizzes?${queryParams.toString()}`, fetchOptions).catch(() => ({
+    data: [],
+    meta: { total: 0 }
+  }));
+
+  data = quizzesResponse.data || [];
+  count = quizzesResponse.meta?.total ?? 0;
 
   return (
     <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left">
@@ -128,7 +108,7 @@ const QuizListPage = async ({
         {/* Action Button for Lecturers/Admins */}
         {(role === "admin" || role === "teacher") && (
           <Link href="/list/quizzes/create">
-            <button className="px-4 py-2 bg-[#0038A8] text-white font-black text-xs rounded-xl hover:bg-[#002D86] flex items-center gap-1.5 transition-all shadow-sm">
+            <button className="px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] text-white text-xs font-black rounded-xl transition-all shadow-md shadow-blue-500/10 flex items-center gap-1.5 active:scale-[0.98]">
               <Plus className="h-4 w-4" /> Create Quiz
             </button>
           </Link>
@@ -167,10 +147,6 @@ const QuizListPage = async ({
                 <span className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-3xl bg-red-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 
                 <div className="flex items-center gap-4 max-w-[70%] z-10">
-                  <div className="h-10 w-10 rounded-2xl bg-red-50 border border-red-100 dark:bg-red-950/20 dark:border-red-950/30 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0 shadow-sm transition-all duration-300 group-hover:scale-105">
-                    <CheckSquare className="h-5 w-5" />
-                  </div>
-
                   <div className="flex flex-col text-left gap-1">
                     <span className="text-sm font-extrabold text-foreground tracking-tight leading-snug group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors">
                       {item.title}
@@ -180,6 +156,12 @@ const QuizListPage = async ({
                       <span className="text-[#0038A8] dark:text-[#4f88ef] font-bold font-sans">
                         {item.course_name || `Course #${item.course_id}`}
                       </span>
+                      {item.module_name && (
+                        <>
+                          <span className="text-muted-foreground/40">•</span>
+                          <span className="text-slate-600 dark:text-slate-400 font-sans font-semibold">{item.module_name}</span>
+                        </>
+                      )}
                       {item.lesson_id && (
                         <>
                           <span className="text-muted-foreground/40">•</span>

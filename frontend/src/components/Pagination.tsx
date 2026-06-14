@@ -3,11 +3,11 @@
 import { ITEM_PER_PAGE } from "@/lib/settings";
 import { useRouter } from "next/navigation";
 
-const Pagination = ({ page, count }: { page: number; count: number }) => {
+const Pagination = ({ page, count, limit = ITEM_PER_PAGE }: { page: number; count: number; limit?: number }) => {
   const router = useRouter();
 
-  const hasPrev = ITEM_PER_PAGE * (page - 1) > 0;
-  const hasNext = ITEM_PER_PAGE * (page - 1) + ITEM_PER_PAGE < count;
+  const hasPrev = limit * (page - 1) > 0;
+  const hasNext = limit * (page - 1) + limit < count;
 
   const changePage = (newPage: number) => {
     const params = new URLSearchParams(window.location.search);
@@ -15,26 +15,26 @@ const Pagination = ({ page, count }: { page: number; count: number }) => {
     router.push(`${window.location.pathname}?${params}`);
   };
   return (
-    <div className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-muted-foreground">
+    <div className="p-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-muted-foreground w-full">
       <button
         disabled={!hasPrev}
-        className="py-2 px-4 rounded-md bg-secondary text-secondary-foreground text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-300"
+        className="px-3 py-1.5 text-xs font-bold border border-border rounded-xl disabled:opacity-40 hover:bg-slate-50 bg-white text-slate-700 transition-colors duration-300 cursor-pointer"
         onClick={() => {
           changePage(page - 1);
         }}
       >
         Prev
       </button>
-      <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
+      <div className="flex flex-wrap items-center justify-center gap-1.5 text-xs font-bold">
         {Array.from(
-          { length: Math.ceil(count / ITEM_PER_PAGE) },
+          { length: Math.ceil(count / limit) },
           (_, index) => {
             const pageIndex = index + 1;
             return (
               <button
                 key={pageIndex}
-                className={`px-2 rounded-sm transition-colors duration-300 ${
-                  page === pageIndex ? "bg-primary text-primary-foreground" : "hover:bg-accent"
+                className={`px-2.5 py-1.5 rounded-lg transition-colors duration-300 cursor-pointer ${
+                  page === pageIndex ? "bg-[#0038A8] text-white" : "hover:bg-slate-100 text-slate-600"
                 }`}
                 onClick={() => {
                   changePage(pageIndex);
@@ -47,7 +47,7 @@ const Pagination = ({ page, count }: { page: number; count: number }) => {
         )}
       </div>
       <button
-        className="py-2 px-4 rounded-md bg-secondary text-secondary-foreground text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-300"
+        className="px-3 py-1.5 text-xs font-bold border border-border rounded-xl disabled:opacity-40 hover:bg-slate-50 bg-white text-slate-700 transition-colors duration-300 cursor-pointer"
         disabled={!hasNext}
         onClick={() => {
           changePage(page + 1);

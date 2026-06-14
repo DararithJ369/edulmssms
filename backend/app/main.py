@@ -37,8 +37,9 @@ from app.routes import (
     video_learning_router,
     audit_log_router,
     event_router,
-    storage_router,
     analytics_router,
+    certificates_router,
+    storage_router,
 )
 
 from app.routes.profiles import profiles_router
@@ -59,6 +60,66 @@ app = FastAPI(
     title="SMS + LMS API",
     version="1.0.0"
 )
+
+
+def migrate_lessons_to_materials(db):
+    try:
+        from app.models.course import Lesson
+        from app.models.lesson_material import LessonMaterial
+        
+        lessons = db.query(Lesson).all()
+        for l in lessons:
+            if not l.material_url and not l.material_file:
+                continue
+            
+            exists = db.query(LessonMaterial).filter(LessonMaterial.lesson_id == l.id).first()
+            if exists:
+                continue
+                
+            m_type = l.material_type or "link"
+            m_type_lower = m_type.lower()
+            if m_type_lower == "article":
+                m_type_clean = "doc"
+            elif m_type_lower not in ["pdf", "video", "doc", "link", "image"]:
+                m_type_clean = "link"
+            else:
+                m_type_clean = m_type_lower
+            
+            title = f"Lecture Resource ({m_type_clean.upper()})"
+            if m_type_clean == "video":
+                title = "Video Lecture"
+            elif m_type_clean == "pdf":
+                title = "Lecture Notes PDF"
+            
+            course_instructor = None
+            if l.module and l.module.course:
+                course_instructor = l.module.course.instructor_id
+            uploaded_by = course_instructor or "3f835ba3-bcb0-4ed0-a12c-8d7ae40e97c3"
+            
+            file_url_val = l.material_file or l.material_url or ""
+            material = LessonMaterial(
+                lesson_id=l.id,
+                uploaded_by=uploaded_by,
+                title=title,
+                description=l.content or "",
+                file_url=file_url_val,
+                type=m_type_clean,
+                is_visible=True
+            )
+            db.add(material)
+        db.commit()
+    except Exception as e:
+        print(f"Error migrating lessons to materials: {e}")
+
+
+@app.on_event("startup")
+def startup_event():
+    from app.config.session import local_session
+    db = local_session()
+    try:
+        migrate_lessons_to_materials(db)
+    finally:
+        db.close()
 
 
 # CORS (needed for frontend)
@@ -111,6 +172,7 @@ router.include_router(router=audit_log_router)
 router.include_router(router=event_router)
 router.include_router(router=storage_router)
 router.include_router(router=analytics_router)
+router.include_router(router=certificates_router)
 
 
 

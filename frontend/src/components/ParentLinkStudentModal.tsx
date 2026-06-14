@@ -64,6 +64,7 @@ export default function ParentLinkStudentModal({ parentId }: ParentLinkStudentMo
     try {
       // POST /api/v1/parents/{user_id}/students/{student_profile_id}
       await api.post(`/parents/${parentId}/students/${studentProfileId}`);
+      toast.success("Student linked to guardian successfully!");
       setOpen(false);
       setStudents([]);
       setSearchQuery("");
@@ -81,7 +82,7 @@ export default function ParentLinkStudentModal({ parentId }: ParentLinkStudentMo
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <button className="px-3.5 py-1.5 bg-[#0038A8] hover:bg-[#002b80] text-white font-extrabold text-[10px] rounded-xl shadow-sm transition-all flex items-center gap-1 uppercase tracking-wider ml-auto">
+        <button className="px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] text-white font-black text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5 ml-auto">
           <Plus className="h-3.5 w-3.5" /> Link Student
         </button>
       </DialogTrigger>
@@ -106,7 +107,7 @@ export default function ParentLinkStudentModal({ parentId }: ParentLinkStudentMo
           </div>
           <button
             type="submit"
-            className="px-4 py-2.5 bg-slate-900 text-white font-bold text-xs rounded-xl hover:bg-slate-800 transition-all shadow-sm"
+            className="px-4 py-2 bg-slate-900 text-white font-bold text-xs rounded-xl hover:bg-slate-800 transition-all shadow-sm"
           >
             Find
           </button>
@@ -135,7 +136,7 @@ export default function ParentLinkStudentModal({ parentId }: ParentLinkStudentMo
                     type="button"
                     onClick={() => handleLinkStudent(profileId)}
                     disabled={submitting !== null}
-                    className="px-2.5 py-1.5 bg-emerald-50 text-emerald-700 font-bold text-[10px] rounded-lg border border-emerald-200 hover:bg-emerald-100 transition-all shrink-0 flex items-center gap-1"
+                    className="px-2.5 py-1.5 bg-emerald-50 text-emerald-700 font-bold text-[10px] rounded-xl border border-emerald-200 hover:bg-emerald-100 transition-all shrink-0 flex items-center gap-1"
                   >
                     {submitting === profileId ? (
                       <Loader2 className="h-3 w-3 animate-spin" />

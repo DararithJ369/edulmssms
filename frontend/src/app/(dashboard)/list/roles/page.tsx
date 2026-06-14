@@ -40,6 +40,7 @@ export default function RolesListPage() {
   // Form Values
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [saving, setSaving] = useState(false);
   
   // Permissions Drawer Values
   const [rolePermissionIds, setRolePermissionIds] = useState<number[]>([]);
@@ -85,6 +86,7 @@ export default function RolesListPage() {
       toast.warn("Role name is required.");
       return;
     }
+    setSaving(true);
     try {
       await api.post("/roles", {
         name: name.trim(),
@@ -95,6 +97,8 @@ export default function RolesListPage() {
       fetchRoles();
     } catch (err: any) {
       toast.error(err?.response?.data?.detail || "Error creating role.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -112,6 +116,7 @@ export default function RolesListPage() {
       toast.warn("Role name is required.");
       return;
     }
+    setSaving(true);
     try {
       await api.put(`/roles/${selectedRole.id}`, {
         name: name.trim(),
@@ -123,6 +128,8 @@ export default function RolesListPage() {
       fetchRoles();
     } catch (err: any) {
       toast.error(err?.response?.data?.detail || "Error updating role.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -256,7 +263,7 @@ export default function RolesListPage() {
 
         <button 
           onClick={handleCreateOpen}
-          className="px-4 py-2.5 bg-[#8b5cf6] text-white hover:bg-[#7c3aed] font-extrabold text-xs rounded-xl transition-all shadow-md shadow-violet-500/10 flex items-center gap-1.5 active:scale-[0.98]"
+          className="px-4 py-2 bg-[#0038A8] text-white hover:bg-[#002D86] font-black text-xs rounded-xl transition-all shadow-md shadow-blue-500/10 flex items-center gap-1.5 active:scale-[0.98]"
         >
           <Plus className="h-4 w-4" />
           <span>Add Role</span>
@@ -296,16 +303,13 @@ export default function RolesListPage() {
           {filteredRoles.map((role) => (
             <div
               key={role.id}
-              className="bg-card border border-border/50 hover:border-violet-500/25 rounded-3xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.01)] hover:shadow-[0_12px_30px_rgba(0,0,0,0.03)] hover:-translate-y-[2px] transition-all duration-300 flex flex-col justify-between relative group overflow-hidden"
+              className="bg-card border border-border/50 hover:border-[#0038A8]/25 rounded-3xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.01)] hover:shadow-[0_12px_30px_rgba(0,0,0,0.03)] hover:-translate-y-[2px] transition-all duration-300 flex flex-col justify-between relative group overflow-hidden"
             >
-              <span className="absolute left-0 top-0 bottom-0 w-[4px] bg-[#8b5cf6] opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <span className="absolute left-0 top-0 bottom-0 w-[4px] bg-[#0038A8] opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <div className="p-2 bg-violet-50 text-[#8b5cf6] rounded-xl">
-                      <ShieldCheck className="h-5 w-5" />
-                    </div>
                     <span className="text-base font-black text-gray-900 capitalize">
                       {role.name}
                     </span>
@@ -328,7 +332,7 @@ export default function RolesListPage() {
               <div className="flex items-center justify-between border-t border-slate-100 pt-4 mt-auto">
                 <button
                   onClick={() => handlePermissionsOpen(role)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 text-slate-700 hover:bg-violet-50 hover:border-violet-200 hover:text-violet-700 text-xs font-bold rounded-xl transition-all"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 text-slate-700 hover:bg-blue-50 hover:border-blue-200 hover:text-[#0038A8] text-xs font-bold rounded-xl transition-all"
                   title="Configure permissions mapping"
                 >
                   <Key className="h-3.5 w-3.5" />
@@ -404,14 +408,16 @@ export default function RolesListPage() {
                   type="button"
                   onClick={() => setIsCreateOpen(false)}
                   className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl"
+                  disabled={saving}
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit"
-                  className="px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] text-white text-xs font-black rounded-xl"
+                  disabled={saving}
+                  className="px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] text-white text-xs font-black rounded-xl disabled:opacity-50"
                 >
-                  Create Role
+                  {saving ? "Creating..." : "Create Role"}
                 </button>
               </div>
             </form>
@@ -470,14 +476,16 @@ export default function RolesListPage() {
                     type="button"
                     onClick={() => setIsEditOpen(false)}
                     className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl"
+                    disabled={saving}
                   >
                     Cancel
                   </button>
                   <button 
                     type="submit"
-                    className="px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] text-white text-xs font-black rounded-xl"
+                    disabled={saving}
+                    className="px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] text-white text-xs font-black rounded-xl disabled:opacity-50"
                   >
-                    Update Role
+                    {saving ? "Updating..." : "Update Role"}
                   </button>
                 </div>
               </div>
@@ -525,7 +533,7 @@ export default function RolesListPage() {
               <div className="flex gap-2 shrink-0">
                 <button
                   onClick={handleSelectAllPermissions}
-                  className="px-2.5 py-1.5 bg-indigo-50 border border-indigo-200/50 text-indigo-700 text-[10px] font-black rounded-lg hover:bg-indigo-100/50 transition-colors"
+                  className="px-2.5 py-1.5 bg-blue-50 border border-blue-200/50 text-[#0038A8] text-[10px] font-black rounded-lg hover:bg-blue-100/50 transition-colors"
                 >
                   Select All
                 </button>
@@ -555,13 +563,13 @@ export default function RolesListPage() {
                             onClick={() => handleTogglePermission(perm.id)}
                             className={`flex items-start gap-3 p-3 rounded-2xl border transition-all cursor-pointer select-none ${
                               isChecked
-                                ? "bg-violet-50/40 border-violet-200"
+                                ? "bg-blue-50/40 border-blue-200"
                                 : "bg-white hover:bg-slate-50/50 border-border/50"
                             }`}
                           >
                             <div className={`mt-0.5 h-4.5 w-4.5 rounded-lg border flex items-center justify-center transition-all shrink-0 ${
                               isChecked
-                                ? "bg-violet-500 border-violet-500 text-white"
+                                ? "bg-[#0038A8] border-[#0038A8] text-white"
                                 : "border-slate-300 bg-white"
                             }`}>
                               {isChecked && <Check className="h-3 w-3 stroke-[3]" />}

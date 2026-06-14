@@ -1,6 +1,7 @@
 import FormContainer from "@/components/FormContainer";
 import TableRowActions from "@/components/TableRowActions";
 import Pagination from "@/components/Pagination";
+import prisma from "@/lib/prisma";
 import TableSearch from "@/components/TableSearch";
 import { serverFetch } from "@/lib/server-api";
 import { ITEM_PER_PAGE } from "@/lib/settings";
@@ -46,6 +47,14 @@ const ClassListPage = async ({
 
   const data = response.data || [];
   const count = response.meta?.total ?? 0;
+
+  const classGrades = await prisma.grade.findMany({
+    select: { id: true, level: true },
+  });
+  const classTeachers = await prisma.teacher.findMany({
+    select: { id: true, name: true, surname: true },
+  });
+  const relatedData = { teachers: classTeachers, grades: classGrades };
 
   return (
     <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left">
@@ -110,11 +119,6 @@ const ClassListPage = async ({
                 <span className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-3xl bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 
                 <div className="flex items-center gap-4 max-w-[70%] z-10">
-                  {/* Class Icon */}
-                  <div className="h-10 w-10 rounded-2xl bg-indigo-50 border border-indigo-100 dark:bg-indigo-950/20 dark:border-indigo-950/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 shadow-sm transition-all duration-300 group-hover:scale-105">
-                    <School className="h-5 w-5" />
-                  </div>
-
                   <div className="flex flex-col text-left gap-1">
                     <span className="text-sm font-extrabold text-foreground tracking-tight leading-snug group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                       Class {item.name}
@@ -122,7 +126,7 @@ const ClassListPage = async ({
 
                     <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap font-medium">
                       <span className="text-[#0038A8] dark:text-[#4f88ef] font-bold font-sans">
-                        Grade {item.grade_id}
+                        Year Level {item.grade_id}
                       </span>
                       <span className="text-muted-foreground/40">•</span>
                       <span className="font-sans">Capacity: {item.capacity ?? "Unlimited"} students</span>
@@ -145,6 +149,7 @@ const ClassListPage = async ({
                     table="class"
                     viewUrl={`/list/classes/${item.id}`}
                     editData={item}
+                    relatedData={relatedData}
                     role={role}
                   />
                 </div>

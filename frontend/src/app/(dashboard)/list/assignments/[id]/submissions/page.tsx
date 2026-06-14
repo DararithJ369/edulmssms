@@ -313,8 +313,8 @@ export default function AssignmentSubmissionsPage() {
                           <div className="flex items-center gap-1.5">
                             <button
                               onClick={() => startGrading(sub)}
-                              disabled={sub.status === "graded" && gradingId !== sub.id}
-                              className="px-2.5 py-1 text-[10px] font-black bg-[#8b5cf6]/10 text-[#8b5cf6] border border-[#8b5cf6]/20 rounded-lg hover:bg-[#8b5cf6]/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                              disabled={savingGrade || (gradingId !== null && gradingId !== sub.id)}
+                              className="px-2.5 py-1 text-[10px] font-black bg-[#0038A8]/10 text-[#0038A8] border border-[#0038A8]/20 rounded-lg hover:bg-[#0038A8]/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                               {sub.status === "graded" ? "Re-grade" : "Grade"}
                             </button>
@@ -355,8 +355,8 @@ export default function AssignmentSubmissionsPage() {
 
                               {/* Grade form */}
                               {isGrading ? (
-                                <div className="bg-card border border-[#8b5cf6]/20 rounded-2xl p-4 space-y-3">
-                                  <p className="text-[10px] font-black text-[#8b5cf6] uppercase tracking-wider">Grade Submission</p>
+                                <div className="bg-card border border-[#0038A8]/20 rounded-2xl p-4 space-y-3">
+                                  <p className="text-[10px] font-black text-[#0038A8] uppercase tracking-wider">Grade Submission</p>
                                   <div className="space-y-1">
                                     <label className="text-[10px] font-black text-muted-foreground uppercase tracking-wide">
                                       Score (out of {assignment?.total_marks || 100})
@@ -367,7 +367,7 @@ export default function AssignmentSubmissionsPage() {
                                       onChange={(e) => setGradeScore(e.target.value)}
                                       min={0}
                                       max={assignment?.total_marks || 100}
-                                      className="w-full px-3 py-2 bg-muted/30 border border-border/80 focus:border-[#8b5cf6]/40 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#8b5cf6]/20 font-bold"
+                                      className="w-full px-3 py-2 bg-muted/30 border border-border/80 focus:border-[#0038A8]/40 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#0038A8]/20 font-bold"
                                       placeholder="e.g. 85"
                                     />
                                   </div>
@@ -380,14 +380,14 @@ export default function AssignmentSubmissionsPage() {
                                       value={gradeFeedback}
                                       onChange={(e) => setGradeFeedback(e.target.value)}
                                       placeholder="Write instructor remarks..."
-                                      className="w-full px-3 py-2 bg-muted/30 border border-border/80 focus:border-[#8b5cf6]/40 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-[#8b5cf6]/20 leading-relaxed"
+                                      className="w-full px-3 py-2 bg-muted/30 border border-border/80 focus:border-[#0038A8]/40 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-[#0038A8]/20 leading-relaxed"
                                     />
                                   </div>
                                   <div className="flex gap-2 pt-1">
                                     <button
                                       onClick={submitGrade}
                                       disabled={savingGrade || !gradeScore}
-                                      className="flex items-center gap-1.5 px-4 py-2 bg-[#8b5cf6] text-white font-bold text-xs rounded-xl hover:bg-[#7c3aed] transition-colors disabled:opacity-50"
+                                      className="flex items-center gap-1.5 px-4 py-2 bg-[#0038A8] text-white font-black text-xs rounded-xl hover:bg-[#002D86] transition-colors disabled:opacity-50"
                                     >
                                       <Check className="h-3.5 w-3.5" />
                                       {savingGrade ? "Saving..." : "Save Grade"}

@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { X, UploadCloud } from "lucide-react";
+import { toast } from "react-toastify";
 
 const lessonFormSchema = z.object({
   title: z.string().min(1, { message: "Lesson Name is required" }),
@@ -54,7 +55,7 @@ const LessonForm = ({
     material_url: data?.material_url || "",
     material_file: data?.material_file || "",
     order: data?.order ? parseInt(data.order) : 1,
-    module_id: data?.module_id || data?.module?.id || "",
+    module_id: data?.module_id || data?.module?.id || relatedData?.moduleId || "",
   };
 
   const {
@@ -81,7 +82,6 @@ const LessonForm = ({
     }
 
     if (typeof window !== "undefined" && (window as any).cloudinary) {
-      // 🍏 FIX: Dynamically specify the resource type block to prevent file corruption
       const isDocument = selectedMaterialType === "document" || selectedMaterialType === "pdf";
       const calculatedResourceType = isDocument ? "raw" : "auto";
 
@@ -89,7 +89,7 @@ const LessonForm = ({
         {
           cloudName: cloudName,
           uploadPreset: uploadPreset,
-          resourceType: calculatedResourceType, // 👈 Forces 'raw' for PDFs, keeping formatting intact
+          resourceType: calculatedResourceType,
           clientAllowedFormats: ["pdf", "mp4", "mov", "png", "jpg"],
           sources: ["local", "url", "camera", "google_drive", "dropbox"],
           multiple: false,
@@ -98,7 +98,15 @@ const LessonForm = ({
         (error: any, result: any) => {
           if (!error && result && result.event === "success") {
             const secureUrl = result.info.secure_url;
-            const fileName = result.info.original_filename + "." + result.info.format;
+            let fileName = result.info.original_filename;
+            if (result.info.format) {
+              fileName = fileName + "." + result.info.format;
+            } else if (secureUrl) {
+              const ext = secureUrl.split(".").pop()?.split("?")[0];
+              if (ext && ext.length <= 4 && !ext.includes("/")) {
+                fileName = fileName + "." + ext;
+              }
+            }
             
             setValue("material_url", secureUrl);
             setValue("material_file", fileName);
@@ -107,7 +115,7 @@ const LessonForm = ({
       );
       myWidget.open();
     } else {
-      setErrorMessage("Cloudinary widget script hasn't loaded yet. Please wait a second and try again.");
+      setErrorMessage("Cloudinary script hasn't loaded. Please wait and try again.");
     }
   };
 
@@ -143,190 +151,181 @@ const LessonForm = ({
       }
 
       if (res.status === 200 || res.status === 201) {
-        if (res.data && !res.data.detail && !res.data.loc) {
-          handleClose();
-          router.refresh();
-          if (typeof window !== "undefined") window.location.reload();
-        } else {
-          throw new Error("Invalid format received from database validation rules.");
-        }
+        toast.success(type === "create" ? "Lesson created successfully!" : "Lesson updated successfully!");
+        handleClose();
+        router.refresh();
       }
     } catch (err: any) {
       console.error("Form transmission rejected:", err);
       const backendRawError = err.response?.data?.detail;
-      setErrorMessage(
-        typeof backendRawError === "object" 
-          ? "Validation Error: Please check that Module ID and required fields match database specs." 
-          : backendRawError || "An error occurred while updating the lesson metrics."
-      );
+      const errMsg = typeof backendRawError === "object" 
+        ? "Validation Error: Please check that Module ID and required fields match database specs." 
+        : backendRawError || err.message || "An error occurred while updating the lesson metrics.";
+      setErrorMessage(errMsg);
+      toast.error(errMsg);
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const inputStyles = "w-full px-3 py-2 bg-slate-50 border border-border/80 rounded-xl outline-none text-xs transition-colors duration-300 focus:border-[#0038A8]/50 focus:ring-1 focus:ring-[#0038A8]/50 text-foreground";
+  const labelStyles = "text-[10px] font-extrabold uppercase text-muted-foreground tracking-wider block mb-1.5";
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fade-in">
-      <div className="bg-white w-full max-w-[1000px] rounded-[4px] shadow-2xl flex flex-col max-h-[92vh] overflow-hidden border border-slate-200/80 text-left font-sans select-none">
-        
-        {/* HEADER BAR */}
-        <div className="px-8 py-5 border-b border-slate-100 flex items-center justify-between shrink-0">
-          <h2 className="text-base font-bold text-slate-900 tracking-tight">
-            {type === "create" ? "Create a new lesson" : "Edit lesson metrics"}
-          </h2>
-          <button 
-            type="button"
-            onClick={(e) => { e.preventDefault(); handleClose(); }}
-            className="text-slate-400 hover:text-slate-600 transition-colors h-7 w-7 rounded-full hover:bg-slate-50 flex items-center justify-center"
-          >
-            <X className="h-4 w-4" />
-          </button>
+    <div className="space-y-6 text-left font-sans select-none p-2">
+      {/* HEADER SECTION */}
+      <div className="border-b border-slate-100 pb-4">
+        <h2 className="text-lg font-black text-gray-900 tracking-tight">
+          {type === "create" ? "Create a New Lesson" : "Edit Lesson Metrics"}
+        </h2>
+        <p className="text-xs text-muted-foreground mt-1">
+          {type === "create"
+            ? "Add a new lesson node to your course syllabus structure."
+            : "Modify core lecture metrics and upload streaming media formats."}
+        </p>
+      </div>
+
+      {errorMessage && (
+        <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl font-medium">
+          {errorMessage}
+        </div>
+      )}
+
+      <form id="lesson-form-element" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        {/* ROW 1 */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-5 gap-y-4">
+          <div>
+            <label className={labelStyles}>Lesson Name</label>
+            <input
+              type="text"
+              placeholder="e.g. Introduction to HTML"
+              {...register("title")}
+              className={inputStyles}
+            />
+            {errors.title && <p className="text-[10px] text-red-500 font-semibold mt-1">{errors.title.message}</p>}
+          </div>
+
+          <div>
+            <label className={labelStyles}>Syllabus Order</label>
+            <input
+              type="number"
+              placeholder="1"
+              {...register("order")}
+              className={inputStyles}
+            />
+          </div>
+
+          <div>
+            <label className={labelStyles}>Duration (Minutes)</label>
+            <input
+              type="number"
+              placeholder="45"
+              {...register("duration")}
+              className={inputStyles}
+            />
+          </div>
         </div>
 
-        {/* CONTENT FORM WORKSPACE */}
-        <div className="p-8 overflow-y-auto space-y-6 flex-1 bg-white">
-          {errorMessage && (
-            <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl mb-4 font-medium">
-              {errorMessage}
-            </div>
-          )}
+        {/* ROW 2 */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-5 gap-y-4">
+          <div>
+            <label className={labelStyles}>Parent Module ID</label>
+            <input
+              type="number"
+              placeholder="Module reference ID"
+              {...register("module_id")}
+              className={inputStyles}
+            />
+            {errors.module_id && <p className="text-[10px] text-red-500 font-semibold mt-1">{errors.module_id.message}</p>}
+          </div>
 
-          <form id="lesson-form-element" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            
-            {/* ROW 1 */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-5 gap-y-4">
-              <div className="space-y-1.5">
-                <label className="text-[13px] font-semibold text-[#475569]">Lesson Name</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Introduction to HTML"
-                  {...register("title")}
-                  className="w-full px-3 py-2.5 bg-white border border-[#e2e8f0] focus:border-[#3b82f6] rounded-xl text-sm font-medium text-[#334155] focus:outline-none transition-all placeholder:text-[#cbd5e1]"
-                />
-                {errors.title && <p className="text-xs text-red-500 font-medium">{errors.title.message}</p>}
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[13px] font-semibold text-[#475569]">Syllabus Order</label>
-                <input
-                  type="number"
-                  placeholder="1"
-                  {...register("order")}
-                  className="w-full px-3 py-2.5 bg-white border border-[#e2e8f0] focus:border-[#3b82f6] rounded-xl text-sm font-medium text-[#334155] focus:outline-none transition-all"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[13px] font-semibold text-[#475569]">Duration (Minutes)</label>
-                <input
-                  type="number"
-                  placeholder="45"
-                  {...register("duration")}
-                  className="w-full px-3 py-2.5 bg-white border border-[#e2e8f0] focus:border-[#3b82f6] rounded-xl text-sm font-medium text-[#334155] focus:outline-none transition-all"
-                />
-              </div>
-            </div>
-
-            {/* ROW 2 */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-5 gap-y-4">
-              <div className="space-y-1.5">
-                <label className="text-[13px] font-semibold text-[#475569]">Parent Module ID</label>
-                <input
-                  type="number"
-                  placeholder="Module reference ID"
-                  {...register("module_id")}
-                  className="w-full px-3 py-2.5 bg-white border border-[#e2e8f0] focus:border-[#3b82f6] rounded-xl text-sm font-medium text-[#334155] focus:outline-none transition-all"
-                />
-                {errors.module_id && <p className="text-xs text-red-500 font-medium">{errors.module_id.message}</p>}
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[13px] font-semibold text-[#475569]">Media Material Type</label>
-                <div className="relative">
-                  <select
-                    {...register("material_type")}
-                    className="w-full px-3 py-2.5 bg-white border border-[#e2e8f0] focus:border-[#3b82f6] rounded-xl text-sm font-medium text-[#334155] focus:outline-none transition-all appearance-none cursor-pointer"
-                  >
-                    <option value="video">Video Player (.mp4)</option>
-                    <option value="url">External Link (YouTube)</option>
-                    <option value="document">Document (.pdf)</option>
-                    <option value="article">Text Content</option>
-                    <option value="quiz">Interactive Quiz</option>
-                  </select>
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
-                    <svg className="fill-current h-4 w-4" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[13px] font-semibold text-[#475569]">Uploaded File Name</label>
-                <input
-                  type="text"
-                  disabled
-                  placeholder="No file attached"
-                  {...register("material_file")}
-                  className="w-full px-3 py-2.5 bg-gray-50 border border-[#e2e8f0] rounded-xl text-sm font-medium text-[#64748b] outline-none cursor-not-allowed truncate"
-                />
-              </div>
-            </div>
-
-            {/* ROW 3 */}
-            <div className="space-y-1.5">
-              <label className="text-[13px] font-semibold text-[#475569]">Remote Material URL</label>
-              <input
-                type="text"
-                placeholder="Automatically populated on widget upload or enter custom streaming link..."
-                {...register("material_url")}
-                className="w-full px-3 py-2.5 bg-white border border-[#e2e8f0] focus:border-[#3b82f6] rounded-xl text-sm font-medium text-[#334155] focus:outline-none transition-all placeholder:text-[#cbd5e1] truncate"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-[13px] font-semibold text-[#475569]">Lecture Notes & Curriculum Content</label>
-              <textarea
-                rows={4}
-                placeholder="Write core lesson notes or descriptions here..."
-                {...register("content")}
-                className="w-full px-3 py-2.5 bg-white border border-[#e2e8f0] focus:border-[#3b82f6] rounded-xl text-sm font-medium text-[#334155] focus:outline-none transition-all placeholder:text-[#cbd5e1] resize-none"
-              />
-            </div>
-
-            {/* FILE UPLOAD ZONE */}
-            <div className="space-y-1.5">
-              <label className="text-[13px] font-semibold text-[#475569]">Lesson Materials Upload</label>
-              <div 
-                onClick={openCloudinaryWidget}
-                className="w-full border border-dashed border-slate-200 rounded-[8px] p-6 flex flex-col items-center justify-center bg-white hover:bg-slate-50/50 hover:border-[#0038A8]/30 transition-all cursor-pointer group"
+          <div>
+            <label className={labelStyles}>Media Material Type</label>
+            <div className="relative">
+              <select
+                {...register("material_type")}
+                className="w-full px-3 py-2 bg-slate-50 border border-border/80 rounded-xl outline-none text-xs transition-colors duration-300 focus:border-[#0038A8]/50 focus:ring-1 focus:ring-[#0038A8]/50 text-foreground cursor-pointer appearance-none"
               >
-                <UploadCloud className="w-5 h-5 text-[#0038A8] mb-1" />
-                <p className="text-xs font-bold text-slate-700 mt-2.5">
-                  {currentMaterialFile ? `Attached: ${currentMaterialFile}` : "Upload Lesson material (PDF, slides, DOCX, video, etc.)"}
-                </p>
+                <option value="video">Video Player (.mp4)</option>
+                <option value="url">External Link (YouTube)</option>
+                <option value="document">Document (.pdf)</option>
+                <option value="article">Text Content</option>
+                <option value="quiz">Interactive Quiz</option>
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
+                <svg className="fill-current h-4 w-4" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
               </div>
             </div>
-          </form>
+          </div>
+
+          <div>
+            <label className={labelStyles}>Uploaded File Name</label>
+            <input
+              type="text"
+              disabled
+              placeholder="No file attached"
+              {...register("material_file")}
+              className="w-full px-3 py-2 bg-gray-100 border border-border/50 rounded-xl outline-none text-xs text-slate-500 cursor-not-allowed truncate"
+            />
+          </div>
         </div>
 
-        {/* FOOTER BAR */}
-        <div className="px-8 py-4 border-t border-slate-100 flex items-center justify-end gap-2.5 bg-slate-50/30 shrink-0">
+        {/* ROW 3 */}
+        <div>
+          <label className={labelStyles}>Remote Material URL</label>
+          <input
+            type="text"
+            placeholder="Automatically populated on widget upload or enter custom streaming link..."
+            {...register("material_url")}
+            className={inputStyles}
+          />
+        </div>
+
+        <div>
+          <label className={labelStyles}>Lecture Notes & Curriculum Content</label>
+          <textarea
+            rows={4}
+            placeholder="Write core lesson notes or descriptions here..."
+            {...register("content")}
+            className="w-full px-3 py-2 bg-slate-50 border border-border/80 rounded-xl outline-none text-xs transition-colors duration-300 focus:border-[#0038A8]/50 focus:ring-1 focus:ring-[#0038A8]/50 text-foreground placeholder:text-muted-foreground/40 resize-none"
+          />
+        </div>
+
+        {/* FILE UPLOAD ZONE */}
+        <div>
+          <label className={labelStyles}>Lesson Materials Upload</label>
+          <div 
+            onClick={openCloudinaryWidget}
+            className="w-full border-2 border-dashed border-[#cbd5e1] rounded-xl p-5 flex flex-col items-center justify-center bg-white hover:bg-gray-50/50 transition-colors cursor-pointer group"
+          >
+            <UploadCloud className="w-5 h-5 text-[#0038A8] mb-0.5" />
+            <p className="text-xs font-bold text-slate-700 mt-2.5">
+              {currentMaterialFile ? `Attached: ${currentMaterialFile}` : "Upload Lesson material (PDF, slides, DOCX, video, etc.)"}
+            </p>
+          </div>
+        </div>
+
+        {data?.id && <input type="hidden" name="id" value={data.id} />}
+
+        {/* SINGLE UNIFIED ACTION FOOTER SECTION BAR */}
+        <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-2 shrink-0">
           <button
             type="button"
             onClick={handleClose}
-            className="px-4 py-2 rounded-[8px] border border-slate-200 text-slate-600 bg-white hover:bg-slate-50 active:scale-[0.98] text-xs font-bold transition-all shadow-sm"
+            disabled={isSubmitting}
+            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl disabled:opacity-50 transition-colors cursor-pointer"
           >
             Cancel
           </button>
           <button
             type="submit"
-            form="lesson-form-element"
             disabled={isSubmitting}
-            className="px-4 py-2 rounded-[8px] bg-[#0038A8] text-white hover:bg-[#002b80] active:scale-[0.98] text-xs font-bold transition-all disabled:opacity-50 shadow-sm"
+            className="px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] text-white text-xs font-black rounded-xl disabled:opacity-50 transition-colors cursor-pointer"
           >
             {isSubmitting ? "Processing..." : type === "create" ? "Create Lesson" : "Save Changes"}
           </button>
         </div>
-
-      </div>
+      </form>
     </div>
   );
 };

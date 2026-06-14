@@ -7,7 +7,8 @@ from app.middleware.guard.permission import PermissionGuard
 from app.config.session import get_db
 from app.services.lesson_service import LessonService
 from app.schemas.lesson import LessonCreate, LessonUpdate, LessonResponse
-from app.schemas.lesson_material import LessonMaterialCreate
+from app.schemas.lesson_material import LessonMaterialCreate, LessonMaterialResponse, LessonMaterialUpdate
+from app.utils.upload_validator import validate_upload
 
 lesson_router = APIRouter(prefix="/lessons", tags=["Lessons"])
 
@@ -22,11 +23,30 @@ def delete_material(material_id: int, db: Session = Depends(get_db)):
     return LessonService.delete_material(db, material_id)
 
 
+@lesson_router.put(
+    "/materials/{material_id}",
+    response_model=LessonMaterialResponse,
+    dependencies=[Depends(PermissionGuard.admin_or_instructor)]
+)
+def update_material(
+    material_id: int,
+    payload: LessonMaterialUpdate,
+    db: Session = Depends(get_db)
+):
+    return LessonService.update_material(db, material_id, payload)
+
+
 # ── Collection ────────────────────────────────────────────────────────────────
 
 @lesson_router.get("")
-def get_all_lessons(page: int = 1, limit: int = 10, db: Session = Depends(get_db)):
-    result = LessonService.get_lessons(db, page, limit)
+def get_all_lessons(
+    page: int = 1,
+    limit: int = 10,
+    class_id: Optional[int] = None,
+    course_id: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    result = LessonService.get_lessons(db, page, limit, class_id=class_id, course_id=course_id)
     
     # 🛠️ Hydrate course_id and module_id directly inside the row dictionaries
     if isinstance(result, dict) and "data" in result:
@@ -106,14 +126,18 @@ def add_material(
     final_file_size = None
 
     if file:
+        validate_upload(file, allowed_categories=["image", "document", "video"])
         try:
             content_type = file.content_type or ""
             is_video_type = "video" in content_type or type.lower() == "video"
             resource_type_spec = "video" if is_video_type else "raw"
             
             # Send file object straight to Cloudinary bucket namespaces
-            upload_result = cloudinary.uploader.upload(
+            file.file.seek(0)
+            upload_result = cloudinary.uploader.unsigned_upload(
                 file.file,
+                upload_preset="lms_preset",
+                cloud_name="dlykcgjdh",
                 resource_type=resource_type_spec,
                 folder="lms_classroom_materials"
             )
@@ -143,3 +167,12 @@ def add_material(
     )
 
     return LessonService.add_material(db, lesson_id, material_payload)
+
+
+@lesson_router.get(
+    "/{lesson_id}/materials",
+    response_model=list[LessonMaterialResponse]
+)
+def get_lesson_materials(lesson_id: int, db: Session = Depends(get_db)):
+    return LessonService.get_lesson_materials(db, lesson_id)
+

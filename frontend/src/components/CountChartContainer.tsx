@@ -12,7 +12,7 @@ const CountChartContainer = async () => {
   const girls = data.find((d: any) => d.sex === "FEMALE")?._count || 0;
 
   return (
-    <div className="bg-white rounded-xl w-full h-full p-4">
+    <div className="bg-white rounded-xl border border-border/60 shadow-xs w-full h-full p-4">
       {/* TITLE */}
       <div className="flex justify-between items-center">
         <h1 className="text-lg font-semibold">Students</h1>
@@ -23,16 +23,16 @@ const CountChartContainer = async () => {
       {/* BOTTOM */}
       <div className="flex justify-center gap-16">
         <div className="flex flex-col gap-1">
-          <div className="w-5 h-5 bg-lamaSky rounded-full" />
+          <div className="w-5 h-5 bg-[#0038A8] rounded-full" />
           <h1 className="font-bold">{boys}</h1>
-          <h2 className="text-xs text-gray-300">
+          <h2 className="text-xs text-slate-500 font-semibold">
             Boys ({Math.round((boys / (boys + girls)) * 100)}%)
           </h2>
         </div>
         <div className="flex flex-col gap-1">
-          <div className="w-5 h-5 bg-lamaYellow rounded-full" />
+          <div className="w-5 h-5 bg-[#FB7185] rounded-full" />
           <h1 className="font-bold">{girls}</h1>
-          <h2 className="text-xs text-gray-300">
+          <h2 className="text-xs text-slate-500 font-semibold">
             Girls ({Math.round((girls / (boys + girls)) * 100)}%)
           </h2>
         </div>

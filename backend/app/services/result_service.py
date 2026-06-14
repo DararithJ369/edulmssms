@@ -1,3 +1,4 @@
+from typing import Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
@@ -10,8 +11,55 @@ from app.services.role_filter import apply_student_role_filter
 class ResultService:
 
     @staticmethod
-    def get_results(db: Session, page: int = 1, limit: int = 10, search: str = "", result_type: str = "", current_user = None) -> dict:
+    def get_results(
+        db: Session,
+        page: int = 1,
+        limit: int = 10,
+        search: str = "",
+        result_type: str = "",
+        current_user = None,
+        student_id: Optional[str] = None,
+        course_id: Optional[int] = None,
+        class_id: Optional[int] = None
+    ) -> dict:
         query = db.query(Result)
+
+        if student_id is not None:
+            query = query.filter(Result.student_id == student_id)
+
+        if course_id is not None or class_id is not None:
+            from app.models.assignment import Assignment
+            from app.models.exam import Exam
+            from app.models.quiz import Quiz
+            from app.models.course import Lesson, Module
+            from sqlalchemy import or_
+
+            # Resolve course IDs
+            course_ids = []
+            if course_id is not None:
+                course_ids.append(course_id)
+            if class_id is not None:
+                from app.services.base_service import get_course_ids_for_class
+                course_ids.extend(get_course_ids_for_class(db, class_id))
+
+            # Query assignments, exams, and quizzes linked to these course IDs
+            assignment_ids = [r.id for r in db.query(Assignment.id).filter(Assignment.course_id.in_(course_ids)).all()]
+            quiz_ids = [r.id for r in db.query(Quiz.id).filter(Quiz.course_id.in_(course_ids)).all()]
+            exam_ids = [
+                r.id for r in db.query(Exam.id)
+                .join(Lesson, Exam.lesson_id == Lesson.id)
+                .join(Module, Lesson.module_id == Module.id)
+                .filter(Module.course_id.in_(course_ids))
+                .all()
+            ]
+
+            query = query.filter(
+                or_(
+                    Result.assignment_id.in_(assignment_ids) if assignment_ids else False,
+                    Result.exam_id.in_(exam_ids) if exam_ids else False,
+                    Result.quiz_id.in_(quiz_ids) if quiz_ids else False
+                )
+            )
 
         query, early = apply_student_role_filter(query, Result.student_id, current_user, page, limit)
         if early is not None:
@@ -88,7 +136,8 @@ class ResultService:
             try:
                 from app.models.submission import Submission
                 linked_sub = db.query(Submission).filter(
-                    Submission.assignment_id == obj.assignment_id,
+                    Submission.submission_type == "assignment",
+                    Submission.reference_id == obj.assignment_id,
                     Submission.student_id == obj.student_id
                 ).first()
                 if linked_sub:

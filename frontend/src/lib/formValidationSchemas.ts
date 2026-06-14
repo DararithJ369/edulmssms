@@ -3,6 +3,9 @@ import { z } from "zod";
 export const subjectSchema = z.object({
   id: z.coerce.number().optional(),
   name: z.string().min(1, { message: "Subject name is required!" }),
+  code: z.string().min(1, { message: "Subject code is required!" }),
+  credits: z.coerce.number().min(1, { message: "Credits are required!" }),
+  gradeId: z.coerce.number().min(1, { message: "Year level is required!" }),
   teachers: z.array(z.string()), //teacher ids
 });
 
@@ -82,6 +85,7 @@ export const examSchema = z.object({
   startTime: z.coerce.date({ message: "Start time is required!" }),
   endTime: z.coerce.date({ message: "End time is required!" }),
   lessonId: z.coerce.number({ message: "Lesson is required!" }),
+  description: z.string().optional(),
 });
 
 export type ExamSchema = z.infer<typeof examSchema>;
@@ -136,6 +140,7 @@ export const assignmentSchema = z.object({
   dueDate: z.coerce.date({ message: "Due date is required!" }),
   lessonId: z.coerce.number().min(1, { message: "Lesson is required!" }),
   attachmentFile: z.string().optional(),
+  description: z.string().optional(),
 });
 
 export type AssignmentSchema = z.infer<typeof assignmentSchema>;
@@ -177,4 +182,22 @@ export const attendanceSchema = z.object({
 });
 
 export type AttendanceSchema = z.infer<typeof attendanceSchema>;
+
+export const userSchema = z.object({
+  id: z.string().optional(),
+  username: z
+    .string()
+    .min(3, { message: "Username must be at least 3 characters long!" })
+    .max(20, { message: "Username must be at most 20 characters long!" }),
+  email: z.string().email({ message: "Invalid email address!" }),
+  password: z
+    .string()
+    .min(8, { message: "Password must be at least 8 characters long!" })
+    .optional()
+    .or(z.literal("")),
+  role_id: z.coerce.number().min(1, { message: "Role is required!" }),
+});
+
+export type UserSchema = z.infer<typeof userSchema>;
+
 

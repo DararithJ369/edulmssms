@@ -146,21 +146,74 @@ def change_my_password(
 
 
 @user_router.get("/students", response_model=dict)
-def get_students(db: Session = Depends(get_db), page: int = 1, limit: int = 10, search: str = ""):
-    """Get all users with student role - Updated"""
-    return UserService.get_users_by_role(db, role_name="student", page=page, limit=limit, search=search)
+def get_students(
+    db: Session = Depends(get_db),
+    page: int = 1,
+    limit: int = 10,
+    search: str = "",
+    class_id: Optional[int] = None,
+    grade_id: Optional[int] = None,
+    sort_by: Optional[str] = None,
+    sort_order: Optional[str] = None
+):
+    """Get all users with student role - Updated with filtering & sorting"""
+    return UserService.get_users_by_role(
+        db,
+        role_name="student",
+        page=page,
+        limit=limit,
+        search=search,
+        class_id=class_id,
+        grade_id=grade_id,
+        sort_by=sort_by,
+        sort_order=sort_order
+    )
 
 
 @user_router.get("/instructors", response_model=dict)
-def get_instructors(db: Session = Depends(get_db), page: int = 1, limit: int = 10, search: str = ""):
-    """Get all users with instructor role"""
-    return UserService.get_users_by_role(db, role_name="instructor", page=page, limit=limit, search=search)
+def get_instructors(
+    db: Session = Depends(get_db),
+    page: int = 1,
+    limit: int = 10,
+    search: str = "",
+    department: Optional[str] = None,
+    sort_by: Optional[str] = None,
+    sort_order: Optional[str] = None
+):
+    """Get all users with instructor role - with filtering & sorting"""
+    return UserService.get_users_by_role(
+        db,
+        role_name="instructor",
+        page=page,
+        limit=limit,
+        search=search,
+        department=department,
+        sort_by=sort_by,
+        sort_order=sort_order
+    )
 
 
 @user_router.get("/parents", response_model=dict)
-def get_parents(db: Session = Depends(get_db), page: int = 1, limit: int = 10, search: str = ""):
-    """Get all users with parent role"""   
-    return UserService.get_users_by_role(db, role_name="parent", page=page, limit=limit, search=search)
+def get_parents(
+    db: Session = Depends(get_db),
+    page: int = 1,
+    limit: int = 10,
+    search: str = "",
+    relationship: Optional[str] = None,
+    sort_by: Optional[str] = None,
+    sort_order: Optional[str] = None
+):
+    """Get all users with parent role - with filtering & sorting"""   
+    return UserService.get_users_by_role(
+        db,
+        role_name="parent",
+        page=page,
+        limit=limit,
+        search=search,
+        relationship=relationship,
+        sort_by=sort_by,
+        sort_order=sort_order
+    )
 
 
 @user_router.get("/admins", response_model=dict, dependencies=[Depends(PermissionGuard.admin_only)])

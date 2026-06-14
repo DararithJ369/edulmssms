@@ -222,11 +222,25 @@ export default function SettingsPage() {
           <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.015)] relative overflow-hidden">
             <div className="absolute top-0 right-0 h-24 w-24 bg-gradient-to-bl from-indigo-50/50 to-transparent rounded-full -mr-6 -mt-6 select-none pointer-events-none" />
             
-            <div className="flex items-center gap-2 mb-6 border-b border-slate-50 pb-4">
-              <User className="h-5 w-5 text-[#0038A8]" />
-              <h2 className="text-lg font-black text-slate-800 tracking-tight">
-                Account Information
-              </h2>
+            <div className="flex items-center justify-between gap-2 mb-6 border-b border-slate-50 pb-4">
+              <div className="flex items-center gap-2">
+                <User className="h-5 w-5 text-[#0038A8]" />
+                <h2 className="text-lg font-black text-slate-800 tracking-tight">
+                  Account Information
+                </h2>
+              </div>
+              {userData?.role?.name && userData?.role?.name.toLowerCase() !== "admin" && (
+                <Link
+                  href={
+                    userData.role.name.toLowerCase() === "student" ? `/list/students/${userData.id}` :
+                    ["instructor", "teacher"].includes(userData.role.name.toLowerCase()) ? `/list/teachers/${userData.id}` :
+                    userData.role.name.toLowerCase() === "parent" ? `/list/parents/${userData.id}` : "#"
+                  }
+                  className="px-3 py-1.5 bg-[#0038A8]/10 hover:bg-[#0038A8]/15 text-[#0038A8] font-extrabold text-[10px] uppercase tracking-wider rounded-xl transition-all"
+                >
+                  Edit Profile & Photo
+                </Link>
+              )}
             </div>
 
             <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
@@ -324,7 +338,7 @@ export default function SettingsPage() {
                 <button
                   type="submit"
                   disabled={submittingPhone}
-                  className="px-6 py-3 bg-[#0038A8] hover:bg-[#002D86] text-white font-extrabold text-xs rounded-xl shadow-md shadow-blue-500/10 transition-all active:scale-[0.98] flex items-center gap-2 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] text-white font-black text-xs rounded-xl shadow-md shadow-blue-500/10 transition-all active:scale-[0.98] flex items-center gap-2 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {submittingPhone ? (
                     <>
@@ -430,7 +444,7 @@ export default function SettingsPage() {
                 <button
                   type="submit"
                   disabled={submittingPassword}
-                  className="w-full py-3 bg-[#0038A8] hover:bg-[#002D86] text-white font-extrabold text-xs rounded-xl shadow-md shadow-blue-500/10 transition-all active:scale-[0.98] flex items-center justify-center gap-2 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full py-2 bg-[#0038A8] hover:bg-[#002D86] text-white font-black text-xs rounded-xl shadow-md shadow-blue-500/10 transition-all active:scale-[0.98] flex items-center justify-center gap-2 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {submittingPassword ? (
                     <>

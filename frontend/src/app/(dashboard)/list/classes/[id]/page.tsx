@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useDialog } from "@/hooks/DialogProvider";
 import BackButton from "@/components/BackButton";
+import { toast } from "react-toastify";
 import {
   Globe,
   ArrowLeft,
@@ -83,7 +84,6 @@ export default function ClassDetailPage() {
   const [searching, setSearching] = useState(false);
   const [addingStudent, setAddingStudent] = useState<string | null>(null);
   const [removingStudent, setRemovingStudent] = useState<string | null>(null);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Quick Session Schedule Modal
   const [showCreateSession, setShowCreateSession] = useState(false);
@@ -174,19 +174,20 @@ export default function ClassDetailPage() {
   const addStudent = async (studentId: string) => {
     const capacity = classData?.capacity;
     if (capacity && students.length >= capacity) {
-      setMessage({ type: "error", text: `Class is at full capacity (${capacity} students). Remove a student first.` });
+      toast.error(`Class is at full capacity (${capacity} students). Remove a student first.`);
       return;
     }
     setAddingStudent(studentId);
     try {
       await api.post(`/classes/${classId}/students/${studentId}`);
       await loadData();
-      setMessage({ type: "success", text: "Student successfully added to this class." });
+      toast.success("Student successfully added to this class.");
       setShowAddModal(false);
       setSearchQuery("");
       setSearchResults([]);
     } catch (err: any) {
-      setMessage({ type: "error", text: err?.response?.data?.detail || "Failed to add student." });
+      const msg = err?.response?.data?.detail || err?.message || "Failed to add student.";
+      toast.error(msg);
     } finally {
       setAddingStudent(null);
     }
@@ -205,9 +206,10 @@ export default function ClassDetailPage() {
     try {
       await api.delete(`/classes/${classId}/students/${studentId}`);
       await loadData();
-      setMessage({ type: "success", text: "Student removed from class." });
+      toast.success("Student removed from class.");
     } catch (err: any) {
-      setMessage({ type: "error", text: err?.response?.data?.detail || "Failed to remove student." });
+      const msg = err?.response?.data?.detail || err?.message || "Failed to remove student.";
+      toast.error(msg);
     } finally {
       setRemovingStudent(null);
     }
@@ -539,16 +541,6 @@ export default function ClassDetailPage() {
         </div>
       </div>
 
-      {/* Message */}
-      {message && (
-        <div className={`flex items-center gap-2 p-4 rounded-2xl text-sm font-semibold border ${
-          message.type === "success" ? "bg-emerald-50 border-emerald-200 text-emerald-800" : "bg-red-50 border-red-200 text-red-800"
-        }`}>
-          {message.type === "success" ? <CheckCircle className="h-4 w-4 shrink-0" /> : <AlertTriangle className="h-4 w-4 shrink-0" />}
-          {message.text}
-          <button onClick={() => setMessage(null)} className="ml-auto p-0.5 rounded hover:bg-black/10"><X className="h-3.5 w-3.5" /></button>
-        </div>
-      )}
 
       {/* Capacity bar */}
       {capacity && (
@@ -588,7 +580,7 @@ export default function ClassDetailPage() {
               <button
                 onClick={() => setShowAddModal(true)}
                 disabled={isAtCapacity}
-                className={`flex items-center gap-1.5 px-3 py-2 text-xs font-black rounded-xl border transition-colors ${
+                className={`flex items-center gap-1.5 px-4 py-2 text-xs font-black rounded-xl border transition-colors ${
                   isAtCapacity
                     ? "bg-muted text-muted-foreground border-border cursor-not-allowed opacity-50"
                     : "bg-[#0038A8] text-white border-[#0038A8] hover:bg-[#002D86]"
@@ -675,7 +667,7 @@ export default function ClassDetailPage() {
             {isAdmin && (
               <button
                 onClick={() => setShowCreateSession(true)}
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-black rounded-xl border bg-[#0038A8] text-white border-[#0038A8] hover:bg-[#002D86] transition-colors"
+                className="flex items-center gap-1.5 px-4 py-2 text-xs font-black rounded-xl border bg-[#0038A8] text-white border-[#0038A8] hover:bg-[#002D86] transition-colors"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Schedule Session

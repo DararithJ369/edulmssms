@@ -42,7 +42,7 @@ class Course(Base):
         lazy="selectin",
         overlaps="courses",
     )
-    enrollments = relationship("Enrollment", back_populates="course", lazy="selectin")
+    enrollments = relationship("Enrollment", back_populates="course", lazy="selectin", cascade="all, delete-orphan")
     modules = relationship("Module", back_populates="course", lazy="selectin", cascade="all, delete-orphan")
     assignments = relationship("Assignment", back_populates="course", lazy="selectin", cascade="all, delete-orphan", overlaps="course")
     quizzes = relationship("Quiz", back_populates="course", lazy="selectin", cascade="all, delete-orphan", overlaps="course")
@@ -80,6 +80,13 @@ class Lesson(Base):
     
     # Relationships
     module = relationship("Module", back_populates="lessons")
+    materials = relationship(
+        "LessonMaterial",
+        back_populates="lesson",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+        order_by="LessonMaterial.id.asc()"
+    )
 
     @property
     def module_name(self) -> str:

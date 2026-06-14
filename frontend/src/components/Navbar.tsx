@@ -7,6 +7,7 @@ import { cn } from "@/lib/ui";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { api } from "@/lib/api";
 import { removeToken, normalizeRole } from "@/lib/auth";
+import { getImageUrl } from "@/lib/image-url";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,30 +34,33 @@ const Navbar = ({ onOpenCommandPalette }: NavbarProps) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [userProfile, setUserProfile] = useState<{
-    username: string; email: string; image?: string;
+    id?: string; username: string; email: string; image?: string;
   } | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const cachedUsername = localStorage.getItem("user_username");
-    const cachedEmail    = localStorage.getItem("user_email");
-    const cachedImage    = localStorage.getItem("user_image");
-    const cachedRole     = localStorage.getItem("user_role") || "guest";
+    const cachedRole = localStorage.getItem("user_role") || "guest";
     setRole(normalizeRole(cachedRole));
 
-    if (cachedUsername) {
-      setUserProfile({ username: cachedUsername, email: cachedEmail || "", image: cachedImage || "" });
-    } else {
-      api.get("/users/me").then(({ data }) => {
-        const r = normalizeRole(data.role?.name || "guest");
-        setRole(r);
-        localStorage.setItem("user_username", data.username || "");
-        localStorage.setItem("user_email",    data.email    || "");
-        localStorage.setItem("user_image",    data.image    || "");
-        localStorage.setItem("user_role",     r);
-        setUserProfile({ username: data.username || "", email: data.email || "", image: data.image || "" });
-      }).catch(() => setUserProfile({ username: "Academic Member", email: "", image: "" }));
-    }
+    // Always fetch fresh so a newly uploaded avatar is immediately visible
+    api.get("/users/me").then(({ data }) => {
+      const r = normalizeRole(data.role?.name || "guest");
+      setRole(r);
+      localStorage.setItem("user_id",       data.id       || "");
+      localStorage.setItem("user_username", data.username || "");
+      localStorage.setItem("user_email",    data.email    || "");
+      localStorage.setItem("user_image",    data.profile_image || data.image || "");
+      localStorage.setItem("user_role",     r);
+      setUserProfile({ id: data.id, username: data.username || "", email: data.email || "", image: data.profile_image || data.image || "" });
+    }).catch(() => {
+      // Fallback to cached values if API is unreachable
+      const id = localStorage.getItem("user_id");
+      const u = localStorage.getItem("user_username");
+      const e = localStorage.getItem("user_email");
+      const i = localStorage.getItem("user_image");
+      if (u) setUserProfile({ id: id || "", username: u, email: e || "", image: i || "" });
+      else    setUserProfile({ id: "", username: "Academic Member", email: "", image: "" });
+    });
 
     fetchUnreadCount();
     const interval = setInterval(fetchUnreadCount, 30_000);
@@ -212,9 +216,9 @@ const Navbar = ({ onOpenCommandPalette }: NavbarProps) => {
                 </span>
                 <span className="text-[10px] text-muted-foreground capitalize leading-none mt-0.5">{role}</span>
               </div>
-              <Avatar className="h-8 w-8 border border-border/60 shadow-sm transition-transform duration-200 group-hover:scale-105">
-                {userProfile?.image ? (
-                  <AvatarImage src={userProfile.image} alt={userProfile.username} />
+              <Avatar className="h-9 w-9 border border-border/60 shadow-sm transition-transform duration-200 group-hover:scale-105">
+                {getImageUrl(userProfile?.image) ? (
+                  <AvatarImage src={getImageUrl(userProfile!.image)!} alt={userProfile!.username} />
                 ) : null}
                 <AvatarFallback className={cn("font-bold text-[11px] bg-gradient-to-tr text-white", roleGradients[role] || "from-[#0038A8] to-violet-600")}>
                   {getInitials(userProfile?.username || role)}
@@ -228,10 +232,19 @@ const Navbar = ({ onOpenCommandPalette }: NavbarProps) => {
               <p className="text-sm font-bold text-foreground truncate mt-0.5">{userProfile?.username || "Guest"}</p>
               <p className="text-xs text-muted-foreground truncate">{userProfile?.email || "—"}</p>
             </div>
-            <DropdownMenuSeparator className="bg-border/60" />
             <DropdownMenuItem onClick={() => router.push(`/${role}`)}>
               <User className="mr-2 h-4 w-4 text-muted-foreground" /> Dashboard
             </DropdownMenuItem>
+            {role !== "admin" && role !== "guest" && (
+              <DropdownMenuItem onClick={() => {
+                const target = role === "student" ? `/list/students/${userProfile?.id}` :
+                               role === "teacher" ? `/list/teachers/${userProfile?.id}` :
+                               role === "parent" ? `/list/parents/${userProfile?.id}` : "#";
+                if (target !== "#") router.push(target);
+              }}>
+                <User className="mr-2 h-4 w-4 text-muted-foreground" /> My Profile
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem onClick={() => router.push("/settings")}>
               <Settings className="mr-2 h-4 w-4 text-muted-foreground" /> Settings
             </DropdownMenuItem>

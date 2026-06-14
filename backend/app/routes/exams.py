@@ -31,8 +31,14 @@ def grade_exam_result(
 
 
 @exam_router.get("")
-def get_all_exams(page: int = 1, limit: int = 10, db: Session = Depends(get_db)):
-    return ExamService.get_exams(db, page, limit)
+def get_all_exams(
+    page: int = 1,
+    limit: int = 10,
+    class_id: Optional[int] = None,
+    course_id: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    return ExamService.get_exams(db, page, limit, class_id=class_id, course_id=course_id)
 
 
 @exam_router.post(

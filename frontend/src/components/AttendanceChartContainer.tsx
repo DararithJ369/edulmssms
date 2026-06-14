@@ -36,17 +36,24 @@ const AttendanceChartContainer = async () => {
       Fri: { present: 0, absent: 0 },
     };
 
+  // Normalize lastMonday to midnight for accurate comparison
+  const startOfWeek = new Date(lastMonday.getFullYear(), lastMonday.getMonth(), lastMonday.getDate());
+
   resData.forEach((item: any) => {
     const itemDate = new Date(item.date);
-    const dayOfWeek = itemDate.getDay();
+    const itemDayDate = new Date(itemDate.getFullYear(), itemDate.getMonth(), itemDate.getDate());
     
-    if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-      const dayName = daysOfWeek[dayOfWeek - 1];
+    if (itemDayDate >= startOfWeek) {
+      const dayOfWeek = itemDate.getDay();
+      
+      if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+        const dayName = daysOfWeek[dayOfWeek - 1];
 
-      if (item.present) {
-        attendanceMap[dayName].present += 1;
-      } else {
-        attendanceMap[dayName].absent += 1;
+        if (item.present) {
+          attendanceMap[dayName].present += 1;
+        } else {
+          attendanceMap[dayName].absent += 1;
+        }
       }
     }
   });
@@ -58,7 +65,7 @@ const AttendanceChartContainer = async () => {
   }));
 
   return (
-    <div className="bg-white rounded-lg p-4 h-full">
+    <div className="bg-white rounded-xl border border-border/60 shadow-xs p-4 h-full">
       <div className="flex justify-between items-center">
         <h1 className="text-lg font-semibold">Attendance</h1>
         <Image src="/moreDark.png" alt="" width={20} height={20} />

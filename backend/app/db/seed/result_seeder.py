@@ -1,9 +1,15 @@
+import random
 from sqlalchemy import inspect, func
 from sqlalchemy.orm import Session
 from sqlalchemy.engine import Engine
 
 from app.db.seed.base import BaseSeeder
 from app.models.result import Result
+from app.models.submission import Submission
+from app.models.assignment import Assignment
+from app.models.quiz import Quiz
+from app.models.exam import Exam
+from app.models.user_profile import UserProfile
 from app.utils.colors import Colors
 
 
@@ -11,7 +17,7 @@ class ResultSeeder(BaseSeeder):
     def __init__(self, db: Session):
         super().__init__(db, Result)
 
-    def seed_results(self, student_ids: list[str], assignments: list, instructor_ids: list[str]):
+    def seed_results(self, student_ids: list[str], instructor_ids: list[str]):
         bind = self.db.bind
         if not isinstance(bind, Engine):
             Colors.warning("Database bind is not an Engine, skipping result seeding")
@@ -21,103 +27,146 @@ class ResultSeeder(BaseSeeder):
             Colors.warning("Table 'results' does not exist, skipping result seeding")
             return []
 
-        import random
-        from app.models.user_profile import UserProfile
-        from app.models.submission import Submission
-        
-        # Deterministic generator for consistent grades output
-        rng = random.Random(42)
+        rng = random.Random(42)  # Deterministic seed
 
-        def get_instructor(index: int) -> str:
+        def get_fallback_instructor(index: int) -> str:
             if not instructor_ids:
                 return None
-            if index < len(instructor_ids):
-                return instructor_ids[index]
-            return instructor_ids[0]
+            return instructor_ids[index % len(instructor_ids)]
+
+        # Grading pool to satisfy the bell curve distribution:
+        # A: 15%, B: 30%, C: 35%, D: 15%, F: 5%
+        grade_pool = (["A"] * 15) + (["B"] * 30) + (["C"] * 35) + (["D"] * 15) + (["F"] * 5)
 
         created = []
-        for assignment in assignments:
-            assignment_id = assignment.id
-            title = assignment.title
+        
+        # Query all student submissions to grade them
+        submissions = self.db.query(Submission).all()
+
+        # Eager load maps to avoid N+1 queries in the loop
+        assignments_map = {a.id: a for a in self.db.query(Assignment).all()}
+        quizzes_map = {q.id: q for q in self.db.query(Quiz).all()}
+        exams_map = {e.id: e for e in self.db.query(Exam).all()}
+        profiles_map = {p.user_id: p for p in self.db.query(UserProfile).all()}
+        
+        # Eager load existing results to avoid querying in loop
+        # Format key as: (student_id, type, ref_id)
+        existing_results = set()
+        for r in self.db.query(Result).all():
+            if r.assignment_id:
+                existing_results.add((r.student_id, "assignment", r.assignment_id))
+            elif r.quiz_id:
+                existing_results.add((r.student_id, "quiz", r.quiz_id))
+            elif r.exam_id:
+                existing_results.add((r.student_id, "exam", r.exam_id))
+
+        for submission in submissions:
+            sub_type = submission.submission_type
+            ref_id = submission.reference_id
+            student_id = submission.student_id
+
+            # Determine key fields and check for existing Result
+            assignment_id = None
+            quiz_id = None
+            exam_id = None
+            graded_by = None
+            total_marks = 100
+
+            # Check in-memory existing set
+            if (student_id, sub_type, ref_id) in existing_results:
+                continue
+
+            if sub_type == "assignment":
+                assignment_id = ref_id
+                assignment = assignments_map.get(ref_id)
+                if assignment:
+                    graded_by = assignment.teacher_id
+            elif sub_type == "quiz":
+                quiz_id = ref_id
+                quiz = quizzes_map.get(ref_id)
+                if quiz:
+                    graded_by = quiz.instructor_id
+            elif sub_type == "exam":
+                exam_id = ref_id
+                exam = exams_map.get(ref_id)
+                if exam:
+                    graded_by = exam.created_by
+                    total_marks = exam.total_marks or 100
+
+            if not graded_by:
+                graded_by = get_fallback_instructor(0)
+
+            # Look up student profile details in memory map
+            profile = profiles_map.get(student_id)
+            full_name = profile.full_name if profile else "Student"
+            first_name = full_name.split()[0] if len(full_name.split()) > 0 else "Student"
+
+            # Generate score based on the bell curve distribution
+            assigned_grade = rng.choice(grade_pool)
+            if assigned_grade == "A":
+                score = rng.randint(90, 100)
+                feedback_options = [
+                    f"Excellent implementation, {first_name}! Code is clean, modular, and shows deep understanding.",
+                    f"Outstanding work, {first_name}. Perfect design execution, with clear annotations.",
+                    f"Superb performance, {first_name}! You covered all requirements and exceeded benchmarks."
+                ]
+            elif assigned_grade == "B":
+                score = rng.randint(80, 89)
+                feedback_options = [
+                    f"Very good effort, {first_name}. Clean logic. Look out for marginal optimizations.",
+                    f"Great result, {first_name}. Well structured logic, but watch out for edge cases.",
+                    f"Solid submission, {first_name}. Next time, add comments to document complex functions."
+                ]
+            elif assigned_grade == "C":
+                score = rng.randint(70, 79)
+                feedback_options = [
+                    f"Good foundational build, {first_name}. The core requirements are fully met.",
+                    f"Decent solution, {first_name}. Try to abstract your functions to reduce redundancy.",
+                    f"Satisfactory attempt, {first_name}. Make sure to test your queries under scale."
+                ]
+            elif assigned_grade == "D":
+                score = rng.randint(60, 69)
+                feedback_options = [
+                    f"Passed, {first_name}. However, some parts are incomplete. Re-read instructions carefully.",
+                    f"Acceptable attempt, {first_name}, but needs improvement in structure and optimization.",
+                    f"Just met the passing threshold. Seek tutor support if you have doubts."
+                ]
+            else:
+                score = rng.randint(30, 59)
+                feedback_options = [
+                    f"Below passing score, {first_name}. Please re-submit or schedule a review with the instructor.",
+                    f"Incomplete submission. Core requirements were missed or did not compile.",
+                    f"Needs significant revision. Please consult module guidelines and retry."
+                ]
+
+            percentage = float(score) / float(total_marks) * 100.0
+            feedback = rng.choice(feedback_options)
+
+            res_data = {
+                "student_id": student_id,
+                "assignment_id": assignment_id,
+                "quiz_id": quiz_id,
+                "exam_id": exam_id,
+                "graded_by": graded_by,
+                "score": score,
+                "total_marks": total_marks,
+                "percentage": percentage,
+                "grade": assigned_grade,
+                "feedback": feedback,
+                "is_passed": score >= (total_marks * 0.5)
+            }
+
+            instance = Result(**res_data)
+            self.db.add(instance)
             
-            # Map grader to the assigned teacher
-            graded_by = get_instructor(0) if assignment.course_id == 1 else get_instructor(1)
-
-            for student_id in student_ids:
-                existing = (
-                    self.db.query(Result)
-                    .filter_by(student_id=student_id, assignment_id=assignment_id)
-                    .first()
-                )
-                if existing:
-                    created.append(existing)
-                    continue
-
-                # Query student name to build personalized feedback
-                profile = self.db.query(UserProfile).filter_by(user_id=student_id).first()
-                full_name = profile.full_name if profile else "Student"
-                first_name = full_name.split()[0]
-
-                # Grade score between 70 and 98
-                score = rng.randint(70, 98)
-                total_marks = 100
-                percentage = float(score)
-
-                if score >= 90:
-                    grade = "A"
-                    feedback_options = [
-                        f"Incredible work, {first_name}! Your layouts are highly refined and the responsive media queries align flawlessly.",
-                        f"Outstanding implementation, {first_name}. Clean and well-commented code structure. The layout logic is superb!",
-                        f"Superb optimization, {first_name}! Excellent error validation coverage. Easily the top score in the section."
-                    ]
-                elif score >= 80:
-                    grade = "B"
-                    feedback_options = [
-                        f"Very good effort, {first_name}. Your solution maps elements cleanly. Next time, double check flex container rules on extra-small viewports.",
-                        f"Great code structure, {first_name}. Your array handlers are clean and readable. Good job!",
-                        f"Excellent logic, {first_name}. Traps common input errors nicely. Try to abstract your functions further in the future."
-                    ]
-                else:
-                    grade = "C"
-                    feedback_options = [
-                        f"Good foundational build, {first_name}. The DOM selectors query nodes successfully. Watch out for naming conventions on variables.",
-                        f"Satisfactory implementation, {first_name}. The scraping script extracts titles fine, but fails occasionally on slow server timeouts.",
-                        f"Decent approach, {first_name}. Works as expected but can be optimized to reduce memory allocations."
-                    ]
-
-                feedback = rng.choice(feedback_options)
-
-                instance = self.create_one(
-                    lambda: {
-                        "student_id": student_id,
-                        "assignment_id": assignment_id,
-                        "exam_id": None,
-                        "graded_by": graded_by,
-                        "score": score,
-                        "total_marks": total_marks,
-                        "percentage": percentage,
-                        "grade": grade,
-                        "feedback": feedback,
-                        "is_passed": score >= 50,
-                    },
-                    skip_if_exists=False,
-                )
-                if instance:
-                    # Also update corresponding submission status to graded
-                    submission = (
-                        self.db.query(Submission)
-                        .filter_by(student_id=student_id, reference_id=assignment_id, submission_type="assignment")
-                        .first()
-                    )
-                    if submission:
-                        submission.status = "graded"
-                        submission.score = score
-                        submission.feedback = feedback
-                        submission.graded_at = func.now()
-                    
-                    created.append(instance)
+            # Update corresponding submission record status to graded
+            submission.status = "graded"
+            submission.score = float(score)
+            submission.feedback = feedback
+            submission.graded_at = func.now()
+            
+            created.append(instance)
 
         self.db.commit()
-        Colors.success(f"{len(created)} result(s) seeded")
+        Colors.success(f"{len(created)} result(s) successfully seeded and corresponding submissions graded")
         return created
-

@@ -151,6 +151,7 @@ const BigCalendar = ({
 
   const adjustedEvents = adjustEventsToWeek(data, date);
 
+
   // Google Calendar aesthetic event colors mapper
   const eventPropGetter = (event: any) => {
     const colors = [
@@ -191,26 +192,28 @@ const BigCalendar = ({
   };
 
   return (
-    <Calendar
-      localizer={localizer}
-      events={adjustedEvents}
-      startAccessor="start"
-      endAccessor="end"
-      views={[Views.WORK_WEEK, Views.DAY]}
-      view={view}
-      date={date}
-      onNavigate={(newDate) => setDate(newDate)}
-      style={{ height: "98%" }}
-      onView={handleOnChangeView}
-      min={new Date(2025, 1, 0, 8, 0, 0)}
-      max={new Date(2025, 1, 0, 17, 0, 0)}
-      eventPropGetter={eventPropGetter}
-      components={{
-        toolbar: CustomToolbar,
-        header: CustomHeader,
-      }}
-      formats={formats}
-    />
+    <div style={{height:'100%',position:'relative'}}>
+      <Calendar
+        localizer={localizer}
+        events={adjustedEvents}
+        startAccessor="start"
+        endAccessor="end"
+        views={[Views.WORK_WEEK, Views.DAY]}
+        view={view}
+        date={date}
+        onNavigate={(newDate) => setDate(newDate)}
+        style={{ height: "98%" }}
+        onView={handleOnChangeView}
+        min={new Date(2025, 1, 0, 8, 0, 0)}
+        max={new Date(2025, 1, 0, 17, 0, 0)}
+        eventPropGetter={eventPropGetter}
+        components={{
+          toolbar: CustomToolbar,
+          header: CustomHeader,
+        }}
+        formats={formats}
+      />
+    </div>
   );
 };
 

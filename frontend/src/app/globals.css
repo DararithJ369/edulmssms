@@ -60,6 +60,7 @@
 }
 
 
+/* Premium react-calendar overrides */
 .react-calendar {
   width: 100% !important;
   border: none !important;
@@ -70,9 +71,33 @@
   font-weight: 600;
 }
 
+/* Color overrides to match and fit brand blue theme */
 .react-calendar__tile--active {
-  background-color: hsl(var(--primary)) !important;
-  color: hsl(var(--primary-foreground)) !important;
+  background-color: #0038A8 !important; /* Brand Royal Blue */
+  color: #ffffff !important;
+}
+
+.react-calendar__tile--active:enabled:hover,
+.react-calendar__tile--active:enabled:focus {
+  background-color: #002D86 !important;
+}
+
+.react-calendar__tile--now {
+  background-color: hsl(var(--secondary)) !important;
+  color: #0038A8 !important;
+}
+
+.react-calendar__month-view__days__day--weekend {
+  color: hsl(var(--foreground)) !important; /* Neutral weekday color instead of bright red */
+}
+
+.react-calendar__month-view__days__day--neighboringMonth {
+  color: hsl(var(--muted-foreground)) !important;
+  opacity: 0.4;
+}
+
+.react-calendar__month-view__weekdays__weekday abbr {
+  text-decoration: none !important;
 }
 
 .rbc-btn-group:first-child {
@@ -234,6 +259,81 @@
   border-radius: 50% !important;
   background-color: #ea4335 !important;
   box-shadow: 0 1px 3px rgba(0,0,0,0.2) !important;
+}
+
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Toastify Override Styles to Unify Notification Aesthetics */
+.Toastify__toast-container--bottom-right {
+  bottom: 1rem !important;
+  right: 1rem !important;
+  width: 384px !important;
+}
+
+.Toastify__toast {
+  font-family: inherit !important;
+  border-radius: 12px !important;
+  padding: 16px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05) !important;
+  border: 1px solid #e2e8f0 !important;
+  background-color: #ffffff !important;
+  min-height: auto !important;
+  margin-bottom: 8px !important;
+}
+
+.Toastify__toast-body {
+  margin: 0 !important;
+  padding: 0 !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: #1e293b !important;
+}
+
+.Toastify__toast--success {
+  border-left: 4px solid #10b981 !important;
+}
+
+.Toastify__toast--error {
+  border-left: 4px solid #ef4444 !important;
+}
+
+.Toastify__toast--warning {
+  border-left: 4px solid #f59e0b !important;
+}
+
+.Toastify__toast--info {
+  border-left: 4px solid #0038A8 !important;
+}
+
+.Toastify__close-button {
+  color: #94a3b8 !important;
+  opacity: 1 !important;
+  align-self: flex-start !important;
+}
+
+.Toastify__close-button:hover {
+  color: #475569 !important;
+}
+
+.Toastify__progress-bar {
+  display: none !important;
+}
+
+.Toastify__toast-icon {
+  display: none !important;
 }
 
 

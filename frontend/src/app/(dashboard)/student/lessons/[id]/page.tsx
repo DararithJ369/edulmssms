@@ -1,14 +1,31 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { 
-  ArrowLeft, Video, AlertCircle, Globe, Clock, FileText, 
-  CheckCircle, Play, Download, ExternalLink, Sparkles, Loader, Send, X, Trash2, Zap, Edit, Save, Circle
+import {
+  ArrowLeft, FileText, Play, Download, ExternalLink, X, Edit, Save,
+  Image as ImageIcon, BookOpen, ChevronDown, ChevronUp, Check,
+  CheckCircle2, ClipboardList, Video, Link2, Clock, Layers,
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { api } from "@/lib/api";
+import { toast } from "react-toastify";
+import BackButton from "@/components/BackButton";
+
+/* ─── Types ───────────────────────────────────────────────────── */
+type MaterialItem = {
+  id: number;
+  title: string;
+  type: string;
+  file_url: string;
+  external_url: string | null;
+  description?: string;
+  is_visible?: boolean;
+};
+
+type QuizItem   = { id: number; title: string; total_marks: number };
+type AssignmentItem = { id: number; title: string; total_marks?: number };
 
 type LessonData = {
   id: number;
@@ -17,383 +34,736 @@ type LessonData = {
   content?: string;
   duration?: string;
   order?: number;
-  type?: string;          
-  file_url?: string;      
-  external_url?: string;  
+  material_type?: string;
+  material_url?: string;
+  material_file?: string;
+  materials?: MaterialItem[];
+  quizzes?: QuizItem[];
+  assignments?: AssignmentItem[];
+  course_name?: string;
 };
 
+/* ─── Helpers ─────────────────────────────────────────────────── */
+function getYouTubeId(url: string) {
+  const m = url.match(/(?:youtu\.be\/|v\/|watch\?v=|&v=)([^#&?]{11})/);
+  return m ? m[1] : null;
+}
+
+const TYPE_ICON: Record<string, React.ReactNode> = {
+  video : <Video        className="h-4 w-4 text-indigo-500" />,
+  pdf   : <FileText     className="h-4 w-4 text-rose-500" />,
+  doc   : <FileText     className="h-4 w-4 text-blue-500" />,
+  link  : <Link2        className="h-4 w-4 text-amber-500" />,
+  image : <ImageIcon    className="h-4 w-4 text-emerald-500" />,
+};
+
+/* ─── Main Component ──────────────────────────────────────────── */
 export default function StudentLessonPlayerPage() {
-  const params = useParams();
+  const params       = useParams();
   const searchParams = useSearchParams();
-  const router = useRouter();
-  
+  const router       = useRouter();
+
   const lessonId = params.id as string;
   const courseId = searchParams.get("courseId");
   const moduleId = searchParams.get("moduleId");
-  
-  const [currentLesson, setCurrentLesson] = useState<LessonData | null>(null);
-  const [siblingLessons, setSiblingLessons] = useState<LessonData[]>([]);
-  const [moduleTitle, setModuleTitle] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [role, setRole] = useState<string>("");
 
-  // AI Tutor States
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState<any[]>([]);
-  const [inputText, setInputText] = useState("");
-  const [chatLoading, setChatLoading] = useState(false);
-  const [tutorQuota, setTutorQuota] = useState<any>(null);
-  const [userProfile, setUserProfile] = useState<any>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [lesson,          setLesson]          = useState<LessonData | null>(null);
+  const [modules,         setModules]         = useState<any[]>([]);
+  const [expanded,        setExpanded]        = useState<Record<number, boolean>>({});
+  const [loading,         setLoading]         = useState(true);
+  const [role,            setRole]            = useState("");
+  const [activeMaterial,  setActiveMaterial]  = useState<any | null>(null);
+  const [activeTab,       setActiveTab]       = useState("notes");
+  const [completed,       setCompleted]       = useState(false);
 
-  // Edit Mode states (Kept in state inputs, but player layout stays still)
-  const [isEditing, setIsEditing] = useState(false);
-  const [editTitle, setEditTitle] = useState("");
-  const [editContent, setEditContent] = useState("");
-  const [editDuration, setEditDuration] = useState("");
-  const [editMaterialType, setEditMaterialType] = useState("video");
-  const [editExternalUrl, setEditExternalUrl] = useState("");
-  const [editOrder, setEditOrder] = useState<number>(1);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [saving, setSaving] = useState(false);
+  // Edit modal states
+  const [editing,         setEditing]         = useState(false);
+  const [editTitle,       setEditTitle]       = useState("");
+  const [editContent,     setEditContent]     = useState("");
+  const [editDuration,    setEditDuration]    = useState("");
+  const [editType,        setEditType]        = useState("video");
+  const [editUrl,         setEditUrl]         = useState("");
+  const [editOrder,       setEditOrder]       = useState(1);
+  const [editFile,        setEditFile]        = useState<File | null>(null);
+  const [saving,          setSaving]          = useState(false);
 
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+  /* Load lesson + modules */
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const { data: ld } = await api.get(`/lessons/${lessonId}`);
+      if (ld) {
+        setLesson(ld);
+        setEditTitle(ld.title || "");
+        setEditContent(ld.content || ld.description || "");
+        setEditDuration(ld.duration || "");
+        setEditType(ld.material_type || "video");
+        setEditOrder(ld.order || 1);
+        setEditUrl(ld.material_url || ld.material_file || "");
+
+        const fallback = {
+          id: 0,
+          title: ld.title,
+          type: ld.material_type || "video",
+          file_url: ld.material_file || "",
+          external_url: ld.material_url || null,
+        };
+        setActiveMaterial(ld.materials?.length ? ld.materials[0] : fallback);
+      }
+
+      if (courseId) {
+        const { data: mods } = await api.get(`/courses/${courseId}/modules`);
+        if (Array.isArray(mods)) {
+          setModules(mods);
+          setExpanded(prev => ({ ...prev, [Number(moduleId)]: true }));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load lesson:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const userRole = localStorage.getItem("user_role") || "student";
-      setRole(userRole.toLowerCase());
+      setRole((localStorage.getItem("user_role") || "student").toLowerCase());
     }
-
-    const loadWorkspaceData = async () => {
-      try {
-        setLoading(true);
-        const { data: lessonData } = await api.get(`/lessons/${lessonId}`);
-        if (lessonData) {
-          setCurrentLesson(lessonData);
-          setEditTitle(lessonData.title || "");
-          setEditContent(lessonData.content || lessonData.description || "");
-          setEditDuration(lessonData.duration || "45min");
-          setEditMaterialType(lessonData.type || "video");
-          setEditOrder(lessonData.order || 1);
-          setEditExternalUrl(lessonData.external_url || lessonData.file_url || "");
-        }
-
-        if (courseId) {
-          const { data: modulesTree } = await api.get(`/courses/${courseId}/modules`);
-          if (modulesTree && Array.isArray(modulesTree)) {
-            const activeModule = modulesTree.find(m => String(m.id) === String(moduleId)) || modulesTree[0];
-            if (activeModule) {
-              setModuleTitle(activeModule.title);
-              setSiblingLessons(activeModule.lessons || []);
-            }
-          }
-        }
-
-        const userId = localStorage.getItem("user_id");
-        if (userId) {
-          const profileRes = await api.get(`/profiles/${userId}`);
-          setUserProfile(profileRes.data);
-          const quotaRes = await api.get(`/lessons/${lessonId}/tutor/quota`);
-          setTutorQuota(quotaRes.data);
-          const historyRes = await api.get(`/lessons/${lessonId}/tutor/history`);
-          setChatMessages(historyRes.data || []);
-        }
-      } catch (err) {
-        console.error("Failed to load layout space context mapping records:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (lessonId) loadWorkspaceData();
+    if (lessonId) loadData();
   }, [lessonId, courseId, moduleId]);
 
-  const handleSaveLesson = async (e: React.FormEvent) => {
+  const canEdit = ["admin", "administrator", "teacher", "instructor"].includes(role);
+
+  /* Save edits */
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
-      const formData = new FormData();
-      formData.append("title", editTitle);
-      formData.append("content", editContent);
-      formData.append("description", editContent);
-      formData.append("duration", editDuration);
-      formData.append("type", editMaterialType);
-      formData.append("order", String(editOrder));
-      formData.append("uploaded_by", "admin");
-
-      if (editMaterialType === "url") {
-        formData.append("external_url", editExternalUrl);
-      } else if (selectedFile) {
-        formData.append("file", selectedFile);
+      const fd = new FormData();
+      fd.append("title",         editTitle);
+      fd.append("content",       editContent);
+      fd.append("description",   editContent);
+      fd.append("duration",      editDuration);
+      fd.append("material_type", editType);
+      fd.append("order",         String(editOrder));
+      if (editType === "url" || editType === "link") {
+        fd.append("material_url", editUrl);
+      } else if (editFile) {
+        fd.append("file", editFile);
       } else {
-        formData.append("external_url", editExternalUrl);
+        fd.append("material_url", editUrl);
       }
-
-      const res = await api.put(`/lessons/${lessonId}`, formData, {
+      const res = await api.put(`/lessons/${lessonId}`, fd, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-
-      if (res.status === 200 && res.data) {
-        setCurrentLesson(res.data);
-        setIsEditing(false);
-        setSelectedFile(null);
+      if (res.status === 200) {
+        toast.success("Lesson saved!");
+        setEditing(false);
+        setEditFile(null);
+        await loadData();
       }
-    } catch (err) {
-      console.error("Failed to execute data modification save layout:", err);
+    } catch {
+      toast.error("Failed to save lesson.");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleCancelEdit = () => {
-    if (currentLesson) {
-      setEditTitle(currentLesson.title || "");
-      setEditContent(currentLesson.content || currentLesson.description || "");
-      setEditDuration(currentLesson.duration || "45min");
-      setEditMaterialType(currentLesson.type || "video");
-      setEditOrder(currentLesson.order || 1);
-      setEditExternalUrl(currentLesson.external_url || currentLesson.file_url || "");
+  const cancelEdit = () => {
+    if (lesson) {
+      setEditTitle(lesson.title || "");
+      setEditContent(lesson.content || lesson.description || "");
+      setEditDuration(lesson.duration || "");
+      setEditType(lesson.material_type || "video");
+      setEditOrder(lesson.order || 1);
+      setEditUrl(lesson.material_url || lesson.material_file || "");
     }
-    setIsEditing(false);
-    setSelectedFile(null);
+    setEditing(false);
+    setEditFile(null);
   };
 
-  const getYouTubeEmbedId = (url: string) => {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : null;
+  /* ── Media renderer ─────────────────────────────────────────── */
+  const extractUrl = (text: string) => {
+    if (!text) return "";
+    const match = text.match(/https?:\/\/[^\s]+/);
+    return match ? match[0] : "";
   };
 
-  const videoStreamTarget = currentLesson?.file_url || currentLesson?.external_url || "";
-  const isYouTubeMedia = videoStreamTarget.includes("youtube.com") || videoStreamTarget.includes("youtu.be");
-  const hasAccessToEdit = role === "admin" || role === "administrator" || role === "teacher" || role === "instructor";
+  const rawTarget = activeMaterial?.file_url || activeMaterial?.external_url || "";
+  const target = rawTarget || extractUrl(lesson?.content || lesson?.description || "");
+  const isYoutube  = target.includes("youtube.com") || target.includes("youtu.be");
 
-  return (
-    <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] dark:bg-[#121212] min-h-screen font-sans text-left">
-      
-      {/* BREADCRUMB */}
-      <div className="flex items-center gap-1 text-[11px] font-extrabold text-muted-foreground uppercase tracking-wider select-none">
-        <Link href="/student" className="hover:text-foreground flex items-center gap-1">
-          <Globe className="h-3 w-3" /> Home
-        </Link>
-        <span>/</span>
-        <span className="text-foreground">Course Playback Hub</span>
-      </div>
+  const materials = lesson?.materials || [];
 
-      {/* HEADER SECTION PANEL */}
-      <div className="bg-white dark:bg-[#1c1c1c] p-5 rounded-3xl border border-slate-100 dark:border-zinc-800 shadow-sm flex items-center justify-between select-none">
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={() => router.push(courseId ? `/list/courses/${courseId}` : "/student")}
-            className="p-2 hover:bg-slate-50 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl transition-colors text-slate-600 dark:text-slate-300"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <div>
-            <span className="text-[10px] font-black text-[#0038A8] dark:text-sky-400 uppercase tracking-widest font-mono">
-              MODULE: {moduleTitle || "Syllabus Track"}
-            </span>
-            <h1 className="text-lg font-black text-slate-800 dark:text-white tracking-tight leading-tight mt-0.5">
-              {currentLesson?.title}
-            </h1>
-          </div>
-        </div>
+  const videos = materials.filter(m => m.type === "video" || m.file_url?.includes("youtube.com") || m.file_url?.includes("youtu.be") || m.external_url?.includes("youtube.com") || m.external_url?.includes("youtu.be"));
+  
+  const slides = materials.filter(m => {
+    const titleLower = m.title.toLowerCase();
+    const urlLower = (m.file_url || m.external_url || "").toLowerCase();
+    return titleLower.includes("slide") || titleLower.includes("powerpoint") || titleLower.includes("presentation") || urlLower.endsWith(".ppt") || urlLower.endsWith(".pptx") || urlLower.endsWith(".odp");
+  });
+  
+  const downloads = materials.filter(m => {
+    const titleLower = m.title.toLowerCase();
+    const urlLower = (m.file_url || m.external_url || "").toLowerCase();
+    return titleLower.includes("zip") || titleLower.includes("download") || titleLower.includes("cheat sheet") || urlLower.endsWith(".zip") || urlLower.endsWith(".rar") || urlLower.endsWith(".7z") || urlLower.endsWith(".sql");
+  });
+  
+  const documents = materials.filter(m => {
+    if (slides.some(s => s.id === m.id) || downloads.some(d => d.id === m.id)) return false;
+    return m.type === "pdf" || m.type === "doc" || m.type === "document" || m.file_url?.endsWith(".pdf") || m.file_url?.endsWith(".docx") || m.file_url?.endsWith(".doc") || m.external_url?.endsWith(".pdf");
+  });
+  
+  const resources = materials.filter(m => {
+    if (videos.some(v => v.id === m.id) || slides.some(s => s.id === m.id) || downloads.some(d => d.id === m.id) || documents.some(doc => doc.id === m.id)) return false;
+    return m.type === "image" || m.type === "link" || m.type === "external";
+  });
 
-        <div className="flex items-center gap-2.5 shrink-0">
-          <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800/60 border border-slate-200/40 px-3.5 py-2 rounded-full text-xs font-bold text-gray-700 dark:text-gray-300">
-            <Clock className="w-4 h-4 text-[#0038A8]" />
-            <span>{currentLesson?.duration || "45min"}</span>
-          </div>
-
-          {hasAccessToEdit && (
-            <button
-              onClick={() => setIsEditing(true)}
-              className="px-4 py-2 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white font-extrabold text-xs rounded-xl transition-all shadow-md flex items-center gap-1.5 active:scale-[0.98]"
-            >
-              <Edit className="w-3.5 h-3.5" />
-              <span>Edit Lesson</span>
-            </button>
+  const renderMaterialCard = (m: MaterialItem) => {
+    const isActive = activeMaterial?.id === m.id;
+    return (
+      <button
+        key={m.id}
+        onClick={() => setActiveMaterial(m)}
+        className={`w-full flex items-center gap-3 p-2.5 rounded-xl border text-left transition-all ${
+          isActive
+            ? "bg-indigo-50 border-indigo-200 text-indigo-700 font-bold"
+            : "bg-white border-slate-100 hover:border-slate-200 hover:bg-slate-50 text-slate-700"
+        }`}
+      >
+        <div className="shrink-0">
+          {m.type === "video" ? (
+            <Video className="h-3.5 w-3.5 text-indigo-500" />
+          ) : m.type === "pdf" || m.type === "doc" || m.type === "document" ? (
+            <FileText className="h-3.5 w-3.5 text-rose-500" />
+          ) : m.type === "image" ? (
+            <ImageIcon className="h-3.5 w-3.5 text-emerald-500" />
+          ) : m.type === "link" ? (
+            <Link2 className="h-3.5 w-3.5 text-amber-500" />
+          ) : (
+            <Layers className="h-3.5 w-3.5 text-slate-400" />
           )}
         </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-bold truncate leading-tight">{m.title}</p>
+          <span className="text-[8px] text-slate-400 font-semibold uppercase tracking-wider">{m.type}</span>
+        </div>
+        {isActive && <div className="h-1.5 w-1.5 rounded-full bg-indigo-500 shrink-0" />}
+      </button>
+    );
+  };
+
+
+  const renderMedia = () => {
+    const type = activeMaterial?.type;
+    if (!target && type !== "pdf") {
+      return (
+        <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-400">
+          <Video className="h-10 w-10 text-slate-300" />
+          <p className="text-sm font-semibold">No media attached to this lesson yet.</p>
+        </div>
+      );
+    }
+    const isPdfFile = target.toLowerCase().split('?')[0].endsWith(".pdf");
+    if (type === "pdf" || type === "doc" || type === "document" || isPdfFile) {
+      return (
+        <iframe
+          src={target}
+          className="w-full h-full rounded-xl border-none bg-white"
+          title={activeMaterial.title}
+        />
+      );
+    }
+    if (isYoutube) {
+      return (
+        <iframe
+          className="w-full h-full rounded-xl border-none"
+          src={`https://www.youtube.com/embed/${getYouTubeId(target)}?autoplay=1`}
+          title="Lesson Video"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        />
+      );
+    }
+    if (type === "video" || type === "mp4") {
+      return (
+        <video src={target} controls autoPlay
+          className="w-full h-full object-contain rounded-xl bg-black"
+          poster="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=1200"
+        />
+      );
+    }
+    if (type === "link") {
+      return (
+        <div className="flex flex-col items-center justify-center h-full gap-4">
+          <div className="h-16 w-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-3xl">🔗</div>
+          <p className="text-sm font-bold text-slate-700">{activeMaterial.title}</p>
+          <a href={target} target="_blank" rel="noreferrer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow transition-all active:scale-95">
+            <ExternalLink className="h-4 w-4" /> Visit External Link
+          </a>
+        </div>
+      );
+    }
+    if (type === "image") {
+      return (
+        <img src={target} alt={activeMaterial.title}
+          className="max-w-full max-h-full object-contain rounded-xl" />
+      );
+    }
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-400">
+        <Video className="h-10 w-10 text-slate-300" />
+        <p className="text-sm font-semibold">Media not available.</p>
       </div>
+    );
+  };
 
-      {/* DUAL COLUMN CONTAINER GRID (STAYS STILL - NEVER MODIFIES LAYOUT FOR FORM) */}
-      <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
-        
-        {/* LEFT COMPONENT VIEWPORT PANEL */}
-        <div className="lg:col-span-7 space-y-6">
-          <div className="relative aspect-video w-full rounded-3xl overflow-hidden bg-slate-950 border border-slate-900 shadow-md flex items-center justify-center">
-            {currentLesson?.type === "pdf" ? (
-              <div className="text-center text-white p-8 space-y-4 select-none">
-                <div className="h-16 w-16 bg-white/10 border border-white/20 text-emerald-400 rounded-2xl flex items-center justify-center mx-auto text-2xl">
-                  📄
-                </div>
-                <div>
-                  <h4 className="text-sm font-black tracking-wide">Lesson Material Document Attached</h4>
-                  <p className="text-[11px] text-slate-400 mt-1">Review the documentation resource file inside the sidebar dashboard panel blocks.</p>
-                </div>
-                <a 
-                  href={currentLesson.file_url} 
-                  target="_blank" 
-                  rel="noreferrer"
-                  className="inline-flex px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl shadow-md transition-all"
-                >
-                  <Download className="w-4 h-4 mr-1.5" /> Open Lesson PDF Document
-                </a>
-              </div>
-            ) : isYouTubeMedia ? (
-              <iframe
-                className="w-full h-full border-none"
-                src={`https://www.youtube.com/embed/${getYouTubeEmbedId(videoStreamTarget)}?autoplay=1`}
-                title="YouTube Video Core Streaming View"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-            ) : videoStreamTarget ? (
-              <video 
-                src={videoStreamTarget}
-                controls
-                autoPlay
-                className="w-full h-full object-contain"
-                poster="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=1200"
-              />
-            ) : (
-              <div className="p-6 text-center text-white flex flex-col items-center gap-2">
-                <AlertCircle className="h-8 w-8 text-amber-500" />
-                <p className="text-xs font-bold">Media Stream Uninitialized</p>
-              </div>
-            )}
+  /* ── Loading ─────────────────────────────────────────────────── */
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-[#F4F6FA]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-9 w-9 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-xs font-semibold text-slate-400">Loading lesson…</p>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Render ──────────────────────────────────────────────────── */
+  return (
+    <div className="flex flex-col lg:flex-row min-h-screen bg-[#F4F6FA] font-sans text-left">
+
+      {/* ── LEFT: Course Syllabus Panel ────────────────────────── */}
+      <aside className="w-full lg:w-72 shrink-0 bg-white border-b lg:border-b-0 lg:border-r border-slate-100 flex flex-col">
+
+        {/* Back button + course name */}
+        <div className="px-5 pt-5 pb-4 border-b border-slate-100">
+          <div className="flex items-center gap-2.5 mb-4 select-none">
+            <BackButton href={courseId ? `/list/courses/${courseId}` : (canEdit ? "/teacher" : "/student")} />
+            <div>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider leading-none">Return</p>
+              <Link
+                href={courseId ? `/list/courses/${courseId}` : (canEdit ? "/teacher" : "/student")}
+                className="text-[11px] font-extrabold text-slate-600 hover:text-indigo-600 transition-colors mt-0.5 inline-block"
+              >
+                Back to course
+              </Link>
+            </div>
           </div>
+          <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Course Syllabus</p>
+          <h2 className="text-sm font-black text-slate-800 mt-0.5 leading-snug">
+            {lesson?.course_name || "Course Content"}
+          </h2>
+        </div>
 
-          {/* LECTURE NOTES BOX */}
-          <div className="bg-white p-6 dark:bg-[#1c1c1c] rounded-3xl border border-slate-100 dark:border-zinc-800 shadow-sm space-y-3">
-            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest select-none">
-              Lecture Notes & Curriculum
-            </h3>
-            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-semibold whitespace-pre-line">
-              {currentLesson?.content || currentLesson?.description || "No description details provided for this lecture track."}
+        {/* Module accordion */}
+        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
+          {modules.length === 0 && (
+            <p className="text-xs text-slate-400 font-semibold text-center py-8">
+              No modules found for this course.
             </p>
+          )}
+          {modules.map((mod, idx) => {
+            const isOpen = !!expanded[mod.id];
+            const lessons = mod.lessons || [];
+            return (
+              <div key={mod.id} className="rounded-xl border border-slate-100 overflow-hidden">
+                <button
+                  onClick={() => setExpanded(p => ({ ...p, [mod.id]: !p[mod.id] }))}
+                  className="w-full flex items-center justify-between px-3.5 py-3 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
+                >
+                  <div className="min-w-0 pr-2">
+                    <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">
+                      Module {idx + 1}
+                    </span>
+                    <p className="text-xs font-bold text-slate-700 truncate leading-tight mt-0.5">
+                      {mod.title}
+                    </p>
+                    <span className="text-[9px] text-slate-400 font-semibold">
+                      {lessons.length} lesson{lessons.length !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                  {isOpen
+                    ? <ChevronUp   className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                    : <ChevronDown className="h-3.5 w-3.5 text-slate-400 shrink-0" />}
+                </button>
+
+                {isOpen && (
+                  <div className="bg-white border-t border-slate-100 divide-y divide-slate-50">
+                    {lessons.map((les: any) => {
+                      const isCurrent = String(les.id) === String(lessonId);
+                      const isDoc = les.material_type === "document" || les.material_type === "pdf";
+                      const content = (
+                        <>
+                          <div className={`h-5 w-5 rounded-md flex items-center justify-center shrink-0 border ${
+                            isCurrent
+                              ? "bg-indigo-500 border-indigo-400 text-white"
+                              : "bg-white border-slate-200 text-slate-300 group-hover:border-slate-300"
+                          }`}>
+                            {isCurrent
+                              ? <Play className="h-2.5 w-2.5 fill-white text-white" />
+                              : <div className="h-1 w-1 rounded-full bg-slate-300" />}
+                          </div>
+                          <p className={`text-xs truncate flex-1 ${
+                            isCurrent ? "font-bold text-indigo-700" : "font-medium text-slate-600 group-hover:text-slate-800"
+                          }`}>
+                            {les.title} {isDoc && "📄"}
+                          </p>
+                        </>
+                      );
+                      const linkClassName = `flex items-center gap-2.5 px-4 py-2.5 transition-colors group ${
+                        isCurrent
+                          ? "bg-indigo-50 border-l-2 border-indigo-500"
+                          : "hover:bg-slate-50 border-l-2 border-transparent"
+                      }`;
+
+                      return (
+                        <Link
+                          key={les.id}
+                          href={
+                            canEdit
+                              ? `/list/lessons/${les.id}?courseId=${courseId}&moduleId=${mod.id}`
+                              : `/student/lessons/${les.id}?courseId=${courseId}&moduleId=${mod.id}`
+                          }
+                          className={linkClassName}
+                          replace={true}
+                        >
+                          {content}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </aside>
+
+      {/* ── MAIN: Player + Info ───────────────────────────────── */}
+      <main className="flex-1 flex flex-col overflow-y-auto">
+
+        {/* Top bar */}
+        <div className="bg-white border-b border-slate-100 px-6 py-3 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="h-7 w-7 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+              <BookOpen className="h-3.5 w-3.5 text-indigo-500" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">
+                {lesson?.course_name || "Learning"}
+              </p>
+              <h1 className="text-sm font-black text-slate-800 truncate leading-tight">
+                {lesson?.title}
+              </h1>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {lesson?.duration && (
+              <span className="hidden sm:flex items-center gap-1 text-[10px] text-slate-400 font-semibold">
+                <Clock className="h-3 w-3" /> {lesson.duration}
+              </span>
+            )}
+            {canEdit && (
+              <button
+                onClick={() => setEditing(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 text-xs font-bold rounded-lg transition-colors"
+              >
+                <Edit className="h-3.5 w-3.5" /> Edit
+              </button>
+            )}
+            <button
+              onClick={() => {
+                setCompleted(p => !p);
+                toast.success(completed ? "Marked as incomplete" : "Lesson completed! 🎉");
+              }}
+              className={`flex items-center gap-1.5 px-4 py-2 text-xs font-black rounded-xl border transition-all ${
+                completed
+                  ? "bg-emerald-500 border-emerald-400 text-white"
+                  : "bg-[#0038A8] border-[#0038A8] text-white hover:bg-[#002D86]"
+              }`}
+            >
+              {completed ? <Check className="h-3.5 w-3.5" /> : <div className="h-3.5 w-3.5 rounded-full border-2 border-white" />}
+              {completed ? "Completed" : "Mark as Complete"}
+            </button>
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Sidebar Navigation Tracker */}
-        <div className="lg:col-span-3 space-y-6">
-          <div className="bg-white dark:bg-[#1c1c1c] p-5 rounded-3xl border border-slate-100 dark:border-zinc-800 shadow-sm space-y-4">
-            <div className="flex items-center gap-2 select-none pb-2 border-b border-slate-100 dark:border-zinc-800">
-              <FileText className="h-4 w-4 text-[#0038A8]" />
-              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                Module Syllabus Activities
-              </h3>
-            </div>
+        {/* Content area */}
+        <div className="flex-1 p-5 grid grid-cols-1 xl:grid-cols-3 gap-5">
 
-            <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
-              {siblingLessons.map((item, idx) => {
-                const isCurrent = String(item.id) === String(lessonId);
-                return (
-                  <Link
-                    key={item.id}
-                    href={
-                      hasAccessToEdit
-                        ? `/list/lessons/${item.id}?courseId=${courseId}&moduleId=${moduleId}`
-                        : `/student/lessons/${item.id}?courseId=${courseId}&moduleId=${moduleId}`
-                    }
-                    className={`flex items-start gap-2.5 p-3 rounded-2xl border text-left transition-all duration-200 group ${
-                      isCurrent
-                        ? "bg-blue-50/50 dark:bg-zinc-800 border-[#0038A8]/30 dark:border-zinc-700 shadow-sm"
-                        : "border-slate-100 dark:border-zinc-800 bg-slate-50/20 dark:bg-zinc-900/30 hover:bg-white dark:hover:bg-zinc-800 hover:border-slate-200"
+          {/* ── Video / Media player (col-span-2) ─────────────── */}
+          <div className="xl:col-span-2 flex flex-col gap-4">
+
+            {/* Material tabs (if multiple) */}
+            {lesson?.materials && lesson.materials.length > 1 && (
+              <div className="flex gap-2 flex-wrap">
+                {lesson.materials.map(m => (
+                  <button
+                    key={m.id}
+                    onClick={() => setActiveMaterial(m)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                      activeMaterial?.id === m.id
+                        ? "bg-indigo-600 border-indigo-500 text-white"
+                        : "bg-white border-slate-200 text-slate-600 hover:border-indigo-300"
                     }`}
                   >
-                    <div className={`mt-0.5 h-5 w-5 rounded-lg flex items-center justify-center shrink-0 border ${
-                      isCurrent ? "bg-[#0038A8] text-white border-[#0038A8]" : "bg-white dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700"
-                    }`}>
-                      {isCurrent ? <Play className="h-2.5 w-2.5 fill-white" /> : <span className="text-[10px] font-black font-mono">{idx + 1}</span>}
-                    </div>
-                    <div className="min-w-0">
-                      <p className={`text-xs font-black truncate group-hover:text-[#0038A8] transition-colors leading-tight ${
-                        isCurrent ? "text-[#0038A8] dark:text-sky-400" : "text-slate-700 dark:text-slate-200"
-                      }`}>
-                        {item.title}
-                      </p>
-                      <span className="text-[9px] text-slate-400 font-bold uppercase block mt-0.5 tracking-wider font-mono">
-                        {item.type || "video"}
-                      </span>
-                    </div>
-                  </Link>
-                );
-              })}
+                    {TYPE_ICON[m.type] || <Layers className="h-4 w-4" />}
+                    {m.title}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Player card */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+              <div className={`relative w-full bg-slate-50 flex items-center justify-center ${
+                activeMaterial?.type === "pdf" || activeMaterial?.type === "doc" || activeMaterial?.type === "document" || target?.toLowerCase().split('?')[0].endsWith(".pdf")
+                  ? "h-[650px]"
+                  : "aspect-video"
+              }`}>
+                {renderMedia()}
+              </div>
+            </div>
+
+            {/* Lesson title + description */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-base font-black text-slate-800 leading-tight">{lesson?.title}</h2>
+                  <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                    {lesson?.description || "No description provided for this lesson."}
+                  </p>
+                </div>
+                {lesson?.order && (
+                  <span className="shrink-0 text-[10px] font-black text-indigo-400 bg-indigo-50 border border-indigo-100 px-2 py-1 rounded-lg uppercase tracking-wider">
+                    Lesson {lesson.order}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* ── Right Panel: Notes / Resources / Assessments ──── */}
+          <div className="flex flex-col gap-4">
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col overflow-hidden">
+
+              {/* Tabs */}
+              <div className="flex border-b border-slate-100 px-4 pt-1">
+                {[
+                  { key: "notes",       label: "Lesson Notes",  icon: <BookOpen className="h-3 w-3" /> },
+                  ...(lesson?.materials?.length ? [{ key: "materials", label: `Resources (${lesson.materials.length})`, icon: <Layers className="h-3 w-3" /> }] : []),
+                  ...((lesson?.quizzes?.length || lesson?.assignments?.length) ? [{ key: "assessments", label: "Assessments", icon: <ClipboardList className="h-3 w-3" /> }] : []),
+                ].map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`flex items-center gap-1 pb-2.5 pt-2 px-2 text-[10px] font-bold uppercase tracking-wider border-b-2 transition-colors mr-2 ${
+                      activeTab === tab.key
+                        ? "border-indigo-500 text-indigo-600"
+                        : "border-transparent text-slate-400 hover:text-slate-600"
+                    }`}
+                  >
+                    {tab.icon} {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Tab body */}
+              <div className="p-4 overflow-y-auto max-h-[400px] xl:max-h-none xl:flex-1">
+
+                {/* Notes */}
+                {activeTab === "notes" && (
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Syllabus Overview</p>
+                    <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">
+                      {lesson?.content || lesson?.description || "No notes available for this lesson."}
+                    </p>
+                  </div>
+                )}
+
+                {/* Materials */}
+                {activeTab === "materials" && (
+                  <div className="space-y-4">
+                    {videos.length > 0 && (
+                      <div className="space-y-1.5">
+                        <p className="text-[9px] font-black text-indigo-500 uppercase tracking-wider">Video Section</p>
+                        <div className="space-y-1.5">
+                          {videos.map(m => renderMaterialCard(m))}
+                        </div>
+                      </div>
+                    )}
+                    {documents.length > 0 && (
+                      <div className="space-y-1.5">
+                        <p className="text-[9px] font-black text-rose-500 uppercase tracking-wider">Documents Section</p>
+                        <div className="space-y-1.5">
+                          {documents.map(m => renderMaterialCard(m))}
+                        </div>
+                      </div>
+                    )}
+                    {slides.length > 0 && (
+                      <div className="space-y-1.5">
+                        <p className="text-[9px] font-black text-blue-500 uppercase tracking-wider">Slides Section</p>
+                        <div className="space-y-1.5">
+                          {slides.map(m => renderMaterialCard(m))}
+                        </div>
+                      </div>
+                    )}
+                    {resources.length > 0 && (
+                      <div className="space-y-1.5">
+                        <p className="text-[9px] font-black text-amber-500 uppercase tracking-wider">Resources Section</p>
+                        <div className="space-y-1.5">
+                          {resources.map(m => renderMaterialCard(m))}
+                        </div>
+                      </div>
+                    )}
+                    {downloads.length > 0 && (
+                      <div className="space-y-1.5">
+                        <p className="text-[9px] font-black text-emerald-500 uppercase tracking-wider">Downloads Section</p>
+                        <div className="space-y-1.5">
+                          {downloads.map(m => renderMaterialCard(m))}
+                        </div>
+                      </div>
+                    )}
+                    {materials.length === 0 && (
+                      <p className="text-xs text-slate-400 font-semibold text-center py-6">No materials for this lesson.</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Assessments */}
+                {activeTab === "assessments" && (
+                  <div className="space-y-2">
+                    {lesson?.quizzes?.map(q => (
+                      <Link
+                        key={q.id}
+                        href={`/list/quizzes/${q.id}`}
+                        className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-white hover:border-emerald-200 hover:bg-emerald-50 transition-all group"
+                      >
+                        <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-slate-700 truncate group-hover:text-emerald-700">{q.title}</p>
+                          <span className="text-[9px] text-slate-400 font-semibold uppercase tracking-wider">Quiz · {q.total_marks} marks</span>
+                        </div>
+                        <ExternalLink className="h-3.5 w-3.5 text-slate-300 group-hover:text-emerald-400" />
+                      </Link>
+                    ))}
+                    {lesson?.assignments?.map(a => (
+                      <Link
+                        key={a.id}
+                        href={`/list/assignments/${a.id}/submit`}
+                        className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-white hover:border-indigo-200 hover:bg-indigo-50 transition-all group"
+                      >
+                        <ClipboardList className="h-4 w-4 text-indigo-500 shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-slate-700 truncate group-hover:text-indigo-700">{a.title}</p>
+                          <span className="text-[9px] text-slate-400 font-semibold uppercase tracking-wider">Assignment</span>
+                        </div>
+                        <ExternalLink className="h-3.5 w-3.5 text-slate-300 group-hover:text-indigo-400" />
+                      </Link>
+                    ))}
+                    {!lesson?.quizzes?.length && !lesson?.assignments?.length && (
+                      <p className="text-xs text-slate-400 font-semibold text-center py-6">No assessments for this lesson.</p>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
+      </main>
 
-      </div>
-
-      {/* 🍏 CLEAN MODAL OVERLAY SHEET FOR EDIT MODE (PREVENTS WORKSPACE SHIFTING) */}
+      {/* ── Edit Modal ────────────────────────────────────────── */}
       <AnimatePresence>
-        {isEditing && (
+        {editing && (
           <>
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={handleCancelEdit}
-              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50"
+              onClick={cancelEdit}
+              className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50"
             />
-            <motion.div 
-              initial={{ opacity: 0, y: 50, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 50, scale: 0.95 }}
-              className="fixed inset-x-4 bottom-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-[600px] max-h-[85vh] overflow-y-auto bg-white dark:bg-[#1c1c1c] p-6 rounded-3xl border shadow-2xl z-[60] text-left space-y-4"
+            <motion.div
+              initial={{ opacity: 0, y: 40, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 40, scale: 0.97 }}
+              className="fixed inset-x-4 bottom-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-[560px] max-h-[85vh] overflow-y-auto bg-white border border-slate-200 rounded-2xl shadow-2xl z-[60] p-6 space-y-4"
             >
-              <div className="flex items-center justify-between border-b pb-2">
-                <h2 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-white">Modify Lesson Configurations</h2>
-                <button onClick={handleCancelEdit} className="p-1 text-slate-400 hover:text-slate-600"><X className="h-4 w-4" /></button>
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h2 className="text-sm font-black text-slate-800">Edit Lesson</h2>
+                <button onClick={cancelEdit} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
+                  <X className="h-4 w-4" />
+                </button>
               </div>
 
-              <form onSubmit={handleSaveLesson} className="space-y-4">
+              <form onSubmit={handleSave} className="space-y-4">
                 <div>
-                  <label className="text-xs font-bold text-slate-500 block mb-1">Lesson Title</label>
-                  <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="w-full border p-2.5 rounded-xl text-xs font-semibold focus:outline-none" required />
+                  <label className="text-xs font-bold text-slate-500 block mb-1">Title</label>
+                  <input
+                    type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    required
+                  />
                 </div>
 
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <label className="text-xs font-bold text-slate-500 block mb-1">Material Type</label>
-                    <select value={editMaterialType} onChange={(e) => setEditMaterialType(e.target.value)} className="w-full border p-2.5 rounded-xl text-xs font-bold bg-slate-50 dark:bg-zinc-800">
-                      <option value="video">Video (Cloudinary)</option>
-                      <option value="url">External Link (YouTube)</option>
-                      <option value="pdf">Document (PDF)</option>
+                    <label className="text-xs font-bold text-slate-500 block mb-1">Type</label>
+                    <select value={editType} onChange={e => setEditType(e.target.value)}
+                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none">
+                      <option value="video">Video</option>
+                      <option value="url">YouTube URL</option>
+                      <option value="pdf">PDF</option>
+                      <option value="link">Link</option>
                     </select>
                   </div>
                   <div>
                     <label className="text-xs font-bold text-slate-500 block mb-1">Duration</label>
-                    <input type="text" value={editDuration} onChange={(e) => setEditDuration(e.target.value)} className="w-full border p-2.5 rounded-xl text-xs font-semibold" />
+                    <input type="text" value={editDuration} onChange={e => setEditDuration(e.target.value)}
+                      placeholder="e.g. 45min"
+                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none" />
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-slate-500 block mb-1">Order Index</label>
-                    <input type="number" value={editOrder} onChange={(e) => setEditOrder(parseInt(e.target.value) || 1)} className="w-full border p-2.5 rounded-xl text-xs font-semibold" />
+                    <label className="text-xs font-bold text-slate-500 block mb-1">Order</label>
+                    <input type="number" value={editOrder} onChange={e => setEditOrder(parseInt(e.target.value) || 1)}
+                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none" />
                   </div>
                 </div>
 
-                <div className="p-3 bg-slate-50 dark:bg-zinc-900 border border-dashed rounded-xl">
-                  {editMaterialType === "url" ? (
+                <div className="p-3 bg-slate-50 border border-dashed border-slate-200 rounded-xl">
+                  {editType === "url" || editType === "link" ? (
                     <div>
-                      <label className="text-xs font-bold text-slate-500 block mb-1">External Study Link URL</label>
-                      <input type="text" value={editExternalUrl} onChange={(e) => setEditExternalUrl(e.target.value)} placeholder="https://youtube.com/..." className="w-full border p-2.5 rounded-xl text-xs font-medium" />
+                      <label className="text-xs font-bold text-slate-500 block mb-1">URL</label>
+                      <input type="text" value={editUrl} onChange={e => setEditUrl(e.target.value)}
+                        placeholder="https://youtube.com/..."
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 focus:outline-none" />
                     </div>
                   ) : (
                     <div>
-                      <label className="text-xs font-bold text-slate-500 block mb-1">Upload Replacement File</label>
-                      <input type="file" accept={editMaterialType === "pdf" ? ".pdf" : "video/*"} onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} className="w-full border p-1.5 rounded-xl text-xs" />
+                      <label className="text-xs font-bold text-slate-500 block mb-1">Upload File</label>
+                      <input type="file" accept={editType === "pdf" ? ".pdf" : "video/*"}
+                        onChange={e => setEditFile(e.target.files?.[0] || null)}
+                        className="w-full text-xs text-slate-600" />
                     </div>
                   )}
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-500 block mb-1">Lecture Notes & Curriculum</label>
-                  <textarea rows={4} value={editContent} onChange={(e) => setEditContent(e.target.value)} className="w-full border p-2.5 rounded-xl text-xs font-medium" />
+                  <label className="text-xs font-bold text-slate-500 block mb-1">Notes / Content</label>
+                  <textarea rows={4} value={editContent} onChange={e => setEditContent(e.target.value)}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none" />
                 </div>
 
-                <div className="flex items-center justify-end gap-2 border-t pt-3">
-                  <button type="button" onClick={handleCancelEdit} className="px-4 py-2 border text-xs font-bold rounded-xl hover:bg-slate-50">Cancel</button>
-                  <button type="submit" disabled={saving} className="px-4 py-2 bg-[#0038A8] text-white font-black text-xs rounded-xl shadow-md flex items-center gap-1">
-                    <Save className="h-3.5 w-3.5" /> {saving ? "Saving..." : "Save details"}
+                <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-3">
+                  <button type="button" onClick={cancelEdit}
+                    className="px-4 py-2 border border-slate-200 text-xs font-bold rounded-xl text-slate-500 hover:bg-slate-50 transition-colors">
+                    Cancel
+                  </button>
+                  <button type="submit" disabled={saving}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] text-white font-black text-xs rounded-xl shadow transition-all disabled:opacity-60">
+                    <Save className="h-3.5 w-3.5" />
+                    {saving ? "Saving…" : "Save changes"}
                   </button>
                 </div>
               </form>
@@ -401,19 +771,6 @@ export default function StudentLessonPlayerPage() {
           </>
         )}
       </AnimatePresence>
-
-      {/* FLOATING ACTION ASSISTANT HOOK BUTTONS */}
-      <div className="fixed bottom-6 right-6 z-40">
-        <button
-          onClick={() => setIsChatOpen(true)}
-          className="w-14 h-14 bg-gradient-to-tr from-[#0038A8] to-[#1e40af] text-white rounded-full shadow-2xl flex items-center justify-center relative hover:scale-105 active:scale-95 transition-transform group border border-[#0038A8]/20"
-        >
-          <Sparkles className="w-6 h-6 animate-pulse" />
-          <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full border border-white">
-            AI COACH
-          </span>
-        </button>
-      </div>
     </div>
   );
 }

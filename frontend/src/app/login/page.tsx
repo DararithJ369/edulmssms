@@ -47,7 +47,7 @@ export default function LoginPage() {
 
       localStorage.setItem("user_username", meResponse.data?.username || "");
       localStorage.setItem("user_email", meResponse.data?.email || "");
-      localStorage.setItem("user_image", meResponse.data?.image || "");
+      localStorage.setItem("user_image", meResponse.data?.profile_image || meResponse.data?.image || "");
 
       window.location.href = roleRouteMap[roleName] || "/admin";
     } catch (err: any) {
@@ -145,7 +145,7 @@ export default function LoginPage() {
                     </span>
                   </label>
                   <Link
-                    href="#"
+                    href="/forgot-password"
                     className="text-sm font-medium text-[#0038A8] hover:text-[#002D86] transition-colors"
                   >
                     Forgot password?
@@ -155,7 +155,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-[#0038A8] text-white px-6 py-3 rounded-lg font-bold text-lg hover:bg-[#002D86] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 group shadow-md shadow-[#0038A8]/10"
+                  className="w-full bg-[#0038A8] text-white px-6 py-3 rounded-xl font-black text-lg hover:bg-[#002D86] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 group shadow-md shadow-[#0038A8]/10"
                 >
                   {loading ? (
                     <>

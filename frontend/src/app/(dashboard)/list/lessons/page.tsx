@@ -59,45 +59,23 @@ const LessonListPage = async ({
   let data: LessonList[] = [];
   let count = 0;
 
+  const queryParams = new URLSearchParams();
+  queryParams.set("page", String(p));
+  queryParams.set("limit", String(ITEM_PER_PAGE));
   if (classId) {
-    let courseIds: number[] = [];
-    const students = await serverFetch<any[]>(`/classes/${classId}/students`, fetchOptions).catch(() => []);
-    if (students && students.length > 0) {
-      const studentId = students[0].id || students[0].user_id;
-      const overview = await serverFetch<any>(`/students/${studentId}/overview`, fetchOptions).catch(() => null);
-      if (overview && overview.courses) {
-        courseIds = overview.courses.map((c: any) => Number(c.course_id));
-      }
-    }
-
-    const lessonsResponse = await serverFetch<{
-      data: LessonList[];
-      meta: { total: number };
-    }>(`/lessons?limit=1000`, fetchOptions).catch(() => ({
-      data: [],
-      meta: { total: 0 }
-    }));
-
-    const allLessons = lessonsResponse.data || [];
-    const filteredLessons = allLessons.filter((item) => {
-      const cId = item.course_id || item.course?.id;
-      return cId ? courseIds.includes(Number(cId)) : false;
-    });
-
-    count = filteredLessons.length;
-    data = filteredLessons.slice((p - 1) * ITEM_PER_PAGE, p * ITEM_PER_PAGE);
-  } else {
-    const lessonsResponse = await serverFetch<{
-      data: LessonList[];
-      meta: { total: number };
-    }>(`/lessons?page=${p}&limit=${ITEM_PER_PAGE}`, fetchOptions).catch(() => ({
-      data: [],
-      meta: { total: 0 }
-    }));
-
-    data = lessonsResponse.data || [];
-    count = lessonsResponse.meta?.total ?? 0;
+    queryParams.set("class_id", classId);
   }
+
+  const lessonsResponse = await serverFetch<{
+    data: LessonList[];
+    meta: { total: number };
+  }>(`/lessons?${queryParams.toString()}`, fetchOptions).catch(() => ({
+    data: [],
+    meta: { total: 0 }
+  }));
+
+  data = lessonsResponse.data || [];
+  count = lessonsResponse.meta?.total ?? 0;
 
   const formatTimeInterval = (start: string | null | undefined, end: string | null | undefined) => {
     if (!start) return null;
@@ -188,15 +166,6 @@ const LessonListPage = async ({
                 <span className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-l-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${isFileResource ? "bg-emerald-500" : "bg-sky-500"}`} />
                 
                 <div className="flex items-start gap-4 max-w-full sm:max-w-[75%] z-10">
-                  {/* Dynamic Activity Icon Layout */}
-                  <div className={`h-10 w-10 rounded-2xl border flex items-center justify-center shrink-0 shadow-sm transition-all duration-300 group-hover:scale-105 ${
-                    isFileResource 
-                      ? "bg-emerald-50 border-emerald-100 dark:bg-emerald-950/20 dark:border-emerald-950/30 text-emerald-600 dark:text-emerald-400" 
-                      : "bg-sky-50 border-sky-100 dark:bg-sky-950/20 dark:border-sky-950/30 text-sky-600 dark:text-sky-400"
-                  }`}>
-                    {isFileResource ? <FileUp className="h-5 w-5" /> : <BookOpen className="h-5 w-5" />}
-                  </div>
-
                   <div className="flex flex-col text-left gap-1 min-w-0">
                     <Link 
                       href={`/list/lessons/${item.id}?courseId=${finalCourseContext}&moduleId=${finalModuleContext}`}

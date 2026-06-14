@@ -1,31 +1,28 @@
-import os
-import re
-import shutil
-from pathlib import Path
+import cloudinary.uploader
+from fastapi import UploadFile
+from app.utils.upload_validator import validate_upload
 
-# validate file type
-allowed_extensions = ["image/jpeg", "image/png", "image/gif", "image/jpg", "image/webp"]
-
-# Get the backend root directory (parent of the app directory)
-backend_root = Path(__file__).parent.parent.parent
-uploads_dir = backend_root / "uploads" / "images"
-directory = str(uploads_dir)
-
-print(f"🖼️ get_image - Uploads directory: {directory}")
-os.makedirs(directory, exist_ok=True)
-
-def get_image(file):
+def get_image(file: UploadFile) -> str:
+    # Validate image file size and type
+    validate_upload(file, allowed_categories=["image"])
+    
     try:
-        print(f"🖼️ get_image - Processing file: {file.filename}, Content-Type: {file.content_type}")
+        print(f"☁️ Cloudinary Upload - Processing file: {file.filename}, Content-Type: {file.content_type}")
         
-        if file.content_type not in allowed_extensions:
-            raise ValueError(f"Unsupported file type: {file.content_type}")
+        # Ensure file pointer is at the beginning
+        file.file.seek(0)
         
-        from app.services.storage import StorageService
-        stored_path = StorageService.upload_public_file(file, folder="images")
+        # Perform unsigned upload using the predefined preset and cloud name
+        upload_result = cloudinary.uploader.unsigned_upload(
+            file.file,
+            upload_preset="lms_preset",
+            cloud_name="dlykcgjdh",
+            resource_type="auto"
+        )
         
-        print(f"✅ get_image - Success! Saved and returning: {stored_path}")
-        return stored_path
+        secure_url = upload_result.get("secure_url")
+        print(f"✅ Cloudinary Upload - Success! Saved and returning: {secure_url}")
+        return secure_url
     except Exception as e:
-        print(f"❌ get_image - Error: {str(e)}")
+        print(f"❌ Cloudinary Upload - Error: {str(e)}")
         raise

@@ -11,7 +11,7 @@ class ProfileSeeder(BaseSeeder):
     def __init__(self, db: Session):
         super().__init__(db, UserProfile)
 
-    def seed_profile(self, user_id: str, full_name: str, class_id: int | None = None):
+    def seed_profile(self, user_id: str, full_name: str, class_id: int | None = None, gender: str | None = None):
         bind = self.db.bind
         if not isinstance(bind, Engine):
             Colors.warning("Database bind is not an Engine, skipping profile seeding")
@@ -28,7 +28,8 @@ class ProfileSeeder(BaseSeeder):
                 "full_name": full_name,
                 "class_id": class_id,
                 "phone": "012345678",
-                "address": "Phnom Penh"
+                "address": "Phnom Penh",
+                "gender": gender
             }
 
             profile = self.create_one(lambda: profile_data)

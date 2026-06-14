@@ -90,7 +90,7 @@ export default async function ParentDashboardPage({ searchParams }: ParentDashbo
               <Link
                 key={std.id}
                 href={`/parent?studentId=${std.user_id}`}
-                className={`px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all duration-200 flex items-center gap-1.5 hover:scale-[1.02] active:scale-[0.98] ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all duration-200 flex items-center gap-1.5 cursor-pointer ${
                   activeStudent?.user_id === std.user_id
                     ? "bg-[#0038A8] text-white shadow-sm"
                     : "text-slate-500 hover:text-slate-800"
@@ -205,7 +205,7 @@ export default async function ParentDashboardPage({ searchParams }: ParentDashbo
                 </div>
                 <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-[#0038A8] to-indigo-650 rounded-full transition-all duration-700 ease-out"
+                    className="h-full bg-[#0038A8] rounded-full transition-all duration-700 ease-out"
                     style={{ width: `${attendancePercentage}%` }}
                   />
                 </div>

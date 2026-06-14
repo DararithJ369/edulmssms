@@ -14,8 +14,23 @@ from app.services.notification_helpers import notify_enrolled_students
 class AssignmentService:
 
     @staticmethod
-    def get_assignments(db: Session, page: int = 1, limit: int = 10, search: str = "") -> dict:
+    def get_assignments(
+        db: Session,
+        page: int = 1,
+        limit: int = 10,
+        search: str = "",
+        class_id: Optional[int] = None,
+        course_id: Optional[int] = None
+    ) -> dict:
         query = db.query(Assignment)
+
+        if course_id is not None:
+            query = query.filter(Assignment.course_id == course_id)
+
+        if class_id is not None:
+            from app.services.base_service import get_course_ids_for_class
+            course_ids = get_course_ids_for_class(db, class_id)
+            query = query.filter(Assignment.course_id.in_(course_ids))
 
         if search:
             query = query.filter(
@@ -38,7 +53,7 @@ class AssignmentService:
     ) -> AssignmentResponse:
         obj = Assignment(**assignment_in.model_dump())
         if file:
-            obj.file_url = get_image(file)
+            obj.attachment_file = get_image(file)
         db.add(obj)
         db.commit()
         db.refresh(obj)
@@ -65,7 +80,7 @@ class AssignmentService:
         obj = get_or_404(db, Assignment, assignment_id, "Assignment")
         apply_update(obj, assignment_in)
         if file:
-            obj.file_url = get_image(file)
+            obj.attachment_file = get_image(file)
         db.commit()
         db.refresh(obj)
         return AssignmentResponse.model_validate(obj)
@@ -81,7 +96,10 @@ class AssignmentService:
         get_or_404(db, Assignment, assignment_id, "Assignment")
         submissions = (
             db.query(Submission)
-            .filter(Submission.assignment_id == assignment_id)
+            .filter(
+                Submission.submission_type == "assignment",
+                Submission.reference_id == assignment_id
+            )
             .all()
         )
         return [SubmissionResponse.model_validate(s) for s in submissions]
@@ -99,8 +117,9 @@ class AssignmentService:
         existing = (
             db.query(Submission)
             .filter(
-                Submission.assignment_id == assignment_id,
-                Submission.student_id == student_id,
+                Submission.submission_type == "assignment",
+                Submission.reference_id == assignment_id,
+                Submission.student_id == str(student_id),
             )
             .first()
         )
@@ -108,12 +127,10 @@ class AssignmentService:
             raise HTTPException(status_code=400, detail="Assignment already submitted")
 
         submission = Submission(
-            assignment_id=assignment_id,
-            student_id=student_id,
-            **submission_in.model_dump(),
+            **submission_in.model_dump()
         )
         if file:
-            submission.file_url = get_image(file)
+            submission.submission_file = get_image(file)
         db.add(submission)
 
         try:

@@ -52,31 +52,22 @@ const ResultListPage = async ({
   let data: ResultList[] = [];
   let count = 0;
 
+  const queryParams = new URLSearchParams();
+  queryParams.set("page", String(p));
+  queryParams.set("limit", String(ITEM_PER_PAGE));
   if (studentId) {
-    const resultsResponse = await serverFetch<{
-      data: ResultList[];
-      meta: { total: number };
-    }>(`/results?limit=1000`, fetchOptions).catch(() => ({
-      data: [],
-      meta: { total: 0 }
-    }));
-    const allResults = resultsResponse.data || [];
-    const filteredResults = allResults.filter((item) => {
-      return item.student_id === studentId;
-    });
-    count = filteredResults.length;
-    data = filteredResults.slice((p - 1) * ITEM_PER_PAGE, p * ITEM_PER_PAGE);
-  } else {
-    const resultsResponse = await serverFetch<{
-      data: ResultList[];
-      meta: { total: number };
-    }>(`/results?page=${p}&limit=${ITEM_PER_PAGE}`, fetchOptions).catch(() => ({
-      data: [],
-      meta: { total: 0 }
-    }));
-    data = resultsResponse.data || [];
-    count = resultsResponse.meta?.total ?? 0;
+    queryParams.set("student_id", studentId);
   }
+
+  const resultsResponse = await serverFetch<{
+    data: ResultList[];
+    meta: { total: number };
+  }>(`/results?${queryParams.toString()}`, fetchOptions).catch(() => ({
+    data: [],
+    meta: { total: 0 }
+  }));
+  data = resultsResponse.data || [];
+  count = resultsResponse.meta?.total ?? 0;
 
   return (
     <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left">
@@ -137,11 +128,6 @@ const ResultListPage = async ({
               className="flex items-center justify-between p-4 bg-[#f8fcf9]/40 dark:bg-muted/5 border border-border/40 hover:border-emerald-300/50 dark:hover:border-emerald-950/30 rounded-2xl transition-all shadow-sm group"
             >
               <div className="flex items-center gap-4 max-w-[70%]">
-                {/* Emerald Moodle Grade Icon */}
-                <div className="h-9 w-9 rounded-xl bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-200/50">
-                  <TrendingUp className="h-5 w-5" />
-                </div>
-
                 <div className="flex flex-col text-left gap-0.5">
                   <span className="text-sm font-extrabold text-foreground tracking-tight leading-snug group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors">
                     {item.assessment_title || (item.exam_id ? `Final Exam #${item.exam_id}` : `Assignment Project #${item.assignment_id}`)}

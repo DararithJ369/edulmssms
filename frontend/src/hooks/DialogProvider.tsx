@@ -149,7 +149,7 @@ export const DialogProvider = ({ children }: { children: React.ReactNode }) => {
     <DialogContext.Provider value={{ confirm, alert, prompt }}>
       {children}
       <Dialog open={isOpen} onOpenChange={(open) => { if (!open) handleCancel(); }}>
-        <DialogContent className="max-w-[400px] rounded-2xl p-6 border border-border shadow-xl">
+        <DialogContent className="max-w-[400px] rounded-xl p-6 border border-border shadow-xl">
           <DialogHeader className="space-y-2 text-left">
             <DialogTitle className="text-lg font-bold text-slate-900 leading-tight">
               {title}

@@ -22,6 +22,8 @@ type SubjectList = {
   credits?: number | null;
   instructor_id?: string | null;
   instructor_name?: string | null;
+  grade_id?: number | null;
+  grade_name?: string | null;
   is_active?: boolean | null;
 };
 
@@ -110,11 +112,6 @@ const SubjectListPage = async ({
                 <span className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-3xl bg-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 
                 <div className="flex items-center gap-4 max-w-[70%] z-10">
-                  {/* Subject Icon */}
-                  <div className="h-10 w-10 rounded-2xl bg-emerald-50 border border-emerald-100 dark:bg-emerald-950/20 dark:border-emerald-950/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 shadow-sm transition-all duration-300 group-hover:scale-105">
-                    <BookOpen className="h-5 w-5" />
-                  </div>
-
                   <div className="flex flex-col text-left gap-1">
                     <span className="text-sm font-extrabold text-foreground tracking-tight leading-snug group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                       {item.name}
@@ -127,6 +124,12 @@ const SubjectListPage = async ({
                         </span>
                       )}
                       {item.code && <span className="text-muted-foreground/40">•</span>}
+                      {item.grade_name && (
+                        <>
+                          <span className="font-sans">{item.grade_name}</span>
+                          <span className="text-muted-foreground/40">•</span>
+                        </>
+                      )}
                       <span className="font-sans">{item.credits ?? 0} academic credits</span>
                       <span className="text-muted-foreground/40">•</span>
                       <span className="font-sans">Lead: {item.instructor_name || "Faculty Staff"}</span>

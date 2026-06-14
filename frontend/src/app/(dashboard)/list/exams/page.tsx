@@ -26,6 +26,7 @@ type ExamList = {
   exam_date: string;
   start_time: string;
   duration: number;
+  description?: string | null;
   course_name?: string | null;
   lesson_title?: string | null;
 };
@@ -48,54 +49,22 @@ const ExamListPage = async ({
   let data: ExamList[] = [];
   let count = 0;
 
+  const queryParams = new URLSearchParams();
+  queryParams.set("page", String(p));
+  queryParams.set("limit", String(ITEM_PER_PAGE));
   if (classId) {
-    let courseIds: number[] = [];
-    const students = await serverFetch<any[]>(`/classes/${classId}/students`, fetchOptions).catch(() => []);
-    if (students && students.length > 0) {
-      const studentId = students[0].id || students[0].user_id;
-      const overview = await serverFetch<any>(`/students/${studentId}/overview`, fetchOptions).catch(() => null);
-      if (overview && overview.courses) {
-        courseIds = overview.courses.map((c: any) => Number(c.course_id));
-      }
-    }
-
-    const examsResponse = await serverFetch<{
-      data: any[];
-      meta: { total: number };
-    }>(`/exams?limit=1000`, fetchOptions).catch(() => ({
-      data: [],
-      meta: { total: 0 }
-    }));
-    const allExams = examsResponse.data || [];
-
-    const lessonsResponse = await serverFetch<{ data: any[] }>(`/lessons?limit=1000`, fetchOptions).catch(() => ({ data: [] }));
-    const lessons = lessonsResponse.data || [];
-    const lessonToCourse: Record<number, number> = {};
-    lessons.forEach((l: any) => {
-      const cId = l.course_id || l.course?.id;
-      if (l.id && cId) {
-        lessonToCourse[l.id] = Number(cId);
-      }
-    });
-
-    const filteredExams = allExams.filter((exam) => {
-      const cId = lessonToCourse[exam.lesson_id];
-      return cId ? courseIds.includes(cId) : false;
-    });
-
-    count = filteredExams.length;
-    data = filteredExams.slice((p - 1) * ITEM_PER_PAGE, p * ITEM_PER_PAGE);
-  } else {
-    const examsResponse = await serverFetch<{
-      data: ExamList[];
-      meta: { total: number };
-    }>(`/exams?page=${p}&limit=${ITEM_PER_PAGE}`, fetchOptions).catch(() => ({
-      data: [],
-      meta: { total: 0 }
-    }));
-    data = examsResponse.data || [];
-    count = examsResponse.meta?.total ?? 0;
+    queryParams.set("class_id", classId);
   }
+
+  const examsResponse = await serverFetch<{
+    data: ExamList[];
+    meta: { total: number };
+  }>(`/exams?${queryParams.toString()}`, fetchOptions).catch(() => ({
+    data: [],
+    meta: { total: 0 }
+  }));
+  data = examsResponse.data || [];
+  count = examsResponse.meta?.total ?? 0;
 
   return (
     <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left">
@@ -156,16 +125,11 @@ const ExamListPage = async ({
             return (
               <div 
                 key={item.id} 
-                className="flex items-center justify-between p-4 bg-[#fbf5fc]/40 dark:bg-muted/5 border border-border/40 hover:border-violet-300/50 dark:hover:border-violet-950/30 rounded-2xl transition-all shadow-sm group"
+                className="flex items-center justify-between p-4 bg-[#fbf5fc]/40 dark:bg-muted/5 border border-border/40 hover:border-violet-300/50 dark:hover:border-violet-950/30 rounded-2xl transition-all shadow-sm group animate-fade-in"
               >
-                <div className="flex items-center gap-4 max-w-[70%]">
-                  {/* Purple Moodle Exam Icon */}
-                  <div className="h-9 w-9 rounded-xl bg-violet-100 dark:bg-violet-950/40 text-violet-600 dark:text-violet-400 flex items-center justify-center shrink-0 border border-violet-200/50">
-                    <Award className="h-5 w-5" />
-                  </div>
-
-                  <div className="flex flex-col text-left gap-0.5">
-                    <span className="text-sm font-extrabold text-foreground tracking-tight leading-snug group-hover:text-violet-700 dark:group-hover:text-violet-400 transition-colors">
+                <div className="flex items-center gap-4 max-w-[70%] w-full">
+                  <div className="flex flex-col text-left gap-0.5 w-full">
+                    <span className="text-sm font-extrabold text-foreground tracking-tight leading-snug group-hover:text-[#0038A8] transition-colors">
                       {item.title}
                     </span>
 
@@ -192,6 +156,13 @@ const ExamListPage = async ({
                         }).format(new Date(item.exam_date))} at {item.start_time}
                       </span>
                     </div>
+
+                    {item.description && (
+                      <p className="text-[11px] text-muted-foreground mt-1.5 italic bg-slate-50 dark:bg-muted/30 border border-slate-100 dark:border-border/20 rounded-xl px-3 py-2 font-medium max-w-full leading-normal">
+                        <strong className="text-[9px] uppercase tracking-wider text-[#0038A8] font-extrabold not-italic block mb-0.5">Focus Notes:</strong>
+                        {item.description}
+                      </p>
+                    )}
                   </div>
                 </div>
 

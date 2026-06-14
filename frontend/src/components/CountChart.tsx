@@ -3,7 +3,6 @@ import Image from "next/image";
 import {
   RadialBarChart,
   RadialBar,
-  Legend,
   ResponsiveContainer,
 } from "recharts";
 
@@ -18,12 +17,12 @@ const CountChart = ({ boys, girls }: { boys: number; girls: number }) => {
     {
       name: "Girls",
       count: girls,
-      fill: "#FAE27C",
+      fill: "#FB7185",
     },
     {
       name: "Boys",
       count: boys,
-      fill: "#C3EBFA",
+      fill: "#0038A8",
     },
   ];
   return (

@@ -70,6 +70,15 @@ class CourseService:
                 detail=f"Course code identifier abbreviation '{course_data.get('course_code')}' is already taken."
             )
 
+        if course_data.get("instructor_id"):
+            inst_user = db.query(User).filter(User.id == course_data.get("instructor_id")).first()
+            if inst_user:
+                course_data["instructor_name"] = inst_user.profile.full_name or inst_user.username if inst_user.profile else inst_user.username
+            else:
+                course_data["instructor_name"] = None
+        else:
+            course_data["instructor_name"] = None
+
         # 3. Save core baseline Course object
         obj = Course(**course_data)
         obj.has_modules = len(modules_list) > 0
@@ -126,7 +135,19 @@ class CourseService:
         obj = db.query(Course).filter(Course.id == course_id).first()
         if not obj:
             raise HTTPException(status_code=404, detail="Course not found")
-        for field, value in course_in.model_dump(exclude_unset=True).items():
+        
+        course_data = course_in.model_dump(exclude_unset=True)
+        if "instructor_id" in course_data:
+            if course_data["instructor_id"]:
+                inst_user = db.query(User).filter(User.id == course_data["instructor_id"]).first()
+                if inst_user:
+                    course_data["instructor_name"] = inst_user.profile.full_name or inst_user.username if inst_user.profile else inst_user.username
+                else:
+                    course_data["instructor_name"] = None
+            else:
+                course_data["instructor_name"] = None
+
+        for field, value in course_data.items():
             setattr(obj, field, value)
         db.commit()
         db.refresh(obj)
@@ -137,6 +158,64 @@ class CourseService:
         obj = db.query(Course).filter(Course.id == course_id).first()
         if not obj:
             raise HTTPException(status_code=404, detail="Course not found")
+
+        # 1. Clean up Certificates referencing the course
+        from app.models.certificate import Certificate, StudentCertificate
+        db.query(StudentCertificate).filter(StudentCertificate.course_id == course_id).delete(synchronize_session=False)
+        db.query(Certificate).filter(Certificate.course_id == course_id).delete(synchronize_session=False)
+
+        # 2. Clean up Attendance referencing the course
+        from app.models.attendance import Attendance
+        db.query(Attendance).filter(Attendance.course_id == course_id).delete(synchronize_session=False)
+
+        # 3. Clean up Announcements referencing the course
+        from app.models.announcement import Announcement
+        db.query(Announcement).filter(Announcement.course_id == course_id).delete(synchronize_session=False)
+
+        # 4. Clean up Exams, Results, and AI Conversations associated with course's lessons
+        # Find all lesson IDs first
+        lesson_ids = [
+            r[0] for r in db.query(Lesson.id)
+            .join(Module, Lesson.module_id == Module.id)
+            .filter(Module.course_id == course_id)
+            .all()
+        ]
+
+        # Find all exam IDs
+        from app.models.exam import Exam
+        if lesson_ids:
+            exam_ids = [r[0] for r in db.query(Exam.id).filter(Exam.lesson_id.in_(lesson_ids)).all()]
+        else:
+            exam_ids = []
+
+        # Clean up Results associated with course assignments, quizzes, or exams
+        from app.models.result import Result
+        from app.models.assignment import Assignment
+        from app.models.quiz import Quiz
+
+        assignment_ids = [r[0] for r in db.query(Assignment.id).filter(Assignment.course_id == course_id).all()]
+        quiz_ids = [r[0] for r in db.query(Quiz.id).filter(Quiz.course_id == course_id).all()]
+
+        if assignment_ids:
+            db.query(Result).filter(Result.assignment_id.in_(assignment_ids)).delete(synchronize_session=False)
+        if quiz_ids:
+            db.query(Result).filter(Result.quiz_id.in_(quiz_ids)).delete(synchronize_session=False)
+        if exam_ids:
+            db.query(Result).filter(Result.exam_id.in_(exam_ids)).delete(synchronize_session=False)
+
+        # Clean up Exams
+        if exam_ids:
+            db.query(Exam).filter(Exam.id.in_(exam_ids)).delete(synchronize_session=False)
+
+        # Clean up AI Conversations and messages
+        from app.models.ai_tutor import AIConversation, AIMessage
+        if lesson_ids:
+            conv_ids = [r[0] for r in db.query(AIConversation.id).filter(AIConversation.lesson_id.in_(lesson_ids)).all()]
+            if conv_ids:
+                db.query(AIMessage).filter(AIMessage.conversation_id.in_(conv_ids)).delete(synchronize_session=False)
+                db.query(AIConversation).filter(AIConversation.id.in_(conv_ids)).delete(synchronize_session=False)
+
+        # 5. Delete course itself (which cascades to modules, lessons, assignments, quizzes, enrollments)
         db.delete(obj)
         db.commit()
         return {"detail": "Course deleted successfully"}

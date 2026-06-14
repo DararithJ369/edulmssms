@@ -165,7 +165,9 @@ class UserProfileService:
         update_data = profile_in.model_dump(exclude_unset=True)
         # remap pfp → image
         if "pfp" in update_data:
-            update_data["image"] = update_data.pop("pfp")
+            pfp_val = update_data.pop("pfp")
+            if pfp_val is not None:
+                update_data["image"] = pfp_val
 
         for field, value in update_data.items():
             if field == "tier" and value is None:

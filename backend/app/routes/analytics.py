@@ -14,6 +14,7 @@ from app.models.assignment import Assignment
 from app.models.submission import Submission
 from app.models.student_profile import StudentProfile
 from app.models.user_profile import UserProfile
+from app.utils.gpa_calculator import calculate_gpa
 
 analytics_router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
@@ -212,6 +213,8 @@ def get_student_analytics(
                         "course_name": a.course_name if hasattr(a, "course_name") else f"Course #{a.course_id}",
                     })
 
+    gpa_stats = calculate_gpa(db, student_id)
+
     return {
         "student_id": student_id,
         "attendance_rate": attendance_rate,
@@ -221,6 +224,56 @@ def get_student_analytics(
         "recent_results": recent_results,
         "enrolled_courses": enrolled_courses,
         "pending_assignments": pending_assignments,
+        "gpa": gpa_stats["gpa"],
+        "total_credits": gpa_stats["total_credits"],
+        "passed_subjects": gpa_stats["passed_subjects"],
+        "failed_subjects": gpa_stats["failed_subjects"],
+    }
+
+
+@analytics_router.get("/student/{student_id}/transcript")
+def get_student_transcript(
+    student_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get the academic transcript for a student, grouped by semester/term."""
+    role = current_user.role.name.lower()
+    if role not in ["admin", "instructor", "teacher", "parent"] and current_user.id != student_id:
+        raise HTTPException(status_code=403, detail="Not authorized to view this transcript")
+    
+    gpa_data = calculate_gpa(db, student_id)
+    
+    grouped = {}
+    for c in gpa_data["courses_gpa"]:
+        key = (c["academic_year"], c["term"])
+        if key not in grouped:
+            grouped[key] = []
+        grouped[key].append(c)
+    
+    terms_transcript = []
+    for (year, term), courses in grouped.items():
+        term_points_credits = sum(c["gpa_points"] * c["credits"] for c in courses)
+        term_credits = sum(c["credits"] for c in courses)
+        term_gpa = (term_points_credits / term_credits) if term_credits > 0 else 0.0
+        
+        terms_transcript.append({
+            "academic_year": year,
+            "term": term,
+            "term_gpa": round(term_gpa, 2),
+            "term_credits": term_credits,
+            "courses": courses
+        })
+        
+    terms_transcript.sort(key=lambda x: (x["academic_year"], x["term"]))
+    
+    return {
+        "student_id": student_id,
+        "cumulative_gpa": gpa_data["gpa"],
+        "total_credits": gpa_data["total_credits"],
+        "passed_subjects": gpa_data["passed_subjects"],
+        "failed_subjects": gpa_data["failed_subjects"],
+        "semesters": terms_transcript
     }
 
 

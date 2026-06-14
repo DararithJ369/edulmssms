@@ -47,10 +47,10 @@ const TeacherPage = () => {
 
         {/* Action button */}
         <div className="flex items-center gap-2 shrink-0">
-          <Link href="/list/courses/1/edit">
-            <button className="px-4 py-2.5 bg-[#8b5cf6] text-white hover:bg-[#7c3aed] font-extrabold text-xs rounded-xl transition-all shadow-md shadow-violet-500/10 flex items-center gap-1.5 active:scale-[0.98] hover:scale-[1.02]">
+          <Link href="/list/courses/create">
+            <button className="px-4 py-2 bg-[#0038A8] text-white hover:bg-[#002D86] font-black text-xs rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer">
               <Plus className="h-4 w-4" />
-              <span>Create New Activity</span>
+              <span>Create New Course</span>
             </button>
           </Link>
         </div>

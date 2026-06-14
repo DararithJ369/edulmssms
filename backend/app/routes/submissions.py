@@ -13,6 +13,7 @@ from app.models.assignment import Assignment
 from app.models.quiz import Quiz
 from app.models.exam import Exam
 from app.services.file_manager import FileManager
+from app.utils.upload_validator import validate_upload
 from app.schemas.submission import SubmissionResponse, SubmissionUpdate
 
 submission_router = APIRouter(prefix="/submissions", tags=["Submissions"])
@@ -87,6 +88,9 @@ async def submit_homework(
     current_user: User = Depends(get_current_user)
 ):
     student_id = current_user.id
+    
+    if file:
+        validate_upload(file, allowed_categories=["image", "document", "video"])
 
     # Check if a submission already exists (allowing students to edit/resubmit before grading)
     sub = db.query(Submission).filter(
@@ -157,13 +161,13 @@ def grade_submission(
     total_marks = 100
     if sub.submission_type == "assignment":
         assignment = db.query(Assignment).filter(Assignment.id == sub.reference_id).first()
-        if assignment: total_marks = assignment.total_marks or 100
+        if assignment: total_marks = getattr(assignment, "total_marks", 100) or 100
     elif sub.submission_type == "quiz":
         quiz = db.query(Quiz).filter(Quiz.id == sub.reference_id).first()
-        # Fallback marks
+        if quiz: total_marks = getattr(quiz, "total_marks", 100) or 100
     elif sub.submission_type == "exam":
         exam = db.query(Exam).filter(Exam.id == sub.reference_id).first()
-        if exam: total_marks = exam.total_marks or 100
+        if exam: total_marks = getattr(exam, "total_marks", 100) or 100
 
     percentage = round((score / total_marks) * 100.0, 1)
     grade_letter = calculate_grade_letter(percentage)

@@ -449,10 +449,6 @@ export default function AttendanceListPage() {
                 className="flex items-center justify-between p-4 bg-white hover:bg-slate-50/50 border border-border/40 hover:border-violet-200 rounded-2xl transition-all shadow-xs group"
               >
                 <div className="flex items-center gap-4 max-w-[70%]">
-                  <div className="h-9 w-9 rounded-xl bg-violet-50 text-[#8b5cf6] flex items-center justify-center shrink-0 border border-violet-100">
-                    <Calendar className="h-5 w-5" />
-                  </div>
-
                   <div className="flex flex-col text-left gap-0.5">
                     <span className="text-sm font-extrabold text-slate-800 truncate">
                       {item.student_name || `Student ID: ${item.student_id}`}

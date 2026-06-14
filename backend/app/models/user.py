@@ -15,6 +15,9 @@ class User(Base):
     image = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
     is_superuser = Column(Boolean, default=False)
+    
+    reset_code = Column(String, nullable=True)
+    reset_code_expires_at = Column(DateTime(timezone=True), nullable=True)
 
     # Foreign key to Role
     role_id = Column(Integer, ForeignKey("roles.id"), nullable=False)
@@ -39,3 +42,17 @@ class User(Base):
         if self.profile and self.profile.student_profile:
             return self.profile.student_profile.id
         return None
+
+    @property
+    def gender(self):
+        """Return the gender from UserProfile."""
+        if self.profile and self.profile.gender:
+            return self.profile.gender
+        return "MALE"
+
+    @property
+    def full_name(self):
+        """Return the full name from UserProfile."""
+        if self.profile and self.profile.full_name:
+            return self.profile.full_name
+        return self.username

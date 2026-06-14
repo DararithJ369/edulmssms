@@ -1,3 +1,4 @@
+from typing import Optional
 from sqlalchemy import Column, Integer, String, Text, Boolean, Float, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -63,3 +64,53 @@ class Result(Base):
         elif self.quiz:
             return self.quiz.title
         return f"Assessment"
+
+    @property
+    def assessment_type(self) -> str:
+        if self.exam_id:
+            return "exam"
+        elif self.assignment_id:
+            return "assignment"
+        elif self.quiz_id:
+            return "quiz"
+        return "other"
+
+    @property
+    def lesson_id(self) -> Optional[int]:
+        if self.exam:
+            return self.exam.lesson_id
+        elif self.assignment:
+            return self.assignment.lesson_id
+        elif self.quiz:
+            return self.quiz.lesson_id
+        return None
+
+    @property
+    def lesson_title(self) -> Optional[str]:
+        if self.exam and self.exam.lesson:
+            return self.exam.lesson.title
+        elif self.assignment and self.assignment.lesson:
+            return self.assignment.lesson.title
+        elif self.quiz and self.quiz.lesson:
+            return self.quiz.lesson.title
+        return None
+
+    @property
+    def module_id(self) -> Optional[int]:
+        if self.exam and self.exam.lesson:
+            return self.exam.lesson.module_id
+        elif self.assignment and self.assignment.lesson:
+            return self.assignment.lesson.module_id
+        elif self.quiz and self.quiz.lesson:
+            return self.quiz.lesson.module_id
+        return None
+
+    @property
+    def module_title(self) -> Optional[str]:
+        if self.exam and self.exam.lesson and self.exam.lesson.module:
+            return self.exam.lesson.module.title
+        elif self.assignment and self.assignment.lesson and self.assignment.lesson.module:
+            return self.assignment.lesson.module.title
+        elif self.quiz and self.quiz.lesson and self.quiz.lesson.module:
+            return self.quiz.lesson.module.title
+        return None

@@ -128,26 +128,78 @@ class UserService:
         
     
     @staticmethod
-    def get_users_by_role(db: Session, role_name: str, page: int, limit: int, search: str = ""):
+    def get_users_by_role(
+        db: Session,
+        role_name: str,
+        page: int,
+        limit: int,
+        search: str = "",
+        class_id: Optional[int] = None,
+        grade_id: Optional[int] = None,
+        sort_by: Optional[str] = None,
+        sort_order: Optional[str] = None,
+        department: Optional[str] = None,
+        relationship: Optional[str] = None
+    ):
         query = (
             db.query(User)
             .join(Role)
             .filter(func.lower(Role.name) == func.lower(role_name))
         )
         
+        from app.models.user_profile import UserProfile
+        from app.models.student_profile import StudentProfile
+
+        query = query.outerjoin(UserProfile, User.id == UserProfile.user_id)
+
+        if role_name == "instructor":
+            from app.models.instructor_profile import InstructorProfile
+            query = query.outerjoin(InstructorProfile, UserProfile.id == InstructorProfile.profile_id)
+            if department:
+                query = query.filter(InstructorProfile.department == department)
+
+        if role_name == "parent":
+            from app.models.parent_profile import ParentProfile
+            query = query.outerjoin(ParentProfile, UserProfile.id == ParentProfile.profile_id)
+            if relationship:
+                query = query.filter(ParentProfile.parent_relationship == relationship)
+        
+        if class_id is not None:
+            query = query.filter(UserProfile.class_id == class_id)
+            
+        if grade_id is not None:
+            query = query.outerjoin(StudentProfile, UserProfile.id == StudentProfile.profile_id).filter(
+                (StudentProfile.grade_level_id == grade_id)
+            )
+            
         if search:
-            from app.models.user_profile import UserProfile
-            query = query.outerjoin(UserProfile, User.id == UserProfile.user_id).filter(
+            query = query.filter(
                 (User.username.ilike(f"%{search}%")) |
                 (User.email.ilike(f"%{search}%")) |
                 (UserProfile.full_name.ilike(f"%{search}%"))
             )
             
+        # Calculate total count before sorting to prevent SQL GroupingError
         total = query.with_entities(func.count(User.id)).scalar()
+
+        # Sorting
+        if sort_by == "name":
+            if sort_order == "desc":
+                query = query.order_by(func.coalesce(UserProfile.full_name, User.username).desc())
+            else:
+                query = query.order_by(func.coalesce(UserProfile.full_name, User.username).asc())
+        elif sort_by == "grade":
+            if grade_id is None:
+                query = query.outerjoin(StudentProfile, UserProfile.id == StudentProfile.profile_id)
+            if sort_order == "desc":
+                query = query.order_by(StudentProfile.grade_level_id.desc())
+            else:
+                query = query.order_by(StudentProfile.grade_level_id.asc())
+        else:
+            query = query.order_by(User.created_at.desc())
         
         users = (
-            query.order_by(User.created_at.desc())
-            .offset((page - 1) * limit)
+            query.offset((page - 1) * limit)
             .limit(limit)
             .all()
         )

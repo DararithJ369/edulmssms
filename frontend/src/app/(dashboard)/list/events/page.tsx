@@ -115,11 +115,6 @@ const EventListPage = async ({
                 className="flex items-center justify-between p-4 bg-[#fbf5fc]/40 dark:bg-muted/5 border border-border/40 hover:border-violet-300/50 dark:hover:border-violet-950/30 rounded-2xl transition-all shadow-sm group"
               >
                 <div className="flex items-center gap-4 max-w-[70%]">
-                  {/* Purple Event Icon */}
-                  <div className="h-9 w-9 rounded-xl bg-violet-100 dark:bg-violet-950/40 text-violet-600 dark:text-violet-400 flex items-center justify-center shrink-0 border border-violet-200/50">
-                    <CalendarDays className="h-4 w-4" />
-                  </div>
-
                   <div className="flex flex-col text-left gap-0.5">
                     <span className="text-sm font-extrabold text-foreground tracking-tight leading-snug group-hover:text-violet-700 dark:group-hover:text-violet-400 transition-colors">
                       {item.title}

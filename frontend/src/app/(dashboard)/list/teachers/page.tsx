@@ -6,34 +6,12 @@ import { serverFetch } from "@/lib/server-api";
 import Link from "next/link";
 import { ITEM_PER_PAGE } from "@/lib/settings";
 import { cookies } from "next/headers";
-import { Globe, ListFilter, ArrowUpDown } from "lucide-react";
+import { Globe } from "lucide-react";
+import TeacherFilterSort from "@/components/TeacherFilterSort";
 import { getImageUrl } from "@/lib/image-url";
 import { normalizeRole } from "@/lib/auth";
 
-// ── Default avatar helpers ────────────────────────────────────────────────────
-const AVATAR_PALETTE = [
-  { bg: "#E8EDF5", text: "#4A6FA5" },
-  { bg: "#EAF0FB", text: "#3B5FBE" },
-  { bg: "#EDF5EE", text: "#3A7D44" },
-  { bg: "#F5EDF5", text: "#7D3A7D" },
-  { bg: "#FDF3E7", text: "#B06820" },
-  { bg: "#F0F0F5", text: "#5A5A8A" },
-  { bg: "#F5EDEA", text: "#8A3A2A" },
-  { bg: "#EAF5F5", text: "#2A7A7D" },
-];
-
-function getInitialsColor(name: string) {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return AVATAR_PALETTE[Math.abs(hash) % AVATAR_PALETTE.length];
-}
-
-function getInitials(name: string) {
-  const parts = name.trim().split(/[._ -]+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
-// ─────────────────────────────────────────────────────────────────────────────
+import { getInitials, getInitialsColor } from "@/lib/avatar";
 
 type TeacherList = {
   id: string;
@@ -52,7 +30,7 @@ const TeacherListPage = async ({
   const cookieStore = cookies();
   const role = normalizeRole(cookieStore.get("user_role")?.value);
 
-  const { page, classId } = searchParams;
+  const { page, classId, department, sortBy, sortOrder } = searchParams;
 
   const p = page ? parseInt(page) : 1;
 
@@ -111,8 +89,11 @@ const TeacherListPage = async ({
     count = filteredTeachers.length;
     data = filteredTeachers.slice((p - 1) * ITEM_PER_PAGE, p * ITEM_PER_PAGE);
   } else {
+    const deptParam = department ? `&department=${encodeURIComponent(department)}` : "";
+    const sortByParam = sortBy ? `&sort_by=${sortBy}` : "";
+    const sortOrderParam = sortOrder ? `&sort_order=${sortOrder}` : "";
     const response = await serverFetch<{ data: TeacherList[]; meta?: { total?: number } }>(
-      `/users/instructors?page=${p}&limit=${ITEM_PER_PAGE}`,
+      `/users/instructors?page=${p}&limit=${ITEM_PER_PAGE}${deptParam}${sortByParam}${sortOrderParam}`,
       fetchOptions
     ).catch(() => ({ data: [], meta: { total: 0 } }));
     data = response.data || [];
@@ -160,12 +141,7 @@ const TeacherListPage = async ({
 
         <div className="flex items-center gap-2 self-start md:self-auto">
           <TableSearch />
-          <button className="w-8 h-8 flex items-center justify-center rounded-xl bg-background border border-border/80 hover:bg-accent text-muted-foreground/80 transition-colors" title="Filters">
-            <ListFilter className="h-4 w-4" />
-          </button>
-          <button className="w-8 h-8 flex items-center justify-center rounded-xl bg-background border border-border/80 hover:bg-accent text-muted-foreground/80 transition-colors" title="Sort Options">
-            <ArrowUpDown className="h-4 w-4" />
-          </button>
+          <TeacherFilterSort />
         </div>
       </div>
 
@@ -175,19 +151,19 @@ const TeacherListPage = async ({
           {data.map((item) => (
             <div
               key={item.id}
-              className="relative flex items-center justify-between p-5 bg-card/65 hover:bg-card border border-border/50 hover:border-orange-500/25 rounded-3xl transition-all duration-300 shadow-[0_2px_8px_rgba(0,0,0,0.01)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.02)] hover:-translate-y-[1px] group overflow-hidden"
+              className="relative flex items-center justify-between p-5 bg-card/65 hover:bg-card border border-border/50 hover:border-[#0038A8]/25 rounded-3xl transition-all duration-300 shadow-[0_2px_8px_rgba(0,0,0,0.01)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.02)] hover:-translate-y-[1px] group overflow-hidden"
             >
               {/* Left Active/Hover Indicator Bar */}
-              <span className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-3xl bg-orange-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <span className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-3xl bg-[#0038A8] opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
               <div className="flex items-center gap-4 max-w-[70%] z-10">
-                {/* Profile Image Squircle Container */}
+                {/* Profile Image Circular Container */}
                 {(() => {
                   const resolvedUrl = getImageUrl(item.profile_image || item.image);
                   const { bg, text } = getInitialsColor(item.username);
                   return (
                     <div
-                      className="h-10 w-10 rounded-2xl shrink-0 shadow-sm transition-all duration-300 group-hover:scale-105 overflow-hidden flex items-center justify-center select-none"
+                      className="h-10 w-10 rounded-full shrink-0 shadow-sm overflow-hidden flex items-center justify-center select-none"
                       style={resolvedUrl ? undefined : { backgroundColor: bg }}
                     >
                       {resolvedUrl ? (

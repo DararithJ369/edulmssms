@@ -232,7 +232,7 @@ export function ModalShell({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className={`bg-card border border-border shadow-2xl w-full flex flex-col overflow-hidden max-h-[92vh] ${className || "max-w-2xl rounded-[4px]"}`}>
+      <div className={`bg-card border border-border shadow-2xl w-full flex flex-col overflow-hidden max-h-[92vh] ${className || "max-w-2xl rounded-3xl"}`}>
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border/60 shrink-0">
@@ -265,7 +265,7 @@ export function ModalShell({
             >
               {({ open }) => (
                 <div
-                  className="relative h-16 w-16 rounded-2xl overflow-hidden flex items-center justify-center shrink-0 cursor-pointer border border-border/50"
+                  className="relative h-16 w-16 rounded-full overflow-hidden flex items-center justify-center shrink-0 cursor-pointer border border-border/50"
                   style={currentPhoto ? { background: "white" } : { backgroundColor: bg }}
                   onClick={() => open()}
                 >
@@ -343,7 +343,7 @@ export function ModalShell({
             <button
               onClick={onSave}
               disabled={saving}
-              className="px-5 py-2 bg-[#0038A8] hover:bg-[#002d8a] disabled:opacity-50 text-white font-extrabold text-xs rounded-xl transition-all shadow-md shadow-blue-500/10 active:scale-[0.98]"
+              className="px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] disabled:opacity-50 text-white font-black text-xs rounded-xl transition-all shadow-md shadow-blue-500/10 active:scale-[0.98]"
             >
               {saving ? "Saving…" : "Save All Changes"}
             </button>
@@ -359,7 +359,7 @@ export function EditTriggerButton({ title, onClick }: { title: string; onClick: 
   return (
     <button
       onClick={onClick}
-      className="w-7 h-7 flex items-center justify-center rounded-full bg-lamaSky"
+      className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
       title={title}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}

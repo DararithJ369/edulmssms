@@ -29,6 +29,7 @@ from .audit_logs import audit_log_router
 from .events import event_router
 from .storage import storage_router
 from .analytics import analytics_router
+from .certificates import certificates_router
 
 all_routers = [
     auth_router,
@@ -60,4 +61,5 @@ all_routers = [
     video_learning_router,
     audit_log_router,
     event_router,
+    certificates_router,
 ]

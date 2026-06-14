@@ -12,11 +12,28 @@ from app.utils.get_image import get_image
 class LessonService:
 
     @staticmethod
-    def get_lessons(db: Session, page: int = 1, limit: int = 10) -> dict:
-        total = db.query(func.count(Lesson.id)).scalar()
+    def get_lessons(
+        db: Session,
+        page: int = 1,
+        limit: int = 10,
+        class_id: Optional[int] = None,
+        course_id: Optional[int] = None
+    ) -> dict:
+        query = db.query(Lesson)
+
+        if course_id is not None or class_id is not None:
+            query = query.join(Module)
+            if course_id is not None:
+                query = query.filter(Module.course_id == course_id)
+            if class_id is not None:
+                from app.services.base_service import get_course_ids_for_class
+                course_ids = get_course_ids_for_class(db, class_id)
+                query = query.filter(Module.course_id.in_(course_ids))
+
+        total = query.with_entities(func.count(Lesson.id)).scalar()
         
         lessons = (
-            db.query(Lesson)
+            query
             .options(joinedload(Lesson.module).joinedload(Module.course))
             .order_by(Lesson.module_id.asc(), Lesson.order.asc())
             .offset((page - 1) * limit)
@@ -68,6 +85,22 @@ class LessonService:
         lesson_dict["course_id"] = obj.module.course.id if has_crs else None
         lesson_dict["course_name"] = obj.module.course.course_name if has_crs else "Unknown Course"
                 
+        # Hydrate nested materials, quizzes, and assignments
+        from app.models.lesson_material import LessonMaterial
+        from app.models.quiz import Quiz
+        from app.models.assignment import Assignment
+        from app.schemas.lesson_material import LessonMaterialResponse
+        from app.schemas.quiz import QuizResponse
+        from app.schemas.assignment import AssignmentResponse
+
+        materials = db.query(LessonMaterial).filter(LessonMaterial.lesson_id == lesson_id).order_by(LessonMaterial.id.asc()).all()
+        quizzes = db.query(Quiz).filter(Quiz.lesson_id == lesson_id).all()
+        assignments = db.query(Assignment).filter(Assignment.lesson_id == lesson_id).all()
+
+        lesson_dict["materials"] = [LessonMaterialResponse.model_validate(m) for m in materials]
+        lesson_dict["quizzes"] = [QuizResponse.model_validate(q) for q in quizzes]
+        lesson_dict["assignments"] = [AssignmentResponse.model_validate(a) for a in assignments]
+
         return LessonResponse.model_validate(lesson_dict)
 
     @staticmethod
@@ -121,7 +154,11 @@ class LessonService:
     ) -> LessonMaterialResponse:
         if not db.query(Lesson).filter(Lesson.id == lesson_id).first():
             raise HTTPException(status_code=404, detail="Lesson not found")
-        material = LessonMaterial(lesson_id=lesson_id, **material_in.model_dump())
+        data = material_in.model_dump()
+        ext_url = data.pop("external_url", None)
+        if ext_url and not data.get("file_url"):
+            data["file_url"] = ext_url
+        material = LessonMaterial(lesson_id=lesson_id, **data)
         if file:
             material.file_url = get_image(file)  # type: ignore
         db.add(material)
@@ -137,3 +174,24 @@ class LessonService:
         db.delete(material)
         db.commit()
         return {"detail": "Material deleted successfully"}
+
+    @staticmethod
+    def update_material(
+        db: Session,
+        material_id: int,
+        material_in: any
+    ) -> LessonMaterialResponse:
+        from app.models.lesson_material import LessonMaterial
+        from app.schemas.lesson_material import LessonMaterialUpdate
+        material = db.query(LessonMaterial).filter(LessonMaterial.id == material_id).first()
+        if not material:
+            raise HTTPException(status_code=404, detail="Material not found")
+        data = material_in.model_dump(exclude_unset=True)
+        ext_url = data.pop("external_url", None)
+        if ext_url:
+            data["file_url"] = ext_url
+        for field, value in data.items():
+            setattr(material, field, value)
+        db.commit()
+        db.refresh(material)
+        return LessonMaterialResponse.model_validate(material)

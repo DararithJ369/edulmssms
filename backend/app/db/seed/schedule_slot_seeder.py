@@ -7,15 +7,17 @@ class ScheduleSlotSeeder:
         self.db = db
 
     def seed_schedule_slots(self, class_id: int, instructor_ids_list: list, subjects: list):
-        existing_slots = self.db.query(ScheduleSlot).count()
+        # Check if slots already exist for this specific class section
+        existing_slots = self.db.query(ScheduleSlot).filter_by(class_id=class_id).count()
         if existing_slots > 0:
             return []
 
+        # Map schedule slots to weekly calendar days
         slots_data = [
             {
                 "class_id": class_id,
-                "teacher_id": instructor_ids_list[0],
-                "subject_id": subjects[1].id if len(subjects) > 1 else subjects[0].id,
+                "teacher_id": instructor_ids_list[0 % len(instructor_ids_list)],
+                "subject_id": subjects[0].id if subjects else 1,
                 "day_of_week": "MONDAY",
                 "start_time": time(9, 0),
                 "end_time": time(11, 0),
@@ -24,8 +26,8 @@ class ScheduleSlotSeeder:
             },
             {
                 "class_id": class_id,
-                "teacher_id": instructor_ids_list[0],
-                "subject_id": subjects[1].id if len(subjects) > 1 else subjects[0].id,
+                "teacher_id": instructor_ids_list[1 % len(instructor_ids_list)],
+                "subject_id": subjects[1].id if len(subjects) > 1 else (subjects[0].id if subjects else 1),
                 "day_of_week": "WEDNESDAY",
                 "start_time": time(9, 0),
                 "end_time": time(11, 0),
@@ -34,8 +36,8 @@ class ScheduleSlotSeeder:
             },
             {
                 "class_id": class_id,
-                "teacher_id": instructor_ids_list[0],
-                "subject_id": subjects[1].id if len(subjects) > 1 else subjects[0].id,
+                "teacher_id": instructor_ids_list[2 % len(instructor_ids_list)],
+                "subject_id": subjects[2].id if len(subjects) > 2 else (subjects[0].id if subjects else 1),
                 "day_of_week": "FRIDAY",
                 "start_time": time(14, 0),
                 "end_time": time(16, 0),
@@ -51,5 +53,5 @@ class ScheduleSlotSeeder:
             seeded_slots.append(slot_obj)
             
         self.db.commit()
-        Colors.success("Seeded schedule slots successfully")
+        Colors.success(f"Seeded schedule slots for Class #{class_id}")
         return seeded_slots

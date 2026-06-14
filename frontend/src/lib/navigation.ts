@@ -262,6 +262,13 @@ export const navigationConfig: MenuSectionConfig[] = [
         permission: "view:grades",
       },
       {
+        label: "Academic Transcript",
+        href: "/student/transcript",
+        icon: Award,
+        permission: "view:grades",
+        roles: ["student", "parent"],
+      },
+      {
         label: "Attendance",
         href: "/list/attendance",
         icon: CalendarCheck,
@@ -282,12 +289,12 @@ export const navigationConfig: MenuSectionConfig[] = [
         icon: BookOpen,
         permission: "view:courses",
       },
-      {
+      /* {
         label: "Lessons",
         href: "/list/lessons",
         icon: Layers3,
         permission: "view:lesson-mgmt",
-      },
+      }, */
       {
         label: "Assignments",
         href: "/list/assignments",
@@ -306,12 +313,12 @@ export const navigationConfig: MenuSectionConfig[] = [
         icon: BookMarked,
         permission: "view:exams",
       },
-      {
+      /* {
         label: "Gradebook",
         href: "/list/results",
         icon: BarChart2,
         permission: "view:gradebook-mgmt",
-      },
+      }, */
       {
         label: "Attendance",
         href: "/list/attendance",

@@ -1,3 +1,4 @@
+from typing import Optional
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.middleware.guard.permission import PermissionGuard
@@ -11,8 +12,15 @@ quiz_router = APIRouter(prefix="/quizzes", tags=["Quizzes"])
 
 
 @quiz_router.get("")
-def get_all_quizzes(page: int = 1, limit: int = 10, search: str = "", db: Session = Depends(get_db)):
-    return QuizService.get_quizzes(db, page, limit, search)
+def get_all_quizzes(
+    page: int = 1,
+    limit: int = 10,
+    search: str = "",
+    class_id: Optional[int] = None,
+    course_id: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    return QuizService.get_quizzes(db, page, limit, search, class_id=class_id, course_id=course_id)
 
 
 @quiz_router.get("/{quiz_id}", response_model=QuizResponse)

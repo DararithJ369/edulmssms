@@ -62,13 +62,13 @@ const quickActionsByRole: Record<string, QuickAction[]> = {
     },
   ],
   teacher: [
-    {
+    /* {
       label: "New Lesson",
       description: "Add a lesson to a course",
       icon: Layers3,
       href: "/list/lessons/create",
       color: "text-emerald-600 bg-emerald-50 border-emerald-200 hover:bg-emerald-100",
-    },
+    }, */
     {
       label: "New Assignment",
       description: "Create an assignment",

@@ -9,6 +9,7 @@ type InputFieldProps = {
   error?: FieldError;
   hidden?: boolean;
   inputProps?: React.InputHTMLAttributes<HTMLInputElement>;
+  className?: string;
 };
 
 const InputField = ({
@@ -20,19 +21,20 @@ const InputField = ({
   error,
   hidden,
   inputProps,
+  className,
 }: InputFieldProps) => {
   return (
-    <div className={hidden ? "hidden" : "flex flex-col gap-2 w-full md:w-1/4"}>
-      <label className="text-xs text-muted-foreground">{label}</label>
+    <div className={hidden ? "hidden" : className || "flex flex-col gap-1.5 w-full md:w-1/4"}>
+      <label className="text-[10px] font-extrabold uppercase text-muted-foreground tracking-wider">{label}</label>
       <input
         type={type}
         {...register(name)}
-        className="ring-[1.5px] ring-input bg-background text-foreground p-2 rounded-md text-sm w-full transition-colors duration-300 focus:ring-2 focus:ring-ring"
+        className="w-full px-3 py-2 bg-slate-50 border border-border/80 rounded-xl outline-none text-xs transition-colors duration-300 focus:border-[#0038A8]/50 focus:ring-1 focus:ring-[#0038A8]/50 text-foreground"
         {...inputProps}
         defaultValue={defaultValue}
       />
       {error?.message && (
-        <p className="text-xs text-red-400">{error.message.toString()}</p>
+        <p className="text-[10px] text-red-500 font-semibold mt-0.5">{error.message.toString()}</p>
       )}
     </div>
   );

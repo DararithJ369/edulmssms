@@ -30,36 +30,19 @@ class StorageService:
 
     @classmethod
     def _upload_file(cls, file: UploadFile, prefix: str, folder: str = "") -> str:
-        clean_filename = re.sub(r'[^a-zA-Z0-9_.-]', '_', file.filename or "file")
-        filename = f"{uuid.uuid4().hex}_{clean_filename}"
-        folder_prefix = f"{prefix}/{folder}" if folder else prefix
-        storage_key = f"{folder_prefix}/{filename}"
-
-        if settings.STORAGE_PROVIDER == "local":
-            backend_root = Path(__file__).parent.parent.parent.parent
-            upload_dir = backend_root / "uploads" / prefix / folder
-            upload_dir.mkdir(parents=True, exist_ok=True)
-            save_path = upload_dir / filename
-            
+        import cloudinary.uploader
+        try:
             file.file.seek(0)
-            with open(save_path, "wb") as buffer:
-                shutil.copyfileobj(file.file, buffer)
-            return storage_key
-        else:
-            s3 = cls._get_s3_client()
-            bucket = settings.AWS_BUCKET_NAME or "lms-bucket"
-            file.file.seek(0)
-            file_data = file.file.read()
-            file.file.seek(0)
-            
-            content_type = file.content_type or "application/octet-stream"
-            s3.put_object(
-                Bucket=bucket,
-                Key=storage_key,
-                Body=file_data,
-                ContentType=content_type
+            upload_result = cloudinary.uploader.unsigned_upload(
+                file.file,
+                upload_preset="lms_preset",
+                cloud_name="dlykcgjdh",
+                resource_type="auto"
             )
-            return storage_key
+            return upload_result.get("secure_url")
+        except Exception as e:
+            print(f"Error uploading file to Cloudinary: {e}")
+            raise e
 
     @classmethod
     def upload_public_file(cls, file: UploadFile, folder: str = "") -> str:

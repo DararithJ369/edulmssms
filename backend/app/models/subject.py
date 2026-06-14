@@ -20,11 +20,14 @@ class Subject(Base):
 
     is_active = Column(Boolean, default=True)
 
+    grade_id = Column(Integer, ForeignKey("grade_levels.id"), nullable=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
     instructor = relationship("User", back_populates="subjects", lazy="selectin")
     courses = relationship("Course", back_populates="subject", lazy="selectin")
+    grade_level = relationship("GradeLevel", lazy="selectin")
 
     @property
     def instructor_name(self) -> str:

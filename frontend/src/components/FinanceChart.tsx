@@ -84,12 +84,12 @@ const FinanceChart = () => {
   }
 
   return (
-    <div className="bg-white rounded-xl w-full h-full p-4">
+    <div className="bg-white rounded-xl border border-border/60 shadow-xs w-full h-full p-4">
       <div className="flex justify-between items-center">
         <h1 className="text-lg font-semibold">Finance</h1>
         <Image src="/moreDark.png" alt="" width={20} height={20} />
       </div>
-      <ResponsiveContainer width="100%" height="90%">
+      <ResponsiveContainer width="100%" height={380}>
         <LineChart
           width={500}
           height={300}
@@ -101,15 +101,15 @@ const FinanceChart = () => {
             bottom: 5,
           }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="#ddd" />
+          <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
           <XAxis
             dataKey="name"
             axisLine={false}
-            tick={{ fill: "#d1d5db" }}
+            tick={{ fill: "#64748B", fontSize: 11, fontWeight: 600 }}
             tickLine={false}
             tickMargin={10}
           />
-          <YAxis axisLine={false} tick={{ fill: "#d1d5db" }} tickLine={false}  tickMargin={20}/>
+          <YAxis axisLine={false} tick={{ fill: "#64748B", fontSize: 11, fontWeight: 600 }} tickLine={false}  tickMargin={20}/>
           <Tooltip />
           <Legend
             align="center"
@@ -119,10 +119,17 @@ const FinanceChart = () => {
           <Line
             type="monotone"
             dataKey="income"
-            stroke="#C3EBFA"
-            strokeWidth={5}
+            stroke="#0038A8"
+            strokeWidth={3}
+            activeDot={{ r: 6 }}
           />
-          <Line type="monotone" dataKey="expense" stroke="#CFCEFF" strokeWidth={5}/>
+          <Line 
+            type="monotone" 
+            dataKey="expense" 
+            stroke="#F59E0B" 
+            strokeWidth={3}
+            activeDot={{ r: 6 }}
+          />
         </LineChart>
       </ResponsiveContainer>
     </div>

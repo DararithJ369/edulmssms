@@ -34,6 +34,7 @@ export default function UsersListPage() {
   const [totalUsers, setTotalUsers] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   
   // Modals state
@@ -46,12 +47,13 @@ export default function UsersListPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [roleId, setRoleId] = useState<number>(3); // Default to Student (3)
+  const [saving, setSaving] = useState(false);
   
   const fetchUsers = async () => {
     setLoading(true);
     try {
       const res = await api.get(
-        `/users?page=${currentPage}&limit=10&search=${searchQuery}&role=${roleFilter}`
+        `/users?page=${currentPage}&limit=10&search=${debouncedSearchQuery}&role=${roleFilter}`
       );
       setUsers(res.data.data || []);
       setTotalUsers(res.data.meta?.total || 0);
@@ -76,14 +78,24 @@ export default function UsersListPage() {
     fetchRoles();
   }, []);
 
+  // Debounce search query
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+      setCurrentPage(1);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  // Fetch users when dependencies change
   useEffect(() => {
     fetchUsers();
-  }, [currentPage, roleFilter]);
+  }, [currentPage, debouncedSearchQuery, roleFilter]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setDebouncedSearchQuery(searchQuery);
     setCurrentPage(1);
-    fetchUsers();
   };
 
   const handleCreateOpen = () => {
@@ -101,6 +113,7 @@ export default function UsersListPage() {
       return;
     }
     
+    setSaving(true);
     try {
       const fd = new FormData();
       fd.append("username", username.trim());
@@ -114,6 +127,8 @@ export default function UsersListPage() {
       fetchUsers();
     } catch (err: any) {
       toast.error(err?.response?.data?.detail || "Error creating user.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -134,6 +149,7 @@ export default function UsersListPage() {
       return;
     }
 
+    setSaving(true);
     try {
       const fd = new FormData();
       fd.append("username", username.trim());
@@ -147,6 +163,8 @@ export default function UsersListPage() {
       fetchUsers();
     } catch (err: any) {
       toast.error(err?.response?.data?.detail || "Error updating user details.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -213,7 +231,7 @@ export default function UsersListPage() {
 
         <button 
           onClick={handleCreateOpen}
-          className="px-4 py-2.5 bg-[#8b5cf6] text-white hover:bg-[#7c3aed] font-extrabold text-xs rounded-xl transition-all shadow-md shadow-violet-500/10 flex items-center gap-1.5 active:scale-[0.98]"
+          className="px-4 py-2 bg-[#0038A8] text-white hover:bg-[#002D86] font-black text-xs rounded-xl transition-all shadow-md shadow-blue-500/10 flex items-center gap-1.5 active:scale-[0.98]"
         >
           <Plus className="h-4 w-4" />
           <span>Add User</span>
@@ -270,9 +288,9 @@ export default function UsersListPage() {
           {users.map((user) => (
             <div
               key={user.id}
-              className="relative flex flex-col md:flex-row md:items-center justify-between p-5 bg-card/65 hover:bg-card border border-border/50 hover:border-violet-500/25 rounded-3xl transition-all duration-300 shadow-[0_2px_8px_rgba(0,0,0,0.01)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.02)] hover:-translate-y-[1px] group overflow-hidden gap-4"
+              className="relative flex flex-col md:flex-row md:items-center justify-between p-5 bg-card/65 hover:bg-card border border-border/50 hover:border-[#0038A8]/25 rounded-3xl transition-all duration-300 shadow-[0_2px_8px_rgba(0,0,0,0.01)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.02)] hover:-translate-y-[1px] group overflow-hidden gap-4"
             >
-              <span className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-3xl bg-violet-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <span className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-3xl bg-[#0038A8] opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               
               <div className="flex items-center gap-4 max-w-full md:max-w-[70%]">
                 {/* Avatar */}
@@ -423,14 +441,16 @@ export default function UsersListPage() {
                   type="button"
                   onClick={() => setIsCreateOpen(false)}
                   className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl"
+                  disabled={saving}
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit"
-                  className="px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] text-white text-xs font-black rounded-xl"
+                  disabled={saving}
+                  className="px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] text-white text-xs font-black rounded-xl disabled:opacity-50"
                 >
-                  Save User
+                  {saving ? "Saving..." : "Save User"}
                 </button>
               </div>
             </form>
@@ -509,14 +529,16 @@ export default function UsersListPage() {
                   type="button"
                   onClick={() => setIsEditOpen(false)}
                   className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl"
+                  disabled={saving}
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit"
-                  className="px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] text-white text-xs font-black rounded-xl"
+                  disabled={saving}
+                  className="px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] text-white text-xs font-black rounded-xl disabled:opacity-50"
                 >
-                  Update User
+                  {saving ? "Updating..." : "Update User"}
                 </button>
               </div>
             </form>

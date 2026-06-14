@@ -17,10 +17,16 @@ def get_all_results(
     limit: int = 10,
     search: str = "",
     type: str = "",
+    student_id: Optional[str] = None,
+    course_id: Optional[int] = None,
+    class_id: Optional[int] = None,
     current_user = Depends(PermissionGuard.get_current_user),
     db: Session = Depends(get_db),
 ):
-    return ResultService.get_results(db, page, limit, search, type, current_user)
+    return ResultService.get_results(
+        db, page, limit, search, type, current_user,
+        student_id=student_id, course_id=course_id, class_id=class_id
+    )
 
 
 @result_router.get("/{result_id}", response_model=ResultResponse)

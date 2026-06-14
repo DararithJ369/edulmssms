@@ -225,12 +225,13 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
 
   if (model === "attendance") {
     if (method === "findMany") {
-      const res = await callApi("/attendance?limit=1000");
+      const res = await callApi("/attendance?limit=10000");
       const raw = res?.data || [];
       let mapped = raw.map((a: any) => ({
         id: a.id,
-        date: new Date(a.date),
-        present: a.status === "present",
+        date: new Date(a.date + "T00:00:00"),   // force local midnight parse (avoids UTC offset shift)
+        present: a.status === "present" || a.status === "online" || a.status === "late",
+        status: a.status,
         studentId: a.student_id,
         lessonId: a.course_id,
       }));
@@ -241,9 +242,14 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
     }
   }
 
+
   if (model === "result") {
     if (method === "findMany") {
-      const res = await callApi("/results?limit=100");
+      let url = "/results?limit=5000";
+      if (args?.where?.studentId) {
+        url = `/results?student_id=${args.where.studentId}&limit=1000`;
+      }
+      const res = await callApi(url);
       const raw = res?.data || [];
       let filtered = raw.map((r: any) => ({
         id: r.id,
@@ -265,14 +271,14 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
 
   if (model === "student") {
     if (method === "groupBy") {
-      const res = await callApi("/profiles?limit=100");
+      const res = await callApi("/users/students?limit=300");
       const raw = res?.data || [];
       // Calculate boy/girl student counts based on gender profiles
-      const boys = raw.filter((p: any) => p.gender === "MALE" || p.gender === "M").length;
-      const girls = raw.filter((p: any) => p.gender === "FEMALE" || p.gender === "F").length;
+      const boys = raw.filter((u: any) => u.gender === "MALE" || u.gender === "M").length;
+      const girls = raw.filter((u: any) => u.gender === "FEMALE" || u.gender === "F").length;
       return [
-        { sex: "MALE", _count: boys || 12 },   // realistic fallbacks
-        { sex: "FEMALE", _count: girls || 8 }
+        { sex: "MALE", _count: boys },
+        { sex: "FEMALE", _count: girls }
       ];
     }
     if (method === "findMany") {
@@ -306,7 +312,7 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
       return raw.map((u: any) => ({
         id: u.id,
         user_id: u.id,
-        name: u.username,
+        name: u.full_name || u.username,
         surname: "",
         classId: 1,
       }));
@@ -358,7 +364,7 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
 
   if (model === "course") {
     if (method === "findMany") {
-      const res = await callApi("/courses?limit=100");
+      const res = await callApi("/courses?limit=1000");
       const raw = res?.data || [];
       return raw.map((c: any) => ({
         id: c.id,
@@ -422,7 +428,7 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
       const raw = res?.data || [];
       return raw.map((u: any) => ({
         id: u.id,
-        name: u.username,
+        name: u.full_name || u.username,
         surname: "",
       }));
     }
@@ -430,7 +436,7 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
 
   if (model === "class") {
     if (method === "findMany") {
-      const res = await callApi("/classes?limit=100");
+      const res = await callApi("/classes?limit=1000");
       const raw = res?.data || [];
       return raw.map((c: any) => ({
         id: c.id,
@@ -444,7 +450,7 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
 
   if (model === "grade") {
     if (method === "findMany") {
-      const res = await callApi("/grade_level?limit=100");
+      const res = await callApi("/grade_level?limit=1000");
       const raw = res?.data || [];
       return raw.map((g: any) => ({
         id: g.id,
@@ -455,7 +461,7 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
 
   if (model === "subject") {
     if (method === "findMany") {
-      const res = await callApi("/subjects?limit=100");
+      const res = await callApi("/subjects?limit=1000");
       const raw = res?.data || [];
       return raw.map((s: any) => ({
         id: s.id,
@@ -466,11 +472,11 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
 
   if (model === "lesson") {
     if (method === "findMany") {
-      const res = await callApi("/lessons?limit=100");
+      const res = await callApi("/lessons?limit=1000");
       const raw = res?.data || [];
 
       // Resolve course-to-instructor mapping
-      const coursesRes = await callApi("/courses?limit=100");
+      const coursesRes = await callApi("/courses?limit=1000");
       const courses = coursesRes?.data || [];
       const courseToInstructor: Record<number, string> = {};
       courses.forEach((c: any) => {
@@ -501,51 +507,67 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
         }
       }
 
-      // Calendar schedules require startTime & endTime dates.
-      // We map these dynamically based on the current week for a fully loaded timetable.
-      const getDayOffset = (dayIndex: number) => {
-        const currentDay = today.getDay(); // Sun: 0, Mon: 1...
-        return dayIndex - currentDay;
+      // Filter raw lessons first so slot assignment only considers relevant lessons
+      let filteredRaw = raw;
+      if (filterCourseIds !== null) {
+        filteredRaw = raw.filter((item: any) => {
+          const cid = item.course_id || item.module?.course_id;
+          return filterCourseIds!.includes(cid);
+        });
+      }
+
+      // Calendar slot assignment:
+      // Each unique course gets a fixed day (Mon=1 … Fri=5) and a time band.
+      // Within a course, lessons rotate through 3 time slots so they don't all overlap.
+      const uniqueCourseIds = [...new Set(filteredRaw.map((l: any) => l.course_id || l.module?.course_id || 1))] as number[];
+      const dayBands = [1, 3, 2, 4, 5];          // Mon, Wed, Tue, Thu, Fri
+      const hourBands = [8, 10, 13, 15];          // 08:00, 10:00, 13:00, 15:00
+
+      const courseSlotDay: Record<number, number> = {};
+      const courseSlotHour: Record<number, number> = {};
+      uniqueCourseIds.forEach((cid, ci) => {
+        courseSlotDay[cid]  = dayBands[ci % dayBands.length];
+        courseSlotHour[cid] = hourBands[ci % hourBands.length];
+      });
+
+      const nowFresh = new Date();
+      const currentDay = nowFresh.getDay(); // 0=Sun, 1=Mon …
+
+      const toLocalISO = (d: Date) => {
+        const pad = (n: number) => String(n).padStart(2, "0");
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
       };
 
-      let mappedLessons = raw.map((item: any, idx: number) => {
-        const dayIndex = (idx % 5) + 1; // Mon to Fri
-        const dayOffset = getDayOffset(dayIndex);
-        
-        const startHour = 9 + (idx % 3) * 2; // 9:00, 11:00, 13:00
-        const endHour = startHour + 1.5;
+      // Track per-course lesson index for hour rotation
+      const courseIdx: Record<number, number> = {};
 
-        const startTimeDate = new Date();
-        startTimeDate.setDate(today.getDate() + dayOffset);
-        startTimeDate.setHours(startHour, 0, 0, 0);
-
-        const endTimeDate = new Date();
-        endTimeDate.setDate(today.getDate() + dayOffset);
-        endTimeDate.setHours(Math.floor(endHour), (endHour % 1) * 60, 0, 0);
-
-        const toLocalISOString = (d: Date) => {
-          const year = d.getFullYear();
-          const month = String(d.getMonth() + 1).padStart(2, "0");
-          const dateVal = String(d.getDate()).padStart(2, "0");
-          const hours = String(d.getHours()).padStart(2, "0");
-          const minutes = String(d.getMinutes()).padStart(2, "0");
-          const seconds = String(d.getSeconds()).padStart(2, "0");
-          return `${year}-${month}-${dateVal}T${hours}:${minutes}:${seconds}`;
-        };
-
-        const startTime = toLocalISOString(startTimeDate);
-        const endTime = toLocalISOString(endTimeDate);
-
+      const mappedLessons = filteredRaw.map((item: any) => {
         const lessonCourseId = item.course_id || item.module?.course_id || 1;
         const mappedInstructorId = courseToInstructor[lessonCourseId] || "instructor-placeholder";
+
+        const assignedDay  = courseSlotDay[lessonCourseId]  || 1;
+        courseIdx[lessonCourseId] = (courseIdx[lessonCourseId] ?? 0) + 1;
+        const localHourBase = courseSlotHour[lessonCourseId] || 8;
+        // Rotate hour by 2h each lesson within the same course so lessons stagger
+        const startHour = localHourBase + ((courseIdx[lessonCourseId] - 1) % 2) * 2;
+        const endHour   = startHour + 1;
+
+        // Compute the date for that day-of-week in the current week
+        const dayOffset = assignedDay - (currentDay === 0 ? 7 : currentDay); // align to Mon-based week
+        const startDate = new Date(nowFresh);
+        startDate.setDate(nowFresh.getDate() + dayOffset);
+        startDate.setHours(startHour, 0, 0, 0);
+
+        const endDate = new Date(startDate);
+        endDate.setHours(endHour, 30, 0, 0);
 
         return {
           id: item.id,
           name: item.title,
           title: item.title,
-          startTime: startTime,
-          endTime: endTime,
-          day: "MONDAY",
+          startTime: toLocalISO(startDate),
+          endTime: toLocalISO(endDate),
+          day: ["SUN","MON","TUE","WED","THU","FRI","SAT"][assignedDay] || "MON",
           duration: item.duration || "90min",
           teacherId: mappedInstructorId,
           classId: args?.where?.classId || 1,
@@ -553,30 +575,26 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
         };
       });
 
-      if (filterCourseIds !== null) {
-        mappedLessons = mappedLessons.filter((l: any) => filterCourseIds!.includes(l.courseId));
-      } else if (args?.where?.teacherId) {
-        mappedLessons = mappedLessons.filter((l: any) => l.teacherId === args.where.teacherId);
-      }
-
       return mappedLessons;
     }
   }
 
+
   if (model === "exam") {
     if (method === "findMany") {
-      const res = await callApi("/exams?limit=100");
+      const res = await callApi("/exams?limit=1000");
       const raw = res?.data || [];
       return raw.map((e: any) => ({
         id: e.id,
         title: e.title,
+        description: e.description,
       }));
     }
   }
 
   if (model === "assignment") {
     if (method === "findMany") {
-      const res = await callApi("/assignments?limit=100");
+      const res = await callApi("/assignments?limit=1000");
       const raw = res?.data || [];
       return raw.map((a: any) => ({
         id: a.id,
@@ -587,7 +605,7 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
 
   if (model === "announcement") {
     if (method === "findMany") {
-      const res = await callApi("/announcements?limit=100");
+      const res = await callApi("/announcements?limit=1000");
       const raw = res?.data || [];
       const items = raw.map((a: any) => ({
         id: a.id,
@@ -646,14 +664,28 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
 
   // --- MUTATION HANDLING INTERCEPTORS ---
   if (method === "create" || method === "update" || method === "delete") {
+    if (model === "course") {
+      if (method === "delete") {
+        return await callApiMutate(`/courses/${args.where.id}`, "DELETE");
+      }
+    }
+
+    if (model === "event") {
+      if (method === "delete") {
+        return await callApiMutate(`/events/${args.where.id}`, "DELETE");
+      }
+    }
+
     // Subject Mutation
     if (model === "subject") {
       if (method === "create") {
         const fd = new FormData();
         const teacherId = args.data.teachers?.connect?.[0]?.id || "";
         fd.append("name", args.data.name);
+        fd.append("code", args.data.code);
+        fd.append("credits", args.data.credits.toString());
+        if (args.data.gradeId) fd.append("grade_id", args.data.gradeId.toString());
         fd.append("teacher_id", teacherId);
-        fd.append("credits", "3");
         fd.append("is_active", "true");
         return await callApiMutate("/subjects", "POST", fd, true);
       }
@@ -661,6 +693,9 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
         const id = args.where.id;
         const fd = new FormData();
         if (args.data.name) fd.append("name", args.data.name);
+        if (args.data.code) fd.append("code", args.data.code);
+        if (args.data.credits) fd.append("credits", args.data.credits.toString());
+        if (args.data.gradeId) fd.append("grade_id", args.data.gradeId.toString());
         const teacherId = args.data.teachers?.set?.[0]?.id || "";
         if (teacherId) fd.append("teacher_id", teacherId);
         return await callApiMutate(`/subjects/${id}`, "PUT", fd, true);
@@ -685,11 +720,13 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
         return await callApiMutate("/classes", "POST", payload);
       }
       if (method === "update") {
-        const payload = {
+        const payload: any = {
           name: args.data.name,
           capacity: args.data.capacity,
           is_active: true
         };
+        if (args.data.gradeId) payload.grade_id = args.data.gradeId;
+        if (args.data.supervisorId) payload.supervisor_id = args.data.supervisorId;
         return await callApiMutate(`/classes/${args.where.id}`, "PUT", payload);
       }
       if (method === "delete") {
@@ -833,6 +870,7 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
         const payload = {
           lesson_id: args.data.lessonId || 1,
           title: args.data.title,
+          description: args.data.description || null,
           created_by: "System",
           exam_date: start.toISOString(),
           start_time: start.toTimeString().split(' ')[0],
@@ -847,6 +885,9 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
         const payload: any = {
           title: args.data.title,
         };
+        if ("description" in args.data) {
+          payload.description = args.data.description;
+        }
         if (args.data.startTime) {
           const start = new Date(args.data.startTime);
           payload.exam_date = start.toISOString();
@@ -904,7 +945,9 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
           title: args.data.title,
           start_date: new Date(args.data.startDate).toISOString(),
           due_date: new Date(args.data.dueDate).toISOString(),
-          lesson_id: args.data.lessonId || 1
+          lesson_id: args.data.lessonId || null,
+          description: args.data.description || null,
+          attachment_file: args.data.attachmentFile || null
         };
         return await callApiMutate("/assignments", "POST", payload);
       }
@@ -914,6 +957,9 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
         };
         if (args.data.startDate) payload.start_date = new Date(args.data.startDate).toISOString();
         if (args.data.dueDate) payload.due_date = new Date(args.data.dueDate).toISOString();
+        if ("lessonId" in args.data) payload.lesson_id = args.data.lessonId;
+        if ("description" in args.data) payload.description = args.data.description;
+        if ("attachmentFile" in args.data) payload.attachment_file = args.data.attachmentFile;
         return await callApiMutate(`/assignments/${args.where.id}`, "PUT", payload);
       }
       if (method === "delete") {
@@ -1024,12 +1070,10 @@ declare const globalThis: {
   prismaGlobal: PrismaClient | ReturnType<typeof createSafePrismaStub>;
 } & typeof global;
 
-const hasDatabaseUrl = Boolean(process.env.DATABASE_URL);
-
-const prisma =
-  globalThis.prismaGlobal ??
-  (hasDatabaseUrl ? prismaClientSingleton() : createSafePrismaStub());
+// Always use the REST-API proxy stub — we have no Prisma-managed database.
+// The old globalThis singleton pattern caused stale real-PrismaClient instances
+// to survive HMR reloads and return empty results because the Prisma schema
+// doesn't match the FastAPI postgres schema.
+const prisma = createSafePrismaStub();
 
 export default prisma;
-
-if (process.env.NODE_ENV !== "production") globalThis.prismaGlobal = prisma;

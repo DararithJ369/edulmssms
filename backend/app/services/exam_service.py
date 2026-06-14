@@ -1,3 +1,4 @@
+from typing import Optional
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from app.models.exam import Exam
@@ -10,8 +11,26 @@ from app.services.base_service import get_or_404, paginate, apply_update, create
 class ExamService:
 
     @staticmethod
-    def get_exams(db: Session, page: int = 1, limit: int = 10) -> dict:
-        return paginate(db, Exam, ExamResponse, Exam.created_at.desc(), page, limit)
+    def get_exams(
+        db: Session,
+        page: int = 1,
+        limit: int = 10,
+        class_id: Optional[int] = None,
+        course_id: Optional[int] = None
+    ) -> dict:
+        query = db.query(Exam)
+
+        if course_id is not None or class_id is not None:
+            from app.models.course import Lesson, Module
+            query = query.join(Lesson).join(Module)
+            if course_id is not None:
+                query = query.filter(Module.course_id == course_id)
+            if class_id is not None:
+                from app.services.base_service import get_course_ids_for_class
+                course_ids = get_course_ids_for_class(db, class_id)
+                query = query.filter(Module.course_id.in_(course_ids))
+
+        return paginate(db, Exam, ExamResponse, Exam.created_at.desc(), page, limit, query=query)
 
     @staticmethod
     def get_exam_by_id(db: Session, exam_id: int) -> ExamResponse:

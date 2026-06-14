@@ -1,6 +1,6 @@
 import React from "react";
 import { cookies } from "next/headers";
-import { CheckCircle2, Clock, BarChart2, BookOpen } from "lucide-react";
+import { CheckCircle2, BookOpen, Award, AlertCircle } from "lucide-react";
 
 type StudentStats = {
   attendance_rate: number;
@@ -9,6 +9,10 @@ type StudentStats = {
   total_results: number;
   enrolled_courses: Array<{ course_id: number; course_name: string }>;
   pending_assignments: Array<{ assignment_id: number; title: string; due_date: string | null }>;
+  gpa?: number;
+  total_credits?: number;
+  passed_subjects?: number;
+  failed_subjects?: number;
 };
 
 const StatsOverviewWidget = async () => {
@@ -40,32 +44,32 @@ const StatsOverviewWidget = async () => {
 
   const cards = [
     {
-      icon: <CheckCircle2 className="h-4 w-4" />,
-      label: "Attendance",
-      value: `${stats.attendance_rate}%`,
-      sub: `${stats.total_attendance_records} records`,
-      color: "text-emerald-600 bg-emerald-50 border-emerald-100",
-    },
-    {
-      icon: <BarChart2 className="h-4 w-4" />,
-      label: "Avg Grade",
-      value: `${stats.avg_percentage}%`,
-      sub: `${stats.total_results} assessments`,
+      icon: <Award className="h-4 w-4" />,
+      label: "Current GPA",
+      value: stats.gpa !== undefined ? `${stats.gpa.toFixed(2)}` : "0.00",
+      sub: "Academic GPA",
       color: "text-[#0038A8] bg-blue-50 border-blue-100",
     },
     {
       icon: <BookOpen className="h-4 w-4" />,
-      label: "Courses",
-      value: `${stats.enrolled_courses.length}`,
-      sub: "enrolled",
-      color: "text-amber-600 bg-amber-50 border-amber-100",
+      label: "Total Credits",
+      value: stats.total_credits !== undefined ? `${stats.total_credits}` : "0",
+      sub: "Earned Credits",
+      color: "text-emerald-600 bg-emerald-50 border-emerald-100",
     },
     {
-      icon: <Clock className="h-4 w-4" />,
-      label: "Pending",
-      value: `${stats.pending_assignments.length}`,
-      sub: "assignments",
-      color: "text-red-500 bg-red-50 border-red-100",
+      icon: <CheckCircle2 className="h-4 w-4" />,
+      label: "Passed Subjects",
+      value: stats.passed_subjects !== undefined ? `${stats.passed_subjects}` : "0",
+      sub: "Courses Passed",
+      color: "text-indigo-600 bg-indigo-50 border-indigo-100",
+    },
+    {
+      icon: <AlertCircle className="h-4 w-4" />,
+      label: "Failed Subjects",
+      value: stats.failed_subjects !== undefined ? `${stats.failed_subjects}` : "0",
+      sub: "Courses Failed",
+      color: "text-amber-600 bg-amber-50 border-amber-100",
     },
   ];
 

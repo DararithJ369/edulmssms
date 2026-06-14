@@ -26,6 +26,8 @@ type AssignmentList = {
   course_id: number;
   teacher_id: string;
   due_date: string;
+  description?: string | null;
+  attachment_file?: string | null;
   course_name?: string | null;
   teacher_name?: string | null;
 };
@@ -61,31 +63,15 @@ const AssignmentListPage = async ({
   let count = 0;
 
   if (classId) {
-    let courseIds: number[] = [];
-    const students = await serverFetch<any[]>(`/classes/${classId}/students`, fetchOptions).catch(() => []);
-    if (students && students.length > 0) {
-      const studentId = students[0].id || students[0].user_id;
-      const overview = await serverFetch<any>(`/students/${studentId}/overview`, fetchOptions).catch(() => null);
-      if (overview && overview.courses) {
-        courseIds = overview.courses.map((c: any) => Number(c.course_id));
-      }
-    }
-
     const assignmentsResponse = await serverFetch<{
       data: AssignmentList[];
       meta: { total: number };
-    }>(`/assignments?limit=1000`, fetchOptions).catch(() => ({
+    }>(`/assignments?page=${p}&limit=${ITEM_PER_PAGE}&class_id=${classId}`, fetchOptions).catch(() => ({
       data: [],
       meta: { total: 0 }
     }));
-    const allAssignments = assignmentsResponse.data || [];
-
-    const filteredAssignments = allAssignments.filter((item) => {
-      return item.course_id ? courseIds.includes(Number(item.course_id)) : false;
-    });
-
-    count = filteredAssignments.length;
-    data = filteredAssignments.slice((p - 1) * ITEM_PER_PAGE, p * ITEM_PER_PAGE);
+    data = assignmentsResponse.data || [];
+    count = assignmentsResponse.meta?.total ?? 0;
   } else {
     const assignmentsResponse = await serverFetch<{
       data: AssignmentList[];
@@ -162,11 +148,6 @@ const AssignmentListPage = async ({
                 <span className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-3xl bg-amber-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 
                 <div className="flex items-center gap-4 max-w-[70%] z-10">
-                  {/* Orange Moodle Assignment Icon */}
-                  <div className="h-10 w-10 rounded-2xl bg-amber-50 border border-amber-100 dark:bg-amber-950/20 dark:border-amber-950/30 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 shadow-sm transition-all duration-300 group-hover:scale-105">
-                    <FileSpreadsheet className="h-5 w-5" />
-                  </div>
-
                   <div className="flex flex-col text-left gap-1">
                     <span className="text-sm font-extrabold text-foreground tracking-tight leading-snug group-hover:text-amber-700 dark:group-hover:text-amber-400 transition-colors">
                       {item.title}

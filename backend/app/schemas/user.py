@@ -51,6 +51,8 @@ class UserResponse(UserBase):
     role: RoleNested
     image: Optional[str] = None
     profile_image: Optional[str] = None   # from UserProfile.image
+    gender: Optional[str] = None          # from UserProfile.gender
+    full_name: Optional[str] = None       # from UserProfile.full_name
     is_superuser: bool = False
     student_profile_id: Optional[int] = None
     

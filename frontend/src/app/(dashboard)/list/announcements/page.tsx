@@ -147,11 +147,6 @@ const AnnouncementListPage = async ({
                 className="flex items-center justify-between p-4 bg-[#f4f7fb]/40 dark:bg-muted/5 border border-border/40 hover:border-[#0038A8]/35 rounded-2xl transition-all shadow-sm group"
               >
                 <div className="flex items-center gap-4 max-w-[70%]">
-                  {/* Megaphone Icon */}
-                  <div className="h-9 w-9 rounded-xl bg-sky-100 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0 border border-sky-200/50 animate-in fade-in zoom-in duration-300">
-                    <Megaphone className="h-4.5 w-4.5" />
-                  </div>
-
                   <div className="flex flex-col text-left gap-0.5">
                     <span className="text-sm font-extrabold text-foreground tracking-tight leading-snug group-hover:text-[#0038A8] dark:group-hover:text-[#4f88ef] transition-colors">
                       {item.title}

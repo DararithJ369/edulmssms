@@ -21,65 +21,103 @@ class AnnouncementSeeder(BaseSeeder):
             Colors.warning("Table 'announcements' does not exist, skipping announcement seeding")
             return []
 
-        def get_instructor(index: int) -> str:
+        def get_instructor_id(course_idx: int) -> str:
             if not instructor_ids:
                 return None
-            if index < len(instructor_ids):
-                return instructor_ids[index]
-            return instructor_ids[0]
+            return instructor_ids[course_idx % len(instructor_ids)]
 
         created = []
-        for course in courses:
+        for course_idx, course in enumerate(courses):
             course_id = course.id
-            if course.course_code == "CS-205":
+            course_code = course.course_code
+            instructor_id = course.instructor_id or get_instructor_id(course_idx)
+
+            announcements_data = []
+
+            # Course-specific announcements
+            if course_code == "DS-210":
                 announcements_data = [
                     {
-                        "title": "FastAPI Project Submission Guidelines",
-                        "message": "Dear Web Development Students, please ensure your task manager REST APIs strictly enforce Pydantic body validation. Use BaseModel fields for parameter verification and return detailed validation errors. Submit your GitHub links on the portal.",
+                        "title": "DBMS Project Normalization Check",
+                        "message": "Dear Database students, please ensure your design submissions are normalized up to 3NF. Document functional dependencies and highlight candidate keys in your structural reports.",
                         "type": "course-specific",
                         "recipient_id": str(course_id),
-                        "sender_id": get_instructor(0),  # Dr. Sarah Chen
+                        "sender_id": instructor_id,
                         "course_id": course_id,
                         "is_read": False,
                     },
                     {
-                        "title": "Google UX Engineer Guest Lecture",
-                        "message": "Join us this Friday at 2:00 PM in Lab 103 for an interactive guest workshop on 'CSS Subgrids and Container Queries in Production' presented by a Staff UX Engineer from Google. Attendance is highly encouraged!",
+                        "title": "EXPLAIN ANALYZE Workshop",
+                        "message": "We will have an optional lab session this Friday at 10:00 AM on query execution plans and database indexes. We will compare query speeds with and without B-Tree indexes.",
                         "type": "course-specific",
                         "recipient_id": str(course_id),
-                        "sender_id": get_instructor(0),  # Dr. Sarah Chen
+                        "sender_id": instructor_id,
                         "course_id": course_id,
                         "is_read": False,
                     },
                 ]
-            elif course.course_code == "CS-101":
+            elif course_code == "IT-201":
                 announcements_data = [
                     {
-                        "title": "Optional Midterm Review Session",
-                        "message": "An optional review session covering list comprehensions, dictionary lookups, positional arguments, and indentation scope rules will be held in Lab 204 tomorrow at 3:00 PM. The session will be recorded.",
+                        "title": "FastAPI REST API Submission Guidelines",
+                        "message": "When submitting your web task API manager, make sure your routers enforce type validation using Pydantic schemas. Write unit test cases for the validation rules.",
                         "type": "course-specific",
                         "recipient_id": str(course_id),
-                        "sender_id": get_instructor(1),  # Prof. Michael Johnson
+                        "sender_id": instructor_id,
                         "course_id": course_id,
                         "is_read": False,
                     },
                     {
-                        "title": "Python requests & BeautifulSoup Guidelines",
-                        "message": "When writing your technical news scraper for Assignment 3, please remember to specify a user-agent header in your request blocks and introduce brief sleep pauses to prevent getting rate-limited.",
+                        "title": "Next.js App Router Masterclass",
+                        "message": "A guest lecture on React Server Components, hydration states, and middleware-based authorization will be held online via Zoom this Saturday at 2:00 PM.",
                         "type": "course-specific",
                         "recipient_id": str(course_id),
-                        "sender_id": get_instructor(1),  # Prof. Michael Johnson
+                        "sender_id": instructor_id,
                         "course_id": course_id,
                         "is_read": False,
                     },
+                ]
+            elif course_code == "DS-301":
+                announcements_data = [
+                    {
+                        "title": "Gradient Descent Math Refresher",
+                        "message": "Please review multivariate partial derivatives and matrix calculations prior to next Monday's lecture. We will trace backpropagation updates mathematically.",
+                        "type": "course-specific",
+                        "recipient_id": str(course_id),
+                        "sender_id": instructor_id,
+                        "course_id": course_id,
+                        "is_read": False,
+                    }
+                ]
+            elif course_code == "CS-101":
+                announcements_data = [
+                    {
+                        "title": "BeautifulSoup Scraper Guidelines",
+                        "message": "Ensure your scrapers introduce sleep delays (time.sleep) between requests and specify a User-Agent header in request headers to prevent getting rate-limited.",
+                        "type": "course-specific",
+                        "recipient_id": str(course_id),
+                        "sender_id": instructor_id,
+                        "course_id": course_id,
+                        "is_read": False,
+                    }
                 ]
             else:
-                announcements_data = []
+                announcements_data = [
+                    {
+                        "title": f"Course Guidelines: {course.course_name}",
+                        "message": f"Welcome to {course.course_name}. Please review the course modules list and timeline items. Make sure to complete assignments on time.",
+                        "type": "course-specific",
+                        "recipient_id": str(course_id),
+                        "sender_id": instructor_id,
+                        "course_id": course_id,
+                        "is_read": False,
+                    }
+                ]
 
-            # Add a system-wide general announcement for each course block
+            # System-wide announcement
             announcements_data.append({
-                "title": "LMS Platform Upgrades & Brief Maintenance",
-                "message": "Dear faculty and student body, our LMS platform will undergo a brief system optimization and library migration this coming Saturday from 11:00 PM to 1:00 AM. Expect occasional 5-minute offline periods.",
+                "title": "Final Examination Timetable and Venues",
+                "message": "Dear university body, the official Semester I Final Examination timetable has been published on the Academic board. Please review exam dates, duration times, and lab venues.",
                 "type": "general",
                 "recipient_id": "all",
                 "sender_id": admin_id,

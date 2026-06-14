@@ -65,6 +65,8 @@ def get_course_modules(course_id: int, db: Session = Depends(get_db)):
                     "description": l.description,
                     "duration": l.duration,
                     "material_type": l.material_type,
+                    "material_url": l.material_url,
+                    "material_file": l.material_file,
                     "order": l.order
                 } for l in m.lessons
             ]

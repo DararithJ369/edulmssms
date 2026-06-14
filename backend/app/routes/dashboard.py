@@ -9,6 +9,7 @@ from app.models.attendance import Attendance
 from app.models.assignment import Assignment
 from app.models.submission import Submission
 from app.middleware.guard.permission import PermissionGuard
+from app.utils.gpa_calculator import calculate_gpa
 
 dashboard_router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
@@ -76,6 +77,10 @@ def get_dashboard_stats(
                 "average_score": 0,
                 "total_users": db.query(User).count(),
                 "total_courses": db.query(Course).count(),
+                "gpa": 0.0,
+                "total_credits": 0,
+                "passed_subjects": 0,
+                "failed_subjects": 0,
             }
         
         # Student enrollments
@@ -85,7 +90,7 @@ def get_dashboard_stats(
         
         # Student average score
         results = db.query(Result).filter_by(
-            student_profile_id=student_profile.id
+            student_id=current_user.id
         ).all()
         average_score = (
             sum([r.score for r in results if r.score]) / len([r for r in results if r.score])
@@ -95,12 +100,15 @@ def get_dashboard_stats(
         
         # Student attendance percentage
         attendances = db.query(Attendance).filter_by(
-            student_profile_id=student_profile.id
+            student_id=current_user.id
         ).all()
         present_count = len([a for a in attendances if a.status == "present"])
         attendance_percentage = (
             (present_count / len(attendances)) * 100 if attendances else 0
         )
+        
+        # Calculate GPA details
+        gpa_stats = calculate_gpa(db, current_user.id)
         
         return {
             "user_enrollments": user_enrollments,
@@ -108,4 +116,8 @@ def get_dashboard_stats(
             "attendance_percentage": round(attendance_percentage, 2),
             "total_users": db.query(User).count(),
             "total_courses": db.query(Course).count(),
+            "gpa": gpa_stats["gpa"],
+            "total_credits": gpa_stats["total_credits"],
+            "passed_subjects": gpa_stats["passed_subjects"],
+            "failed_subjects": gpa_stats["failed_subjects"],
         }

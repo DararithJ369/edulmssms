@@ -28,10 +28,11 @@ import {
   Link2
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { getImageUrl } from "@/lib/image-url";
+import { getImageUrl, getCourseThumbnail } from "@/lib/image-url";
 import LessonForm from "@/components/forms/LessonForm";
 import BackButton from "@/components/BackButton";
-import { toast } from "react-toastify";
+import { useToast } from "@/hooks/ToastProvider";
+import { CldUploadWidget } from "next-cloudinary";
 
 type LessonItem = {
   id: number;
@@ -55,6 +56,7 @@ type SyllabusItem = {
 
 export default function CourseCreatePage() {
   const router = useRouter();
+  const { success: toastSuccess, error: toastError } = useToast();
 
   // Core Baseline Form States
   const [courseName, setCourseName] = useState("");
@@ -65,9 +67,14 @@ export default function CourseCreatePage() {
   const [price, setPrice] = useState<number>(0);
   const [maxStudents, setMaxStudents] = useState<number>(40);
   const [isPublished, setIsPublished] = useState(true);
+  const [subjectId, setSubjectId] = useState<number | "">("");
+  const [subjectsList, setSubjectsList] = useState<{ id: number; name: string }[]>([]);
+  const [instructorId, setInstructorId] = useState<string>("");
+  const [instructorsList, setInstructorsList] = useState<any[]>([]);
+  const [userRole, setUserRole] = useState<string>("student");
   
   // 🚀 THUMBNAIL STATE CONTROL
-  const [thumbnail, setThumbnail] = useState("https://images.unsplash.com/photo-1610962381137-50ef93055125?auto=format&fit=crop&q=80&w=800");
+  const [thumbnail, setThumbnail] = useState("");
   
   // Custom Syllabus Tree
   const [syllabus, setSyllabus] = useState<SyllabusItem[]>([]);
@@ -76,7 +83,6 @@ export default function CourseCreatePage() {
   // Global UX States
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [showSuccessToast, setShowSuccessToast] = useState(false);
   
   // Active Modal Trackers
   const [editSyllabusId, setEditSyllabusId] = useState<number | null>(null);
@@ -96,17 +102,47 @@ export default function CourseCreatePage() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const role = localStorage.getItem("user_role") || "student";
+      const uid = localStorage.getItem("user_id") || "";
+      setUserRole(role);
       if (role !== "admin" && role !== "instructor" && role !== "teacher") {
         router.push(`/list/courses`);
         return;
       }
+      if (role === "instructor" || role === "teacher") {
+        setInstructorId(uid);
+      }
     }
-    setLoading(false);
+
+    const fetchData = async () => {
+      try {
+        const [subsRes, instRes] = await Promise.all([
+          api.get("/subjects?limit=100").catch(() => ({ data: [] })),
+          api.get("/users/instructors?limit=100").catch(() => ({ data: [] }))
+        ]);
+        
+        const subsData = subsRes.data;
+        setSubjectsList(Array.isArray(subsData) ? subsData : subsData?.data ?? []);
+        
+        const instData = instRes.data;
+        setInstructorsList(Array.isArray(instData) ? instData : instData?.data ?? []);
+      } catch (err) {
+        console.error("Failed to load catalog data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
   }, [router]);
 
   const handleSave = async () => {
     if (!courseName.trim() || !courseCode.trim()) {
-      toast.error("Please provide both a Course Name and a Course Code.");
+      toastError("Please provide both a Course Name and a Course Code.");
+      return;
+    }
+
+    if (isPublished && (syllabus.length === 0 || syllabus.every(s => s.is_hidden_from_students))) {
+      toastError("A published course must have at least one published module.");
       return;
     }
 
@@ -141,19 +177,18 @@ export default function CourseCreatePage() {
         duration: syllabus.length || 1,
         max_students: Number(maxStudents) || 40,
         has_modules: compiledModules.length > 0,
+        subject_id: subjectId ? Number(subjectId) : null,
+        instructor_id: instructorId || null,
         modules: compiledModules
       });
 
       const newCourseId = response.data?.id || response.data?.data?.id;
 
-      setShowSuccessToast(true);
-      setTimeout(() => {
-        setShowSuccessToast(false);
-        router.push(newCourseId ? `/list/courses/${newCourseId}` : "/list/courses");
-      }, 1500);
+      toastSuccess("Course created successfully!");
+      router.push(newCourseId ? `/list/courses/${newCourseId}` : "/list/courses");
     } catch (err) {
       console.error(err);
-      toast.error("Error committing schema records down to the database layer.");
+      toastError("Error committing schema records down to the database layer.");
     } finally {
       setSaving(false);
     }
@@ -295,7 +330,7 @@ export default function CourseCreatePage() {
     switch (type) {
       case "file": return <FileUp className="h-4 w-4 text-emerald-600 shrink-0" />;
       case "url": return <ExternalLink className="h-4 w-4 text-amber-600 shrink-0" />;
-      default: return <BookOpen className="h-4 w-4 text-sky-600 shrink-0" />;
+      default: return <BookOpen className="h-4 w-4 text-[#0038A8] shrink-0" />;
     }
   };
 
@@ -310,23 +345,8 @@ export default function CourseCreatePage() {
 
   return (
     <div className="flex-1 p-6 pb-24 space-y-6 bg-[#F7F8FA] min-h-screen text-left font-sans">
-      
-      {/* Toast Notification */}
-      <AnimatePresence>
-        {showSuccessToast && (
-          <motion.div
-            initial={{ opacity: 0, y: -50, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -50, scale: 0.9 }}
-            className="fixed top-8 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2.5 px-6 py-4 bg-white/90 backdrop-blur-xl border border-[#0038A8]/20 shadow-2xl rounded-2xl"
-          >
-            <CheckCircle className="h-5 w-5 text-[#0038A8]" />
-            <span className="text-sm font-black text-slate-800">Course Created Successfully</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
-      {/* Syllabus Module Renamer */}
+      {/* Syllabus Topic Folder Rename Popup Modal */}
       {editSyllabusId !== null && (
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 backdrop-blur-xs">
           <div className="w-[450px] p-6 bg-white border border-slate-200 shadow-2xl rounded-2xl space-y-4 text-left">
@@ -339,9 +359,9 @@ export default function CourseCreatePage() {
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-wide">Topic Week Position</label>
               <input type="number" value={editSyllabusOrder} onChange={(e) => setEditSyllabusOrder(parseInt(e.target.value) || 1)} className="w-full px-3 py-2 bg-slate-50 border rounded-xl text-sm font-medium focus:outline-none" />
             </div>
-            <div className="flex justify-end gap-2.5 pt-2">
-              <button onClick={() => setEditSyllabusId(null)} className="px-4 py-2 border rounded-xl hover:bg-slate-50 font-bold text-xs">Cancel</button>
-              <button onClick={saveSyllabusEdit} className="px-4 py-2 bg-[#0038A8] text-white font-bold rounded-xl text-xs hover:bg-[#002D86]">Confirm Setup</button>
+            <div className="flex justify-end gap-2 pt-2">
+              <button onClick={() => setEditSyllabusId(null)} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer">Cancel</button>
+              <button onClick={saveSyllabusEdit} className="px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] text-white text-xs font-black rounded-xl transition-colors cursor-pointer">Confirm Setup</button>
             </div>
           </div>
         </div>
@@ -360,7 +380,10 @@ export default function CourseCreatePage() {
                 data={selectedLessonData}
                 setOpen={handleCloseLessonModal}
                 onCancel={handleCloseLessonModal}
-                relatedData={{ inlineHandler: handleInlineLessonFormSubmit }} 
+                relatedData={{ 
+                  inlineHandler: handleInlineLessonFormSubmit, 
+                  moduleId: addLessonModuleId || editLessonParentModuleId || undefined 
+                }} 
               />
             </div>
           </div>
@@ -418,6 +441,39 @@ export default function CourseCreatePage() {
                   <option value="Mathematics">Mathematics</option>
                 </select>
               </div>
+              <label className="md:col-span-2 text-xs font-bold text-slate-500 uppercase tracking-wide md:pt-3">Difficulty Level</label>
+              <div className="md:col-span-4">
+                <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)} className="w-full md:w-2/3 px-3 py-2.5 bg-slate-50 border rounded-xl text-xs font-bold focus:outline-none">
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="advanced">Advanced</option>
+                </select>
+              </div>
+              <label className="md:col-span-2 text-xs font-bold text-slate-500 uppercase tracking-wide md:pt-3">Subject Catalog Link</label>
+              <div className="md:col-span-4">
+                <select value={subjectId} onChange={(e) => setSubjectId(e.target.value ? Number(e.target.value) : "")} className="w-full md:w-2/3 px-3 py-2.5 bg-slate-50 border rounded-xl text-xs font-bold focus:outline-none">
+                  <option value="">-- Select Subject (Optional) --</option>
+                  {subjectsList.map((sub) => (
+                    <option key={sub.id} value={sub.id}>{sub.name}</option>
+                  ))}
+                </select>
+              </div>
+              <label className="md:col-span-2 text-xs font-bold text-slate-500 uppercase tracking-wide md:pt-3">Instructor / Lecturer</label>
+              <div className="md:col-span-4">
+                <select 
+                  value={instructorId} 
+                  onChange={(e) => setInstructorId(e.target.value)} 
+                  disabled={userRole !== "admin"}
+                  className="w-full md:w-2/3 px-3 py-2.5 bg-slate-50 border rounded-xl text-xs font-bold focus:outline-none disabled:opacity-75 disabled:cursor-not-allowed"
+                >
+                  <option value="">-- Select Instructor --</option>
+                  {instructorsList.map((inst) => (
+                    <option key={inst.id} value={inst.id}>
+                      {inst.profile?.full_name || inst.username}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
@@ -430,19 +486,62 @@ export default function CourseCreatePage() {
             <div className="grid grid-cols-1 md:grid-cols-6 gap-6 items-center">
               <label className="md:col-span-2 text-xs font-bold text-slate-500 uppercase tracking-wide">Image Preview</label>
               <div className="md:col-span-4 space-y-4">
-                <div className="relative aspect-[21/9] w-full max-w-md border border-slate-200 rounded-2xl overflow-hidden shadow-inner bg-slate-50 flex items-center justify-center group">
-                  {thumbnail ? (
-                    <img src={getImageUrl(thumbnail) || ""} alt="Thumbnail Cover Preview" className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" onError={() => setThumbnail("")} />
-                  ) : (
-                    <div className="flex flex-col items-center gap-1.5 text-slate-400 select-none">
-                      <ImageIcon className="h-8 w-8 stroke-[1.5]" />
-                      <span className="text-[10px] font-bold tracking-wide uppercase">No Image Loaded</span>
+                <CldUploadWidget 
+                  options={{
+                    cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || "dlykcgjdh",
+                    uploadPreset: process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "lms_preset",
+                    multiple: false,
+                    sources: ["local", "url", "camera"]
+                  }} 
+                  onSuccess={(result: any) => { 
+                    const url = result?.info?.secure_url; 
+                    if (url) setThumbnail(url); 
+                  }}
+                >
+                  {({ open }) => (
+                    <div 
+                      onClick={() => open()}
+                      className="relative aspect-[21/9] w-full max-w-md border border-slate-200 rounded-2xl overflow-hidden shadow-inner bg-slate-50 flex items-center justify-center group cursor-pointer"
+                    >
+                      {thumbnail ? (
+                        <img src={getImageUrl(thumbnail) || ""} alt="Thumbnail Cover Preview" className="absolute inset-0 h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" onError={() => setThumbnail("")} />
+                      ) : (
+                        <img src={getCourseThumbnail(null, category, courseName)} alt="Default Category Preview" className="absolute inset-0 h-full w-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-300" />
+                      )}
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1">
+                        <Plus className="h-6 w-6 text-white" />
+                        <span className="text-[10px] font-black text-white uppercase tracking-wider">Upload Thumbnail</span>
+                      </div>
                     </div>
                   )}
-                </div>
-                <div className="relative max-w-md">
-                  <Link2 className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
-                  <input type="text" value={thumbnail} onChange={(e) => setThumbnail(e.target.value)} placeholder="Paste Unsplash banner asset link or Cloudinary string path..." className="w-full pl-10 pr-4 py-2 bg-slate-50 border rounded-xl text-xs font-mono font-medium focus:outline-none" />
+                </CldUploadWidget>
+                <div className="flex gap-2 max-w-md">
+                  <div className="relative flex-1">
+                    <Link2 className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+                    <input type="text" value={thumbnail} onChange={(e) => setThumbnail(e.target.value)} placeholder="Paste Unsplash banner asset link or Cloudinary string path..." className="w-full pl-10 pr-4 py-2 bg-slate-50 border rounded-xl text-xs font-mono font-medium focus:outline-none" />
+                  </div>
+                  <CldUploadWidget 
+                    options={{
+                      cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || "dlykcgjdh",
+                      uploadPreset: process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "lms_preset",
+                      multiple: false
+                    }}
+                    onSuccess={(result: any) => { 
+                      const url = result?.info?.secure_url; 
+                      if (url) setThumbnail(url); 
+                    }}
+                  >
+                    {({ open }) => (
+                      <button 
+                        type="button" 
+                        onClick={() => open()}
+                        className="px-4 py-2 bg-[#0038A8] text-white font-black text-xs rounded-xl hover:bg-[#002D86] flex items-center gap-1.5 shrink-0"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        <span>Upload File</span>
+                      </button>
+                    )}
+                  </CldUploadWidget>
                 </div>
               </div>
             </div>
@@ -472,9 +571,9 @@ export default function CourseCreatePage() {
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <Layers className="h-4 w-4 text-[#0038A8]" />
-                <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider">Course Syllabus Framework Topics</h2>
+                <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider">Course Syllabus Topics</h2>
               </div>
-              <button type="button" onClick={handleAddSyllabusSection} className="flex items-center gap-1.5 text-xs font-bold text-[#8b5cf6] hover:bg-[#7c3aed] bg-[#8b5cf6]/5 px-3 py-1.5 rounded-xl border border-[#8b5cf6]/10 transition-colors">
+              <button type="button" onClick={handleAddSyllabusSection} className="flex items-center gap-1.5 text-xs font-bold text-[#0038A8] hover:bg-[#0038A8]/10 bg-[#0038A8]/5 px-3 py-1.5 rounded-xl border border-[#0038A8]/10 transition-colors">
                 <Plus className="h-3.5 w-3.5" />
                 <span>Add Syllabus Folder</span>
               </button>
@@ -496,7 +595,7 @@ export default function CourseCreatePage() {
                         <button type="button" onClick={() => toggleTopicVisibility(item.id)} className="p-1.5 border bg-white rounded-lg text-slate-500 hover:text-slate-700">
                           {item.is_hidden_from_students ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                         </button>
-                        <button type="button" onClick={() => startEditSyllabus(item)} className="px-2.5 py-1 bg-white hover:bg-slate-50 border text-slate-700 font-bold text-[10px] rounded-lg">Position</button>
+                        <button type="button" onClick={() => startEditSyllabus(item)} className="px-2.5 py-1 bg-white hover:bg-slate-50 border text-slate-700 font-bold text-[10px] rounded-lg">Rename</button>
                         <button type="button" onClick={() => handleDeleteSyllabusSection(item.id)} className="p-1 text-slate-400 hover:text-red-500"><Trash2 className="h-3.5 w-3.5" /></button>
                       </div>
                     </div>
@@ -524,7 +623,7 @@ export default function CourseCreatePage() {
                         ) : (
                           <p className="text-[10px] text-slate-400 font-semibold py-1.5 italic">No operational lesson activities attached inside this section yet.</p>
                         )}
-                        <button type="button" onClick={() => setAddLessonModuleId(item.id)} className="w-full py-2 bg-sky-500/5 hover:bg-sky-500/10 border border-dashed border-sky-500/20 text-sky-700 font-extrabold text-[10px] rounded-xl flex items-center justify-center gap-1.5 transition-colors"><Plus className="h-3.5 w-3.5" /><span>Add Lesson Activity</span></button>
+                        <button type="button" onClick={() => setAddLessonModuleId(item.id)} className="w-full py-2 bg-[#0038A8]/5 hover:bg-[#0038A8]/10 border border-dashed border-[#0038A8]/20 text-[#0038A8] font-black text-[10px] rounded-xl flex items-center justify-center gap-1.5 transition-colors"><Plus className="h-3.5 w-3.5" /><span>Add Lesson Activity</span></button>
                       </div>
                     )}
                   </div>
@@ -560,6 +659,25 @@ export default function CourseCreatePage() {
                 <label className="text-[10px] font-bold text-slate-400 uppercase">Pricing Tier ($)</label>
                 <div className="relative"><DollarSign className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" /><input type="number" value={price} onChange={(e) => setPrice(parseFloat(e.target.value) || 0)} className="w-full pl-9 pr-4 py-1.5 bg-slate-50 border rounded-xl text-xs font-bold focus:outline-none" /></div>
               </div>
+              <div className="space-y-1 pt-2 border-t border-slate-100 flex items-center justify-between">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase block">Published Status</label>
+                  <span className="text-[9px] text-slate-500 font-medium">Visible to student catalog</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsPublished(!isPublished)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    isPublished ? "bg-[#0038A8]" : "bg-gray-200"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      isPublished ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -567,8 +685,8 @@ export default function CourseCreatePage() {
 
       {/* FOOTER ACTION BAR */}
       <div className="border-t pt-6 flex items-center justify-end gap-3 select-none">
-        <button type="button" onClick={() => router.push("/list/courses")} className="px-5 py-2.5 bg-white border hover:bg-slate-50 text-slate-600 font-extrabold text-xs rounded-xl shadow-xs">Cancel</button>
-        <button type="button" onClick={handleSave} disabled={saving} className="px-6 py-2.5 bg-[#0038A8] text-white hover:bg-[#002D86] disabled:opacity-50 font-extrabold text-xs rounded-xl shadow-sm">
+        <button type="button" onClick={() => router.push("/list/courses")} className="px-4 py-2 bg-white border hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl shadow-xs">Cancel</button>
+        <button type="button" onClick={handleSave} disabled={saving} className="px-4 py-2 bg-[#0038A8] text-white hover:bg-[#002D86] disabled:opacity-50 font-black text-xs rounded-xl shadow-sm">
           {saving ? "Compiling Schema..." : "Save and Display"}
         </button>
       </div>

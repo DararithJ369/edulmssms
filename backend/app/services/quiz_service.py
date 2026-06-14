@@ -1,3 +1,4 @@
+from typing import Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
@@ -11,8 +12,23 @@ from app.services.base_service import get_or_404, paginate, apply_update, delete
 class QuizService:
 
     @staticmethod
-    def get_quizzes(db: Session, page: int = 1, limit: int = 10, search: str = "") -> dict:
+    def get_quizzes(
+        db: Session,
+        page: int = 1,
+        limit: int = 10,
+        search: str = "",
+        class_id: Optional[int] = None,
+        course_id: Optional[int] = None
+    ) -> dict:
         query = db.query(Quiz)
+
+        if course_id is not None:
+            query = query.filter(Quiz.course_id == course_id)
+
+        if class_id is not None:
+            from app.services.base_service import get_course_ids_for_class
+            course_ids = get_course_ids_for_class(db, class_id)
+            query = query.filter(Quiz.course_id.in_(course_ids))
 
         if search:
             query = query.filter(

@@ -35,6 +35,11 @@ class ResultResponse(ResultBase):
     student_name: Optional[str] = None
     grader_name: Optional[str] = None
     assessment_title: Optional[str] = None
+    assessment_type: Optional[str] = None
+    lesson_id: Optional[int] = None
+    lesson_title: Optional[str] = None
+    module_id: Optional[int] = None
+    module_title: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -46,5 +51,10 @@ class Result(ResultBase):
     student_name: Optional[str] = None
     grader_name: Optional[str] = None
     assessment_title: Optional[str] = None
+    assessment_type: Optional[str] = None
+    lesson_id: Optional[int] = None
+    lesson_title: Optional[str] = None
+    module_id: Optional[int] = None
+    module_title: Optional[str] = None
 
     model_config = {"from_attributes": True}

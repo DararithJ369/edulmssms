@@ -69,6 +69,8 @@ class CourseBase(BaseModel):
     difficulty: Optional[str] = "beginner"
     instructor_name: Optional[str] = None
     is_published: Optional[bool] = None
+    subject_id: Optional[int] = None
+    thumbnail: Optional[str] = None
 
 
 class CourseCreate(CourseBase):
@@ -86,13 +88,15 @@ class CourseUpdate(BaseModel):
     max_students: Optional[int] = None
     difficulty: Optional[str] = None
     instructor_name: Optional[str] = None
+    instructor_id: Optional[str] = None
     is_published: Optional[bool] = None
+    subject_id: Optional[int] = None
+    thumbnail: Optional[str] = None
     
     
 class CourseResponse(CourseBase):
     id: int
     instructor_id: Optional[str] = None  # 🚀 FIXED: Clears your validation crash on missing IDs!
-    subject_id: Optional[int] = None
     thumbnail: Optional[str] = None
     enrollment_status: str = "open"  # open, closed, waitlist
     student_enrolled: int = 0    
@@ -107,6 +111,15 @@ class CourseResponse(CourseBase):
     modules: List[ModuleResponse] = []  # Maps child module objects down into UI lists
 
     model_config = {"from_attributes": True}
+
+    @classmethod
+    def model_validate(cls, obj, *args, **kwargs):
+        instance = super().model_validate(obj, *args, **kwargs)
+        if hasattr(obj, "enrollments") and obj.enrollments:
+            instance.student_enrolled = sum(1 for e in obj.enrollments if e.is_active)
+        else:
+            instance.student_enrolled = 0
+        return instance
 
     @field_serializer("thumbnail")
     def serialize_thumbnail(self, v: Optional[str]) -> Optional[str]:

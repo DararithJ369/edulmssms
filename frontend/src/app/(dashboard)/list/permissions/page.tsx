@@ -31,6 +31,7 @@ export default function PermissionsListPage() {
   // Form values
   const [key, setKey] = useState("");
   const [description, setDescription] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const fetchPermissions = async () => {
     setLoading(true);
@@ -66,6 +67,7 @@ export default function PermissionsListPage() {
       toast.warn("Key should use namespace format, e.g. 'view:dashboard' or 'manage:courses'.");
     }
 
+    setSaving(true);
     try {
       await api.post("/permissions", {
         key: key.trim().toLowerCase(),
@@ -77,6 +79,8 @@ export default function PermissionsListPage() {
       fetchPermissions();
     } catch (err: any) {
       toast.error(err?.response?.data?.detail || "Error creating permission.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -95,6 +99,7 @@ export default function PermissionsListPage() {
       return;
     }
 
+    setSaving(true);
     try {
       await api.put(`/permissions/${selectedPermission.id}`, {
         key: key.trim().toLowerCase(),
@@ -106,6 +111,8 @@ export default function PermissionsListPage() {
       fetchPermissions();
     } catch (err: any) {
       toast.error(err?.response?.data?.detail || "Error updating permission details.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -172,7 +179,7 @@ export default function PermissionsListPage() {
 
         <button 
           onClick={handleCreateOpen}
-          className="px-4 py-2.5 bg-[#8b5cf6] text-white hover:bg-[#7c3aed] font-extrabold text-xs rounded-xl transition-all shadow-md shadow-violet-500/10 flex items-center gap-1.5 active:scale-[0.98]"
+          className="px-4 py-2 bg-[#0038A8] text-white hover:bg-[#002D86] font-black text-xs rounded-xl transition-all shadow-md shadow-blue-500/10 flex items-center gap-1.5 active:scale-[0.98]"
         >
           <Plus className="h-4 w-4" />
           <span>Add Permission</span>
@@ -212,16 +219,11 @@ export default function PermissionsListPage() {
           {filteredPermissions.map((perm) => (
             <div
               key={perm.id}
-              className="relative flex flex-col md:flex-row md:items-center justify-between p-4 bg-card/65 hover:bg-card border border-border/50 hover:border-violet-500/25 rounded-3xl transition-all duration-300 shadow-[0_2px_8px_rgba(0,0,0,0.01)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.02)] hover:-translate-y-[1px] group overflow-hidden gap-4"
+              className="relative flex flex-col md:flex-row md:items-center justify-between p-4 bg-card/65 hover:bg-card border border-border/50 hover:border-[#0038A8]/25 rounded-3xl transition-all duration-300 shadow-[0_2px_8px_rgba(0,0,0,0.01)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.02)] hover:-translate-y-[1px] group overflow-hidden gap-4"
             >
-              <span className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-3xl bg-violet-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <span className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-3xl bg-[#0038A8] opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               
               <div className="flex items-center gap-4 max-w-full md:max-w-[80%]">
-                {/* Visual Icon */}
-                <div className="h-9 w-9 rounded-xl bg-slate-50 border border-slate-200/50 text-[#8b5cf6] flex items-center justify-center shrink-0 shadow-xs">
-                  <Key className="h-4 w-4" />
-                </div>
-
                 <div className="flex flex-col text-left gap-1 overflow-hidden">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className={`px-2 py-0.5 border text-[10px] font-mono font-black rounded-lg ${getGroupBadgeColor(perm.key)}`}>
@@ -311,14 +313,16 @@ export default function PermissionsListPage() {
                   type="button"
                   onClick={() => setIsCreateOpen(false)}
                   className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl"
+                  disabled={saving}
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit"
-                  className="px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] text-white text-xs font-black rounded-xl"
+                  disabled={saving}
+                  className="px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] text-white text-xs font-black rounded-xl disabled:opacity-50"
                 >
-                  Save Key
+                  {saving ? "Saving..." : "Save Key"}
                 </button>
               </div>
             </form>
@@ -377,14 +381,16 @@ export default function PermissionsListPage() {
                     type="button"
                     onClick={() => setIsEditOpen(false)}
                     className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl"
+                    disabled={saving}
                   >
                     Cancel
                   </button>
                   <button 
                     type="submit"
-                    className="px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] text-white text-xs font-black rounded-xl"
+                    disabled={saving}
+                    className="px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] text-white text-xs font-black rounded-xl disabled:opacity-50"
                   >
-                    Update Key
+                    {saving ? "Updating..." : "Update Key"}
                   </button>
                 </div>
               </div>

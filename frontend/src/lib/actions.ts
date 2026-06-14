@@ -13,6 +13,7 @@ import {
   ResultSchema,
   AnnouncementSchema,
   AttendanceSchema,
+  UserSchema,
 } from "./formValidationSchemas";
 import prisma from "./prisma";
 import { cookies } from "next/headers";
@@ -110,17 +111,19 @@ export const updateClass = async (
   data: ClassSchema
 ) => {
   try {
-    await prisma.class.update({
+    console.log("actions.ts: updateClass called with data:", data);
+    const result = await prisma.class.update({
       where: {
         id: data.id,
       },
       data,
     });
+    console.log("actions.ts: prisma update result:", result);
 
     revalidatePath("/list/classes");
     return { success: true, error: false };
   } catch (err) {
-    console.log(err);
+    console.log("actions.ts: updateClass error:", err);
     return { success: false, error: true };
   }
 };
@@ -352,9 +355,10 @@ export const createExam = async (
   data: ExamSchema
 ) => {
   try {
-    await prisma.exam.create({
+    await (prisma as any).exam.create({
       data: {
         title: data.title,
+        description: data.description,
         startTime: data.startTime,
         endTime: data.endTime,
         lessonId: data.lessonId,
@@ -374,12 +378,13 @@ export const updateExam = async (
   data: ExamSchema
 ) => {
   try {
-    await prisma.exam.update({
+    await (prisma as any).exam.update({
       where: {
         id: data.id,
       },
       data: {
         title: data.title,
+        description: data.description,
         startTime: data.startTime,
         endTime: data.endTime,
         lessonId: data.lessonId,
@@ -569,14 +574,15 @@ export const createAssignment = async (
   data: AssignmentSchema
 ) => {
   try {
-    const { attachmentFile, ...prismaData } = data;
     await prisma.assignment.create({
       data: {
-        title: prismaData.title,
-        startDate: prismaData.startDate,
-        dueDate: prismaData.dueDate,
-        lessonId: prismaData.lessonId,
-      },
+        title: data.title,
+        startDate: data.startDate,
+        dueDate: data.dueDate,
+        lessonId: data.lessonId,
+        attachmentFile: data.attachmentFile || null,
+        description: data.description || null,
+      } as any,
     });
     revalidatePath("/list/assignments");
     return { success: true, error: false };
@@ -592,15 +598,16 @@ export const updateAssignment = async (
 ) => {
   if (!data.id) return { success: false, error: true };
   try {
-    const { attachmentFile, ...prismaData } = data;
     await prisma.assignment.update({
       where: { id: data.id },
       data: {
-        title: prismaData.title,
-        startDate: prismaData.startDate,
-        dueDate: prismaData.dueDate,
-        lessonId: prismaData.lessonId,
-      },
+        title: data.title,
+        startDate: data.startDate,
+        dueDate: data.dueDate,
+        lessonId: data.lessonId,
+        attachmentFile: data.attachmentFile || null,
+        description: data.description || null,
+      } as any,
     });
     revalidatePath("/list/assignments");
     return { success: true, error: false };
@@ -860,6 +867,156 @@ export const deleteAttendance = async (
     });
     revalidatePath("/list/attendance");
     revalidatePath("/admin");
+    return { success: true, error: false };
+  } catch (err) {
+    console.log(err);
+    return { success: false, error: true };
+  }
+};
+
+export const deleteCourse = async (
+  currentState: CurrentState,
+  data: FormData
+) => {
+  const id = data.get("id") as string;
+  try {
+    await (prisma as any).course.delete({
+      where: { id: parseInt(id) },
+    });
+    revalidatePath("/list/courses");
+    return { success: true, error: false };
+  } catch (err) {
+    console.log(err);
+    return { success: false, error: true };
+  }
+};
+
+export const deleteEvent = async (
+  currentState: CurrentState,
+  data: FormData
+) => {
+  const id = data.get("id") as string;
+  try {
+    await (prisma as any).event.delete({
+      where: { id: parseInt(id) },
+    });
+    revalidatePath("/list/events");
+    return { success: true, error: false };
+  } catch (err) {
+    console.log(err);
+    return { success: false, error: true };
+  }
+};
+
+export const createUser = async (
+  currentState: CurrentState,
+  formData: FormData
+) => {
+  try {
+    const cookieStore = cookies();
+    const token = cookieStore.get("access_token")?.value || cookieStore.get("session")?.value;
+
+    const username = formData.get("username") as string;
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+    const role_id = formData.get("role_id") as string;
+    const imageFile = formData.get("image") as File | null;
+
+    const fd = new FormData();
+    fd.append("username", username);
+    fd.append("email", email);
+    fd.append("password", password || "");
+    fd.append("role_id", role_id);
+    if (imageFile && imageFile.size > 0) {
+      fd.append("image", imageFile);
+    }
+
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const res = await fetch(`${API_URL}/users`, {
+      method: "POST",
+      headers,
+      body: fd,
+    });
+    if (!res.ok) throw new Error(await res.text());
+
+    revalidatePath("/list/users");
+    return { success: true, error: false };
+  } catch (err) {
+    console.log(err);
+    return { success: false, error: true };
+  }
+};
+
+export const updateUser = async (
+  currentState: CurrentState,
+  formData: FormData
+) => {
+  const id = formData.get("id") as string;
+  if (!id) return { success: false, error: true };
+  try {
+    const cookieStore = cookies();
+    const token = cookieStore.get("access_token")?.value || cookieStore.get("session")?.value;
+
+    const username = formData.get("username") as string;
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+    const role_id = formData.get("role_id") as string;
+    const imageFile = formData.get("image") as File | null;
+
+    const fd = new FormData();
+    fd.append("username", username);
+    fd.append("email", email);
+    fd.append("password", password || "");
+    fd.append("role_id", role_id);
+    if (imageFile && imageFile.size > 0) {
+      fd.append("image", imageFile);
+    }
+
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const res = await fetch(`${API_URL}/users/${id}`, {
+      method: "PUT",
+      headers,
+      body: fd,
+    });
+    if (!res.ok) throw new Error(await res.text());
+
+    revalidatePath("/list/users");
+    return { success: true, error: false };
+  } catch (err) {
+    console.log(err);
+    return { success: false, error: true };
+  }
+};
+
+export const deleteUser = async (
+  currentState: CurrentState,
+  data: FormData
+) => {
+  const id = data.get("id") as string;
+  try {
+    const cookieStore = cookies();
+    const token = cookieStore.get("access_token")?.value || cookieStore.get("session")?.value;
+
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const res = await fetch(`${API_URL}/users/${id}`, {
+      method: "DELETE",
+      headers,
+    });
+    if (!res.ok) throw new Error(await res.text());
+
+    revalidatePath("/list/users");
     return { success: true, error: false };
   } catch (err) {
     console.log(err);

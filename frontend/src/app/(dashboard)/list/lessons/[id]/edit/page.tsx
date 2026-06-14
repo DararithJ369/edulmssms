@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { ArrowLeft, Save, X, FileText, Link2, Video } from "lucide-react";
 import { api } from "@/lib/api";
 import BackButton from "@/components/BackButton";
+import { toast } from "react-toastify";
 
 export default function EditLessonPage() {
   const router = useRouter();
@@ -77,11 +78,13 @@ export default function EditLessonPage() {
       });
 
       if (res.status === 200) {
+        toast.success("Lesson updated successfully!");
         router.back(); // Return back to curriculum workspace dashboard view safely
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to execute data modification save layout:", err);
-      alert("Error updating record dependencies. Check terminal trace records.");
+      const message = err?.response?.data?.detail || err?.message || "Error updating record dependencies. Check terminal trace records.";
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -96,14 +99,20 @@ export default function EditLessonPage() {
     );
   }
 
+  const inputStyles = "w-full px-3 py-2 bg-slate-50 border border-border/80 rounded-xl outline-none text-xs transition-colors duration-300 focus:border-[#0038A8]/50 focus:ring-1 focus:ring-[#0038A8]/50 text-foreground";
+  const labelStyles = "text-[10px] font-extrabold uppercase text-muted-foreground tracking-wider block mb-1.5";
+
   return (
-    <div className="flex-1 p-6 bg-[#F7F8FA] dark:bg-[#121212] min-h-screen space-y-6 text-left">
+    <div className="flex-1 p-6 bg-[#F7F8FA] min-h-screen space-y-6 text-left">
       {/* HEADER BAR */}
       <div className="flex items-center justify-between select-none">
         <div className="flex items-center gap-3">
           <BackButton />
           <div>
-            <h1 className="text-xl font-black tracking-tight text-gray-900 dark:text-white">
+            <span className="text-xs font-extrabold text-[#0038A8] uppercase tracking-wider font-mono">
+              Curriculum Management
+            </span>
+            <h1 className="text-xl md:text-2xl font-black tracking-tight text-gray-900 mt-0.5">
               Modify Lesson Configurations
             </h1>
             <p className="text-xs text-muted-foreground">Editing target database record: Row ID {id}</p>
@@ -112,29 +121,29 @@ export default function EditLessonPage() {
       </div>
 
       {/* COMPACT CONFIGURATION FORM LAYOUT SHEET */}
-      <div className="max-w-3xl mx-auto bg-white dark:bg-[#1c1c1c] p-6 rounded-3xl border border-border/60 shadow-sm">
-        <form onSubmit={handleUpdate} className="space-y-5">
+      <div className="max-w-3xl mx-auto bg-white p-6 rounded-3xl border border-border/60 shadow-sm">
+        <form onSubmit={handleUpdate} className="space-y-6">
           
           {/* Title input element */}
-          <div>
-            <label className="text-xs font-bold text-slate-500 block mb-1">Lesson Title</label>
+          <div className="flex flex-col gap-1.5">
+            <label className={labelStyles}>Lesson Title</label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full border p-2.5 rounded-xl text-xs font-semibold focus:outline-none focus:border-[#0038A8]/40"
+              className={inputStyles}
               required
             />
           </div>
 
           {/* Meta Specifications Grid row elements */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="text-xs font-bold text-slate-500 block mb-1">Material Type</label>
+            <div className="flex flex-col gap-1.5">
+              <label className={labelStyles}>Material Type</label>
               <select
                 value={materialType}
                 onChange={(e) => setMaterialType(e.target.value)}
-                className="w-full border p-2.5 rounded-xl text-xs font-bold bg-slate-50 dark:bg-zinc-800"
+                className={inputStyles}
               >
                 <option value="video">Video Lecture (Cloudinary File)</option>
                 <option value="url">External Link (YouTube Embedding URL)</option>
@@ -142,32 +151,32 @@ export default function EditLessonPage() {
               </select>
             </div>
 
-            <div>
-              <label className="text-xs font-bold text-slate-500 block mb-1">Duration</label>
+            <div className="flex flex-col gap-1.5">
+              <label className={labelStyles}>Duration</label>
               <input
                 type="text"
                 value={duration}
                 onChange={(e) => setDuration(e.target.value)}
-                className="w-full border p-2.5 rounded-xl text-xs font-semibold"
+                className={inputStyles}
               />
             </div>
 
-            <div>
-              <label className="text-xs font-bold text-slate-500 block mb-1">Order Index</label>
+            <div className="flex flex-col gap-1.5">
+              <label className={labelStyles}>Order Index</label>
               <input
                 type="number"
                 value={order}
                 onChange={(e) => setOrder(parseInt(e.target.value) || 1)}
-                className="w-full border p-2.5 rounded-xl text-xs font-semibold"
+                className={inputStyles}
               />
             </div>
           </div>
 
-          {/* ── 🍏 DYNAMICALLY ADAPTIVE COMPONENT CONDITIONAL CONTROLLER FIELDS ── */}
-          <div className="p-4 bg-slate-50/50 dark:bg-zinc-900/30 rounded-2xl border border-dashed border-slate-200 dark:border-zinc-800">
+          {/* ── DYNAMICALLY ADAPTIVE COMPONENT CONDITIONAL CONTROLLER FIELDS ── */}
+          <div className="p-4 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
             {materialType === "url" ? (
-              <div className="space-y-1">
-                <label className="text-xs font-black text-[#0038A8] dark:text-sky-400 flex items-center gap-1">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-black text-[#0038A8] flex items-center gap-1 uppercase tracking-wider">
                   <Link2 className="h-3.5 w-3.5" /> External Streaming Link URL Target
                 </label>
                 <input
@@ -175,19 +184,19 @@ export default function EditLessonPage() {
                   value={externalUrl}
                   onChange={(e) => setExternalUrl(e.target.value)}
                   placeholder="Paste your YouTube link string here (e.g., https://youtube.com/...)"
-                  className="w-full border bg-white dark:bg-[#1c1c1c] p-2.5 rounded-xl text-xs font-medium focus:outline-none"
+                  className={inputStyles}
                 />
               </div>
             ) : (
-              <div className="space-y-2">
-                <label className="text-xs font-black text-emerald-600 flex items-center gap-1">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-black text-emerald-600 flex items-center gap-1 uppercase tracking-wider">
                   <FileText className="h-3.5 w-3.5" /> Upload Replacement Resource Asset File
                 </label>
                 <input
                   type="file"
                   accept={materialType === "pdf" ? ".pdf" : "video/*"}
                   onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                  className="w-full border bg-white dark:bg-[#1c1c1c] p-2 rounded-xl text-xs file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-emerald-700"
+                  className="w-full border bg-white p-2 rounded-xl text-xs file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-emerald-700"
                 />
                 {externalUrl && !selectedFile && (
                   <p className="text-[10px] text-slate-400 font-medium font-mono pl-1 truncate">
@@ -199,29 +208,29 @@ export default function EditLessonPage() {
           </div>
 
           {/* Lecture content rich text detail field */}
-          <div>
-            <label className="text-xs font-bold text-slate-500 block mb-1">Lecture Notes & Curriculum</label>
+          <div className="flex flex-col gap-1.5">
+            <label className={labelStyles}>Lecture Notes & Curriculum</label>
             <textarea
               rows={6}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full border p-3 rounded-2xl text-xs leading-relaxed font-medium focus:outline-none"
+              className={`${inputStyles} h-32 resize-y`}
             />
           </div>
 
           {/* CONTROL TRIGGER FOOTER ACTION PANEL */}
-          <div className="flex items-center justify-end gap-2 pt-3 border-t">
+          <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
             <button
               type="button"
               onClick={() => router.back()}
-              className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-xs font-bold rounded-xl transition-colors flex items-center gap-1"
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer flex items-center gap-1"
             >
               <X className="h-3.5 w-3.5" /> Cancel
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] text-white disabled:opacity-40 text-xs font-black rounded-xl transition-all shadow-md flex items-center gap-1"
+              className="px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] text-white text-xs font-black rounded-xl disabled:opacity-50 transition-colors cursor-pointer flex items-center gap-1"
             >
               <Save className="h-3.5 w-3.5" /> {saving ? "Saving Changes..." : "Save details"}
             </button>

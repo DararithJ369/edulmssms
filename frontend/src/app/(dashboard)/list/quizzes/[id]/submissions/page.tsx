@@ -36,11 +36,10 @@ type Submission = {
   graded_at?: string | null;
 };
 
-type Assignment = {
+type Quiz = {
   id: number;
   title: string;
   description?: string;
-  due_date?: string;
   total_marks: number;
   course_id: number;
 };
@@ -58,12 +57,12 @@ function statusBadge(status: string) {
   }
 }
 
-export default function AssignmentSubmissionsPage() {
+export default function QuizSubmissionsPage() {
   const params = useParams();
   const router = useRouter();
-  const assignmentId = params.id as string;
+  const quizId = params.id as string;
 
-  const [assignment, setAssignment] = useState<Assignment | null>(null);
+  const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
@@ -78,11 +77,11 @@ export default function AssignmentSubmissionsPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [aRes, sRes] = await Promise.all([
-        api.get(`/assignments/${assignmentId}`),
-        api.get(`/submissions/reference/assignment/${assignmentId}`),
+      const [qRes, sRes] = await Promise.all([
+        api.get(`/quizzes/${quizId}`),
+        api.get(`/submissions/reference/quiz/${quizId}`),
       ]);
-      setAssignment(aRes.data);
+      setQuiz(qRes.data);
       const raw = Array.isArray(sRes.data) ? sRes.data : sRes.data?.data ?? [];
       setSubmissions(raw);
     } catch (err) {
@@ -90,7 +89,7 @@ export default function AssignmentSubmissionsPage() {
     } finally {
       setLoading(false);
     }
-  }, [assignmentId]);
+  }, [quizId]);
 
   useEffect(() => {
     loadData();
@@ -114,13 +113,13 @@ export default function AssignmentSubmissionsPage() {
   const submitGrade = async () => {
     if (!gradingId) return;
 
-    const parsedScore = parseInt(String(gradeScore).trim(), 10);
+    const parsedScore = parseFloat(String(gradeScore).trim());
     if (isNaN(parsedScore)) {
       setGradeMessage({ type: "error", text: "Please enter a valid numeric score." });
       return;
     }
 
-    const maxMarks = assignment?.total_marks || 100;
+    const maxMarks = quiz?.total_marks || 100;
     if (parsedScore < 0 || parsedScore > maxMarks) {
       setGradeMessage({ type: "error", text: `Score boundary violation. Must be between 0 and ${maxMarks}.` });
       return;
@@ -130,23 +129,25 @@ export default function AssignmentSubmissionsPage() {
     setGradeMessage(null);
 
     try {
-      const payload = {
-        score: parsedScore,
-        feedback: gradeFeedback.trim() === "" ? null : gradeFeedback.trim(),
-      };
+      const fd = new FormData();
+      fd.append("score", String(parsedScore));
+      if (gradeFeedback.trim() !== "") {
+        fd.append("feedback", gradeFeedback.trim());
+      }
 
-      // 1. Commit parameters to database
-      await api.put(`/results/${gradingId}`, payload);
+      await api.put(`/submissions/${gradingId}/grade`, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
 
-      // 2. OPTIMISTIC RE-RENDERING NODE: Mutate state cache immediately to reflect values live
+      // Update state optimistically
       setSubmissions((prevSubmissions) =>
         prevSubmissions.map((sub) => {
           if (sub.id === gradingId) {
             return {
               ...sub,
               score: parsedScore,
-              feedback: payload.feedback,
-              status: "graded" // Updates table row state badge
+              feedback: gradeFeedback.trim() || null,
+              status: "graded"
             };
           }
           return sub;
@@ -154,8 +155,6 @@ export default function AssignmentSubmissionsPage() {
       );
 
       setGradeMessage({ type: "success", text: "Grade successfully saved and synced to gradebook." });
-      
-      // 3. Re-pull backend datasets concurrently to synchronize background buffers
       await loadData();
       
       setTimeout(() => {
@@ -196,9 +195,9 @@ export default function AssignmentSubmissionsPage() {
           <Globe className="h-3 w-3" />Home
         </Link>
         <span>/</span>
-        <Link href="/list/assignments" className="hover:text-foreground">Assignments</Link>
+        <Link href="/list/quizzes" className="hover:text-foreground">Quizzes</Link>
         <span>/</span>
-        <span className="text-foreground max-w-[200px] truncate">{assignment?.title || `Assignment #${assignmentId}`}</span>
+        <span className="text-foreground max-w-[200px] truncate">{quiz?.title || `Quiz #${quizId}`}</span>
         <span>/</span>
         <span className="text-foreground">Submissions</span>
       </div>
@@ -211,17 +210,11 @@ export default function AssignmentSubmissionsPage() {
           </button>
           <div>
             <span className="text-xs font-extrabold text-[#0038A8] uppercase tracking-wider font-mono">Teacher Review Panel</span>
-            <h1 className="text-xl md:text-2xl font-black text-gray-900 dark:text-white tracking-tight mt-0.5">{assignment?.title || "Assignment Submissions"}</h1>
+            <h1 className="text-xl md:text-2xl font-black text-gray-900 dark:text-white tracking-tight mt-0.5">{quiz?.title || "Quiz Submissions"}</h1>
           </div>
         </div>
         <div className="flex items-center gap-3 bg-background px-4 py-2 border border-border/60 rounded-xl shadow-sm">
-          <span className="text-xs text-muted-foreground font-bold">Total marks: <span className="font-black text-foreground">{assignment?.total_marks ?? 100}</span></span>
-          {assignment?.due_date && (
-            <>
-              <div className="w-px h-4 bg-border" />
-              <span className="text-amber-600 font-extrabold text-xs">Due: {new Date(assignment.due_date).toLocaleDateString()}</span>
-            </>
-          )}
+          <span className="text-xs text-muted-foreground font-bold">Total marks: <span className="font-black text-foreground">{quiz?.total_marks ?? 100}</span></span>
         </div>
       </div>
 
@@ -274,7 +267,7 @@ export default function AssignmentSubmissionsPage() {
                 {submissions.map((sub) => {
                   const isExpanded = expandedRow === sub.id;
                   const isGrading = gradingId === sub.id;
-                  const maxMarks = assignment?.total_marks || 100;
+                  const maxMarks = quiz?.total_marks || 100;
                   const pct = sub.score != null ? ((sub.score / maxMarks) * 100).toFixed(1) : null;
                   const gradeLetter = pct != null
                     ? parseFloat(pct) >= 90 ? "A" : parseFloat(pct) >= 80 ? "B" : parseFloat(pct) >= 70 ? "C" : parseFloat(pct) >= 60 ? "D" : "F"
@@ -311,7 +304,11 @@ export default function AssignmentSubmissionsPage() {
                         </td>
                         <td className="py-4 px-5 text-right">
                           <div className="inline-flex items-center gap-2">
-                            <button onClick={() => startGrading(sub)} className="px-3 py-1 text-[10px] font-black bg-[#8b5cf6]/10 text-[#8b5cf6] border border-[#8b5cf6]/20 rounded-lg hover:bg-[#8b5cf6]/20 transition-all uppercase tracking-wider shadow-sm">
+                            <button
+                              onClick={() => startGrading(sub)}
+                              disabled={savingGrade || (gradingId !== null && gradingId !== sub.id)}
+                              className="px-3 py-1 text-[10px] font-black bg-[#8b5cf6]/10 text-[#8b5cf6] border border-[#8b5cf6]/20 rounded-lg hover:bg-[#8b5cf6]/20 transition-all uppercase tracking-wider shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
                               {sub.status?.toLowerCase() === "graded" ? "Re-grade" : "Grade"}
                             </button>
                             <button onClick={() => setExpandedRow(isExpanded ? null : sub.id)} className="p-1.5 text-muted-foreground hover:text-foreground border border-border/60 rounded-lg bg-background shadow-sm">
@@ -362,7 +359,7 @@ export default function AssignmentSubmissionsPage() {
                               ) : (
                                 <div className="bg-muted/20 border border-dashed border-border/60 rounded-2xl p-5 flex flex-col items-center justify-center gap-2 text-center">
                                   <Award className="h-7 w-7 text-muted-foreground/30" />
-                                  <p className="text-xs font-bold text-muted-foreground">Select the Grade action node to evaluate this student's submission.</p>
+                                  <p className="text-xs font-bold text-muted-foreground">Select the Grade action node to evaluate this student&apos;s submission.</p>
                                 </div>
                               )}
                             </div>

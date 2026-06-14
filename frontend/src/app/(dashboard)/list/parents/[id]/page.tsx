@@ -38,6 +38,7 @@ const SingleParentPage = async ({
   const cookieStore = cookies();
   const role = normalizeRole(cookieStore.get("user_role")?.value);
   const token = cookieStore.get("access_token")?.value || cookieStore.get("token")?.value;
+  const loggedInUserId = cookieStore.get("user_id")?.value;
   const tokenQuery = token ? `?token=${token}` : "";
 
   let profileError: string | null = null;
@@ -190,7 +191,7 @@ const SingleParentPage = async ({
                       )}
                     </div>
                   </div>
-                  {role === "admin" && <ParentEditModal data={editData} />}
+                  {(role === "admin" || loggedInUserId === user.id) && <ParentEditModal data={editData} />}
                 </div>
 
                 <p className="text-xs text-slate-600 italic leading-relaxed">

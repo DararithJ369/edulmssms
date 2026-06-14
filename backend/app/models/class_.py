@@ -32,6 +32,7 @@ class Class(Base):
         lazy="selectin",
     )
     supervisor = relationship("User", foreign_keys=[supervisor_id], lazy="selectin")
+    grade_level = relationship("GradeLevel", lazy="selectin")
 
     @property
     def supervisor_name(self) -> str:

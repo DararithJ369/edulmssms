@@ -33,9 +33,9 @@ const Announcements = async () => {
   });
 
   return (
-    <div className="bg-card text-card-foreground p-4 rounded-md border border-border transition-colors duration-300">
+    <div className="bg-white text-card-foreground p-4 rounded-xl border border-border/60 shadow-xs transition-colors duration-300">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Announcements</h1>
+        <h1 className="text-xl font-semibold text-slate-800">Announcements</h1>
         <span className="text-xs text-muted-foreground cursor-pointer hover:underline">View All</span>
       </div>
       
@@ -43,10 +43,10 @@ const Announcements = async () => {
         {data.length > 0 ? (
           // ──✅ FIXED: Replaced brittle hardcoded indices with a clean, programmatic loop mapping
           data.map((item) => (
-            <div key={item.id} className="bg-secondary rounded-md p-4">
+            <div key={item.id} className="bg-slate-50/70 rounded-xl border border-slate-100 p-4">
               <div className="flex items-center justify-between">
-                <h2 className="font-medium text-sm text-foreground">{item.title}</h2>
-                <span className="text-[10px] text-muted-foreground bg-background rounded-md px-1.5 py-0.5 font-sans">
+                <h2 className="font-semibold text-sm text-slate-800">{item.title}</h2>
+                <span className="text-[10px] text-muted-foreground bg-white border border-slate-100 rounded-lg px-2 py-0.5 font-sans">
                   {new Intl.DateTimeFormat("en-GB").format(item.date)}
                 </span>
               </div>
@@ -57,7 +57,7 @@ const Announcements = async () => {
           ))
         ) : (
           // ──✅ FIXED: Graceful empty state buffer fallback
-          <div className="text-center py-6 border border-dashed border-border/60 rounded-md text-xs text-muted-foreground/70">
+          <div className="text-center py-6 border border-dashed border-border/60 rounded-xl text-xs text-muted-foreground/70">
             No active announcements found for your profile.
           </div>
         )}

@@ -2,7 +2,7 @@ import Pagination from "@/components/Pagination";
 import TableSearch from "@/components/TableSearch";
 import TableRowActions from "@/components/TableRowActions";
 import { serverFetch } from "@/lib/server-api";
-import { getImageUrl } from "@/lib/image-url";
+import { getImageUrl, getCourseThumbnail } from "@/lib/image-url";
 import { ITEM_PER_PAGE } from "@/lib/settings";
 import Image from "next/image";
 import Link from "next/link";
@@ -52,7 +52,7 @@ const CourseListPage = async ({
   // Build query path
   const searchArg = search ? `&search=${encodeURIComponent(search)}` : "";
   const catArg = category ? `&category=${encodeURIComponent(category)}` : "";
-  const queryPath = `/courses?page=${p}&limit=${ITEM_PER_PAGE}${searchArg}${catArg}`;
+  const queryPath = `/courses?page=${p}&limit=9${searchArg}${catArg}`;
 
   // Query backend /courses
   const response = await serverFetch<{
@@ -96,7 +96,7 @@ const CourseListPage = async ({
         <div className="flex items-center gap-2 shrink-0">
           {(role === "admin" || role === "teacher") && (
             <Link href={`/list/courses/create${category ? `?category=${encodeURIComponent(category)}` : ''}`}>
-              <button className="px-4 py-2 bg-[#8b5cf6] text-white hover:bg-[#7c3aed] font-extrabold text-xs rounded-xl transition-all shadow-md shadow-violet-500/10 flex items-center gap-1.5 active:scale-[0.98]">
+              <button className="px-4 py-2 bg-[#0038A8] text-white hover:bg-[#002D86] font-black text-xs rounded-xl transition-all shadow-md shadow-blue-500/10 flex items-center gap-1.5 active:scale-[0.98]">
                 <Plus className="h-4 w-4" />
                 <span>Create New Activity</span>
               </button>
@@ -147,11 +147,11 @@ const CourseListPage = async ({
               className="group bg-card border border-border/60 rounded-3xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.01)] hover:border-border hover:shadow-md transition-all flex flex-col h-full"
             >
               {/* Card Thumbnail Image Banner */}
-              <div className="relative aspect-[16/9] w-full bg-muted border-b border-border/50 shrink-0">
+              <div className="relative w-full aspect-[16/9] bg-muted border-b border-border/50 shrink-0 overflow-hidden">
                 <img
-                  src={getImageUrl(item.thumbnail) || "https://images.unsplash.com/photo-1610962381137-50ef93055125?auto=format&fit=crop&q=80&w=800"}
+                  src={getCourseThumbnail(item.thumbnail, item.category, item.course_name)}
                   alt={item.course_name}
-                  className="h-full w-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+                  className="absolute inset-0 h-full w-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
                 
@@ -163,7 +163,7 @@ const CourseListPage = async ({
                 {/* Enrollment Counter badge */}
                 <span className="absolute bottom-3 right-3 px-2 py-0.5 bg-black/60 backdrop-blur rounded-lg text-[8px] font-extrabold text-white flex items-center gap-1">
                   <Users className="h-3 w-3" />
-                  <span>{item.student_enrolled || 18} Enrolled</span>
+                  <span>{item.student_enrolled ?? 0} Enrolled</span>
                 </span>
               </div>
 
@@ -235,7 +235,7 @@ const CourseListPage = async ({
 
       {/* PAGINATION PANEL */}
       <div className="bg-card border border-border/60 rounded-3xl p-4 shadow-sm flex justify-center select-none shrink-0">
-        <Pagination page={p} count={count} />
+        <Pagination page={p} count={count} limit={9} />
       </div>
     </div>
   );

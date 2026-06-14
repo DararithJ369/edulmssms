@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useDialog } from "@/hooks/DialogProvider";
+import { toast } from "react-toastify";
 import {
   Globe,
   ArrowLeft,
@@ -69,7 +70,6 @@ export default function MarkAttendancePage() {
   const [attendance, setAttendance] = useState<AttendanceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -90,7 +90,7 @@ export default function MarkAttendancePage() {
       const currentSession = allSessions.find((s) => String(s.id) === sessionId);
 
       if (!currentSession) {
-        setMessage({ type: "error", text: "Session not found." });
+        toast.error("Session not found.");
         setLoading(false);
         return;
       }
@@ -130,9 +130,9 @@ export default function MarkAttendancePage() {
       });
 
       setAttendance(rows);
-    } catch (err) {
-      console.error("Failed to load attendance marker:", err);
-      setMessage({ type: "error", text: "Failed to load class or student roster." });
+    } catch (err: any) {
+      console.error("Failed to load attendance lookups:", err);
+      toast.error("Failed to load class or student roster.");
     } finally {
       setLoading(false);
     }
@@ -185,14 +185,10 @@ export default function MarkAttendancePage() {
       };
 
       await api.post(`/classes/${classId}/sessions/${sessionId}/attendance`, payload);
-      setMessage({ type: "success", text: "Attendance records saved successfully!" });
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      toast.success("Attendance records saved successfully!");
     } catch (err: any) {
       console.error("Failed to save attendance:", err);
-      setMessage({
-        type: "error",
-        text: err?.response?.data?.detail || "Failed to save attendance logs.",
-      });
+      toast.error(err?.response?.data?.detail || err?.message || "Failed to save attendance logs.");
     } finally {
       setSaving(false);
     }
@@ -277,7 +273,7 @@ export default function MarkAttendancePage() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-black rounded-xl bg-[#0038A8] hover:bg-[#002D86] text-white transition-colors shadow-sm disabled:opacity-50"
+            className="flex items-center gap-1.5 px-4 py-2 text-xs font-black rounded-xl bg-[#0038A8] hover:bg-[#002D86] text-white transition-colors shadow-sm disabled:opacity-50"
           >
             <Save className="h-4 w-4" />
             {saving ? "Saving..." : "Save Attendance"}
@@ -285,16 +281,7 @@ export default function MarkAttendancePage() {
         </div>
       </div>
 
-      {/* Message Notifications */}
-      {message && (
-        <div className={`flex items-center gap-2.5 p-4 rounded-2xl text-sm font-semibold border ${
-          message.type === "success" ? "bg-emerald-50 border-emerald-200 text-emerald-800" : "bg-red-50 border-red-200 text-red-800"
-        }`}>
-          {message.type === "success" ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <AlertCircle className="h-4 w-4 shrink-0" />}
-          {message.text}
-          <button onClick={() => setMessage(null)} className="ml-auto p-0.5 rounded hover:bg-black/10">Back</button>
-        </div>
-      )}
+
 
       {/* Warning if no matching course */}
       {!course && (
@@ -424,7 +411,7 @@ export default function MarkAttendancePage() {
         <button
           onClick={handleSave}
           disabled={saving || !course}
-          className="px-5 py-2 bg-[#0038A8] text-white hover:bg-[#002D86] text-xs font-black rounded-xl transition-all disabled:opacity-50"
+          className="px-4 py-2 bg-[#0038A8] text-white hover:bg-[#002D86] text-xs font-black rounded-xl transition-all disabled:opacity-50"
         >
           {saving ? "Saving..." : "Save Sheet"}
         </button>

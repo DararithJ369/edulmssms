@@ -79,7 +79,7 @@ const ContinueLearningWidget = async () => {
           {continueLearning.map((course) => (
             <Link 
               key={course.course_id}
-              href={`/list/courses/${course.course_id}/learn`}
+              href={`/list/courses/${course.course_id}`}
               className="group block p-4 border border-slate-100 bg-slate-50/20 hover:bg-white hover:border-[#0038A8]/30 rounded-2xl transition-all duration-300 hover:shadow-[0_8px_30px_rgba(0,56,168,0.04)] hover:-translate-y-0.5"
             >
               <div className="flex items-center gap-1.5">

@@ -19,6 +19,8 @@ class ClassCreate(ClassBase):
 
 
 class ClassUpdate(BaseModel):
+    grade_id: Optional[int] = None
+    supervisor_id: Optional[str] = None
     name: Optional[str] = None
     section: Optional[str] = None
     room: Optional[str] = None

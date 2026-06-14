@@ -38,6 +38,7 @@ def create_subject(
     credits: int = Form(3),
     hours_per_week: Optional[int] = Form(None),
     is_active: bool = Form(True),
+    grade_id: Optional[int] = Form(None),
     db: Session = Depends(get_db),
 ):
     return SubjectService.create_subject(
@@ -50,6 +51,7 @@ def create_subject(
             credits=credits,
             hours_per_week=hours_per_week,
             is_active=is_active,
+            grade_id=grade_id,
         ),
     )
 
@@ -72,6 +74,7 @@ def update_subject(
     credits: Optional[int] = Form(None),
     hours_per_week: Optional[int] = Form(None),
     is_active: Optional[bool] = Form(None),
+    grade_id: Optional[int] = Form(None),
     db: Session = Depends(get_db),
 ):
     return SubjectService.update_subject(
@@ -85,6 +88,7 @@ def update_subject(
             credits=credits,
             hours_per_week=hours_per_week,
             is_active=is_active,
+            grade_id=grade_id,
         ),
     )
 

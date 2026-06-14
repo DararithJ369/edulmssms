@@ -75,9 +75,15 @@ def paginate(
         .limit(limit)
         .all()
     )
+    totalPages = (total + limit - 1) // limit if limit > 0 else 0
     return {
         "data": [response_schema.model_validate(r) for r in rows],
-        "meta": {"page": page, "total": total, "limit": limit},
+        "meta": {
+            "page": page,
+            "total": total,
+            "limit": limit,
+            "totalPages": totalPages
+        },
     }
 
 
@@ -111,3 +117,25 @@ def delete_and_commit(db: Session, model: Type, entity_id: Any, entity_name: str
     db.delete(obj)
     db.commit()
     return {"detail": f"{entity_name} deleted successfully"}
+
+
+def get_course_ids_for_class(db: Session, class_id: int) -> list[int]:
+    """Resolve active course IDs for students in a class."""
+    from app.models.user_profile import UserProfile
+    from app.models.enrollment import Enrollment
+
+    student_profile = db.query(UserProfile).filter(
+        UserProfile.class_id == class_id,
+        UserProfile.student_profile != None
+    ).first()
+
+    if not student_profile or not student_profile.student_profile:
+        return []
+
+    enrollments = db.query(Enrollment).filter(
+        Enrollment.student_profile_id == student_profile.student_profile.id,
+        Enrollment.is_active == True
+    ).all()
+
+    return [e.course_id for e in enrollments]
+

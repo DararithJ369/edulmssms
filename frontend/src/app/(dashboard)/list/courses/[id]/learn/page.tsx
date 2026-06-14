@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import BackButton from "@/components/BackButton";
+import FormModal from "@/components/FormModal";
 import {
   BookOpen,
   ChevronDown,
@@ -26,9 +27,22 @@ import {
   ClipboardList,
   Info,
   Settings,
+  CheckCircle,
+  AlertCircle,
+  Award,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { getImageUrl } from "@/lib/image-url";
+import { getImageUrl, getCourseThumbnail } from "@/lib/image-url";
+import {
+  BarChart,
+  Bar,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 // ── Grade utilities ────────────────────────────────────────────────────────
 function gradePillClass(grade: string | null | undefined) {
@@ -40,6 +54,19 @@ function gradePillClass(grade: string | null | undefined) {
     case "E": return "bg-rose-50 text-rose-600 border-rose-200";
     case "F": return "bg-red-50 text-red-700 border-red-200";
     default:  return "bg-muted text-muted-foreground border-border";
+  }
+}
+
+function statusBadge(status: string) {
+  switch (status) {
+    case "graded":
+      return "bg-emerald-50 text-emerald-700 border-emerald-200";
+    case "submitted":
+      return "bg-blue-50 text-blue-700 border-blue-200";
+    case "late":
+      return "bg-amber-50 text-amber-700 border-amber-200";
+    default:
+      return "bg-muted text-muted-foreground border-border";
   }
 }
 
@@ -70,18 +97,27 @@ export default function CourseDetailPage() {
   const courseId = params.id as string;
   const activeModuleIdParam = searchParams.get("expandedModuleId");
 
-  const tabParam = searchParams.get("tab") as "course" | "participants" | "grades" | "analytics" | null;
-  const [activeTab, setActiveTab] = useState<"course" | "participants" | "grades" | "analytics">(
-    tabParam && ["course", "participants", "grades", "analytics"].includes(tabParam) ? tabParam : "course"
+  const tabParam = searchParams.get("tab") as "course" | "participants" | "grades" | "submissions" | "analytics" | null;
+  const [activeTab, setActiveTab] = useState<"course" | "participants" | "grades" | "submissions" | "analytics">(
+    tabParam && ["course", "participants", "grades", "submissions", "analytics"].includes(tabParam) ? tabParam : "course"
   );
   const [role, setRole] = useState<string>("");
 
   useEffect(() => {
-    const currentTab = searchParams.get("tab") as "course" | "participants" | "grades" | "analytics" | null;
-    if (currentTab && ["course", "participants", "grades", "analytics"].includes(currentTab)) {
+    const currentTab = searchParams.get("tab") as "course" | "participants" | "grades" | "submissions" | "analytics" | null;
+    if (currentTab && ["course", "participants", "grades", "submissions", "analytics"].includes(currentTab)) {
       setActiveTab(currentTab);
     }
   }, [searchParams]);
+
+  const handleTabChange = (tab: "course" | "participants" | "grades" | "submissions" | "analytics") => {
+    setActiveTab(tab);
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      params.set("tab", tab);
+      router.replace(`${window.location.pathname}?${params.toString()}`);
+    }
+  };
 
   // Course data
   const [courseName, setCourseName] = useState("");
@@ -89,11 +125,30 @@ export default function CourseDetailPage() {
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("Computer Science");
   const [difficulty, setDifficulty] = useState("beginner");
-  const [thumbnail, setThumbnail] = useState(
-    "https://images.unsplash.com/photo-1610962381137-50ef93055125?auto=format&fit=crop&q=80&w=800"
-  );
+  const [thumbnail, setThumbnail] = useState("");
   const [instructorName, setInstructorName] = useState("");
   const [courseAssignments, setCourseAssignments] = useState<any[]>([]);
+
+  // Manual grading related data
+  const [courseStudents, setCourseStudents] = useState<any[]>([]);
+  const [courseExams, setCourseExams] = useState<any[]>([]);
+  const [allTeachers, setAllTeachers] = useState<any[]>([]);
+
+  // Course quizzes
+  const [courseQuizzes, setCourseQuizzes] = useState<any[]>([]);
+  // Selected assessment for submissions tab (e.g. "assignment_123" or "quiz_456")
+  const [selectedAssessment, setSelectedAssessment] = useState<string>("");
+  // Submissions list
+  const [submissions, setSubmissions] = useState<any[]>([]);
+  const [loadingSubmissions, setLoadingSubmissions] = useState(false);
+  const [expandedSubRow, setExpandedSubRow] = useState<number | null>(null);
+
+  // Submissions Grading Canvas State
+  const [gradingSubId, setGradingSubId] = useState<number | null>(null);
+  const [gradeSubScore, setGradeSubScore] = useState<string>("");
+  const [gradeSubFeedback, setGradeSubFeedback] = useState<string>("");
+  const [savingSubGrade, setSavingSubGrade] = useState(false);
+  const [gradeSubMessage, setGradeSubMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Module/syllabus
   const [modules, setModules] = useState<any[]>([]);
@@ -112,6 +167,22 @@ export default function CourseDetailPage() {
   const [editFeedback, setEditFeedback] = useState<string>("");
   const [savingGrade, setSavingGrade] = useState(false);
 
+  // Grade Filter States
+  const [filterModule, setFilterModule] = useState<string>("all");
+  const [filterLesson, setFilterLesson] = useState<string>("all");
+  const [filterType, setFilterType] = useState<string>("all");
+  const [sortKey, setSortKey] = useState<string>("none");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+
+  const handleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortOrder("asc");
+    }
+  };
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       const userRole = localStorage.getItem("user_role") || "student";
@@ -129,7 +200,7 @@ export default function CourseDetailPage() {
           setCategory(data.category || "Computer Science");
           setDifficulty(data.difficulty || "beginner");
           setInstructorName(data.instructor_name || "Faculty Staff");
-          if (data.thumbnail) setThumbnail(data.thumbnail);
+          setThumbnail(data.thumbnail || "");
         }
         const { data: modulesData } = await api.get(`/courses/${courseId}/modules`);
         if (modulesData?.length > 0) {
@@ -141,6 +212,11 @@ export default function CourseDetailPage() {
         try {
           const { data: asgn } = await api.get(`/assignments?course_id=${courseId}&limit=50`);
           setCourseAssignments(Array.isArray(asgn) ? asgn : asgn?.data ?? []);
+        } catch { /* non-critical */ }
+        // Pre-fetch quizzes as well
+        try {
+          const { data: qz } = await api.get(`/quizzes?course_id=${courseId}&limit=50`);
+          setCourseQuizzes(Array.isArray(qz) ? qz : qz?.data ?? []);
         } catch { /* non-critical */ }
       } catch (err) {
         console.error("Failed to load course:", err);
@@ -164,6 +240,25 @@ export default function CourseDetailPage() {
         } else if (activeTab === "grades") {
           const { data } = await api.get(`/courses/${courseId}/grades`);
           setGrades(Array.isArray(data) ? data : data?.data ?? []);
+
+          const userRole = typeof window !== "undefined" ? (localStorage.getItem("user_role") || "student") : "student";
+          const currentIsTeacher = userRole === "instructor" || userRole === "teacher" || userRole === "admin";
+          if (currentIsTeacher) {
+            const [studentsRes, examsRes, teachersRes] = await Promise.all([
+              api.get(`/courses/${courseId}/students`).catch(() => ({ data: [] })),
+              api.get(`/exams?course_id=${courseId}&limit=100`).catch(() => ({ data: [] })),
+              api.get(`/users/instructors?limit=100`).catch(() => ({ data: [] }))
+            ]);
+            
+            const enrolled = Array.isArray(studentsRes.data) ? studentsRes.data : studentsRes.data?.data ?? [];
+            setCourseStudents(enrolled);
+            
+            const cEx = Array.isArray(examsRes.data) ? examsRes.data : examsRes.data?.data ?? [];
+            setCourseExams(cEx);
+            
+            const insts = Array.isArray(teachersRes.data) ? teachersRes.data : teachersRes.data?.data ?? [];
+            setAllTeachers(insts);
+          }
         } else if (activeTab === "analytics") {
           const { data } = await api.get(`/analytics/course/${courseId}`);
           setAnalyticsData(data);
@@ -176,6 +271,116 @@ export default function CourseDetailPage() {
     };
     fetchTab();
   }, [activeTab, courseId]);
+
+  // Load submissions for selected assignment/quiz
+  useEffect(() => {
+    if (!selectedAssessment) {
+      setSubmissions([]);
+      return;
+    }
+    const [type, refId] = selectedAssessment.split("_");
+    if (!type || !refId) return;
+
+    const loadSubmissionsData = async () => {
+      setLoadingSubmissions(true);
+      try {
+        const { data } = await api.get(`/submissions/reference/${type}/${refId}`);
+        setSubmissions(Array.isArray(data) ? data : data?.data ?? []);
+      } catch (err) {
+        console.error("Failed to load submissions for course:", err);
+      } finally {
+        setLoadingSubmissions(false);
+      }
+    };
+    loadSubmissionsData();
+  }, [selectedAssessment]);
+
+  // ── Inline grading inside the Submissions tab ─────────────────────────────
+  const startGradingSub = (sub: any) => {
+    setGradingSubId(sub.id);
+    setGradeSubScore(sub.score != null ? String(sub.score) : "");
+    setGradeSubFeedback(sub.feedback ?? "");
+    setGradeSubMessage(null);
+    setExpandedSubRow(sub.id);
+  };
+
+  const cancelGradingSub = () => {
+    setGradingSubId(null);
+    setGradeSubScore("");
+    setGradeSubFeedback("");
+    setGradeSubMessage(null);
+  };
+
+  const submitGradingSub = async () => {
+    if (!gradingSubId) return;
+
+    const parsedScore = parseFloat(String(gradeSubScore).trim());
+    if (isNaN(parsedScore)) {
+      setGradeSubMessage({ type: "error", text: "Please enter a valid numeric score." });
+      return;
+    }
+
+    const [type, refId] = selectedAssessment.split("_");
+    let maxMarks = 100;
+    if (type === "assignment") {
+      const activeAsgn = courseAssignments.find(a => String(a.id) === refId);
+      if (activeAsgn) maxMarks = activeAsgn.total_marks || 100;
+    } else if (type === "quiz") {
+      const activeQuiz = courseQuizzes.find(q => String(q.id) === refId);
+      if (activeQuiz) maxMarks = activeQuiz.total_marks || 100;
+    }
+
+    if (parsedScore < 0 || parsedScore > maxMarks) {
+      setGradeSubMessage({ type: "error", text: `Score boundary violation. Must be between 0 and ${maxMarks}.` });
+      return;
+    }
+
+    setSavingSubGrade(true);
+    setGradeSubMessage(null);
+
+    try {
+      const fd = new FormData();
+      fd.append("score", String(parsedScore));
+      if (gradeSubFeedback.trim() !== "") {
+        fd.append("feedback", gradeSubFeedback.trim());
+      }
+
+      await api.put(`/submissions/${gradingSubId}/grade`, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      // Update state cache instantly
+      setSubmissions((prev) =>
+        prev.map((sub) => {
+          if (sub.id === gradingSubId) {
+            return {
+              ...sub,
+              score: parsedScore,
+              feedback: gradeSubFeedback.trim() || null,
+              status: "graded",
+            };
+          }
+          return sub;
+        })
+      );
+
+      // Refresh Grades tab list silently in background
+      const { data: grData } = await api.get(`/courses/${courseId}/grades`);
+      setGrades(Array.isArray(grData) ? grData : grData?.data ?? []);
+
+      setGradeSubMessage({ type: "success", text: "Grade successfully saved and synced to gradebook." });
+      
+      setTimeout(() => {
+        cancelGradingSub();
+        setExpandedSubRow(null);
+      }, 1200);
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail || "Failed to save grade.";
+      setGradeSubMessage({ type: "error", text: detail });
+    } finally {
+      setSavingSubGrade(false);
+    }
+  };
 
   const toggleSyllabusExpand = (id: number) =>
     setExpandedSyllabus((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -199,11 +404,9 @@ export default function CourseDetailPage() {
   const saveGrade = useCallback(async (resultId: number) => {
     setSavingGrade(true);
     try {
-      const fd = new FormData();
-      fd.append("score", editScore);
-      if (editFeedback) fd.append("feedback", editFeedback);
-      await api.put(`/results/${resultId}`, fd, {
-        headers: { "Content-Type": "multipart/form-data" },
+      await api.put(`/results/${resultId}`, {
+        score: parseInt(editScore),
+        feedback: editFeedback || null,
       });
       // Refresh grades
       const { data } = await api.get(`/courses/${courseId}/grades`);
@@ -245,7 +448,7 @@ export default function CourseDetailPage() {
 
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-1">
             <div className="flex items-center gap-3">
-              <BackButton />
+              <BackButton href="/list/courses" />
               <div>
                 <span className="text-xs font-extrabold text-[#0038A8] uppercase tracking-wider font-mono">
                   {courseCode} • {category}
@@ -260,10 +463,10 @@ export default function CourseDetailPage() {
 
         {/* TAB BAR */}
         <div className="flex border-b border-border/60 gap-6 select-none text-xs font-extrabold text-muted-foreground pt-2">
-          {(["course", "participants", "grades", ...(role === "teacher" || role === "admin" ? ["analytics" as const] : [])] as const).map((tab) => (
+          {(["course", "participants", "grades", ...(role === "teacher" || role === "admin" ? ["submissions" as const, "analytics" as const] : [])] as const).map((tab) => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab as any)}
+              onClick={() => handleTabChange(tab as any)}
               className={`pb-3 border-b-2 transition-colors capitalize flex items-center gap-1.5 ${
                 activeTab === tab ? "border-[#0038A8] text-foreground" : "border-transparent hover:text-foreground"
               }`}
@@ -271,6 +474,7 @@ export default function CourseDetailPage() {
               {tab === "course" && <BookOpen className="h-3 w-3" />}
               {tab === "participants" && <Users className="h-3 w-3" />}
               {tab === "grades" && <BarChart2 className="h-3 w-3" />}
+              {tab === "submissions" && <ClipboardList className="h-3 w-3" />}
               {tab === "analytics" && <BarChart2 className="h-3 w-3" />}
               <span>{tab === "course" ? "Course" : tab.charAt(0).toUpperCase() + tab.slice(1)}</span>
             </button>
@@ -356,77 +560,248 @@ export default function CourseDetailPage() {
       )}
 
       {/* ── GRADES TAB ───────────────────────────────────────────────── */}
-      {activeTab === "grades" && (
-        <div className="space-y-4">
-          {/* Header bar */}
-          <div className="bg-card border border-border/60 rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.01)]">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <BarChart2 className="h-4 w-4 text-[#0038A8]" />
-                <h2 className="text-sm font-black text-gray-900 uppercase tracking-wider">
-                  {isTeacher ? "Gradebook — All Students" : "My Grade Report"}
-                </h2>
-              </div>
-              <div className="flex items-center gap-2">
-                {isTeacher && courseAssignments.length > 0 && (
-                  <Link href={`/list/assignments/${courseAssignments[0]?.id}/submissions`}>
-                    <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-black text-[#8b5cf6] hover:text-[#7c3aed] border border-[#8b5cf6]/20 bg-[#8b5cf6]/5 rounded-xl transition-colors">
-                      <ClipboardList className="h-3.5 w-3.5" />
-                      Review Submissions
+      {activeTab === "grades" && (() => {
+        const uniqueModules = Array.from(new Set(grades.map(g => g.module_title).filter(Boolean))) as string[];
+        const uniqueLessons = Array.from(
+          new Set(
+            grades
+              .filter(g => filterModule === "all" || g.module_title === filterModule)
+              .map(g => g.lesson_title)
+              .filter(Boolean)
+          )
+        ) as string[];
+        const uniqueTypes = Array.from(new Set(grades.map(g => g.assessment_type).filter(Boolean))) as string[];
+
+        const filteredGrades = grades.filter((g) => {
+          if (filterModule !== "all" && g.module_title !== filterModule) return false;
+          if (filterLesson !== "all" && g.lesson_title !== filterLesson) return false;
+          if (filterType !== "all" && g.assessment_type !== filterType) return false;
+          return true;
+        });
+
+        const sortedGrades = [...filteredGrades].sort((a, b) => {
+          if (sortKey === "none") return 0;
+          let valA: any = "";
+          let valB: any = "";
+
+          if (sortKey === "student") {
+            valA = a.student_name || "";
+            valB = b.student_name || "";
+          } else if (sortKey === "assessment") {
+            valA = a.assessment_title || "";
+            valB = b.assessment_title || "";
+          } else if (sortKey === "score") {
+            valA = a.score ?? -1;
+            valB = b.score ?? -1;
+          } else if (sortKey === "percentage") {
+            valA = a.percentage ?? -1;
+            valB = b.percentage ?? -1;
+          } else if (sortKey === "grade") {
+            valA = a.grade || "";
+            valB = b.grade || "";
+          } else if (sortKey === "status") {
+            valA = a.is_passed ? 1 : 0;
+            valB = b.is_passed ? 1 : 0;
+          }
+
+          if (typeof valA === "string" && typeof valB === "string") {
+            return sortOrder === "asc"
+              ? valA.localeCompare(valB)
+              : valB.localeCompare(valA);
+          } else {
+            if (valA < valB) return sortOrder === "asc" ? -1 : 1;
+            if (valA > valB) return sortOrder === "asc" ? 1 : -1;
+            return 0;
+          }
+        });
+
+        const renderSortArrow = (key: string) => {
+          if (sortKey !== key) return <span className="opacity-30 ml-1">↕</span>;
+          return sortOrder === "asc" ? <span className="text-[#0038A8] ml-1">▲</span> : <span className="text-[#0038A8] ml-1">▼</span>;
+        };
+
+        const relatedGradingData = {
+          students: courseStudents.map((s: any) => ({
+            id: String(s.id),
+            name: s.full_name || s.username || "",
+            surname: "",
+          })),
+          exams: courseExams.map((e: any) => ({
+            id: e.id,
+            title: e.title,
+          })),
+          assignments: courseAssignments.map((a: any) => ({
+            id: a.id,
+            title: a.title,
+          })),
+          teachers: allTeachers.map((t: any) => ({
+            id: String(t.id),
+            name: t.username || "",
+            surname: "",
+          })),
+        };
+
+        return (
+          <div className="space-y-4">
+            {/* Header bar */}
+            <div className="bg-card border border-border/60 rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.01)]">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <BarChart2 className="h-4 w-4 text-[#0038A8]" />
+                  <h2 className="text-sm font-black text-gray-900 uppercase tracking-wider">
+                    {isTeacher ? "Gradebook — All Students" : "My Grade Report"}
+                  </h2>
+                </div>
+                <div className="flex items-center gap-2">
+                  {isTeacher && (
+                    <FormModal
+                      table="result"
+                      type="create"
+                      triggerText="Grade Assessment"
+                      relatedData={relatedGradingData}
+                    />
+                  )}
+                  {isTeacher && courseAssignments.length > 0 && (
+                    <Link href={`/list/assignments/${courseAssignments[0]?.id}/submissions`}>
+                      <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-black text-[#8b5cf6] hover:text-[#7c3aed] border border-[#8b5cf6]/20 bg-[#8b5cf6]/5 rounded-xl transition-colors">
+                        <ClipboardList className="h-3.5 w-3.5" />
+                        Review Submissions
+                      </button>
+                    </Link>
+                  )}
+                  {sortedGrades.length > 0 && (
+                    <button
+                      onClick={() => exportCSV(sortedGrades, courseName)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-black text-muted-foreground hover:text-foreground border border-border/60 bg-background rounded-xl transition-colors"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Export CSV
                     </button>
-                  </Link>
-                )}
-                {grades.length > 0 && (
-                  <button
-                    onClick={() => exportCSV(grades, courseName)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-black text-muted-foreground hover:text-foreground border border-border/60 bg-background rounded-xl transition-colors"
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                    Export CSV
-                  </button>
-                )}
+                  )}
+                </div>
+              </div>
+
+              {/* Grade legend & Filters layout */}
+              <div className="flex flex-col gap-4 mt-4 pt-4 border-t border-border/40">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {["A","B","C","D","F"].map((g) => (
+                    <span key={g} className={`px-2.5 py-0.5 text-[10px] font-black rounded border ${gradePillClass(g)}`}>
+                      {g} {g==="A"?"≥90%":g==="B"?"≥80%":g==="C"?"≥70%":g==="D"?"≥60%":"<60%"}
+                    </span>
+                  ))}
+                </div>
+
+                {/* Filter Controls Row */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="flex flex-col gap-1.5 text-left">
+                    <label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider select-none">Filter by Module</label>
+                    <select
+                      value={filterModule}
+                      onChange={(e) => {
+                        setFilterModule(e.target.value);
+                        setFilterLesson("all");
+                      }}
+                      className="px-3.5 py-2 bg-[#F7F8FA] border border-border/80 rounded-xl text-xs font-extrabold text-slate-700 focus:outline-none cursor-pointer"
+                    >
+                      <option value="all">All Modules</option>
+                      {uniqueModules.map((m) => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5 text-left">
+                    <label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider select-none">Filter by Lesson</label>
+                    <select
+                      value={filterLesson}
+                      onChange={(e) => setFilterLesson(e.target.value)}
+                      className="px-3.5 py-2 bg-[#F7F8FA] border border-border/80 rounded-xl text-xs font-extrabold text-slate-700 focus:outline-none cursor-pointer"
+                    >
+                      <option value="all">All Lessons</option>
+                      {uniqueLessons.map((l) => (
+                        <option key={l} value={l}>{l}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5 text-left">
+                    <label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider select-none">Filter by Type</label>
+                    <select
+                      value={filterType}
+                      onChange={(e) => setFilterType(e.target.value)}
+                      className="px-3.5 py-2 bg-[#F7F8FA] border border-border/80 rounded-xl text-xs font-extrabold text-slate-700 focus:outline-none cursor-pointer capitalize"
+                    >
+                      <option value="all">All Types</option>
+                      {uniqueTypes.map((t) => (
+                        <option key={t} value={t} className="capitalize">{t}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Grade legend */}
-            <div className="flex items-center gap-2 mt-4 flex-wrap">
-              {["A","B","C","D","F"].map((g) => (
-                <span key={g} className={`px-2.5 py-0.5 text-[10px] font-black rounded border ${gradePillClass(g)}`}>
-                  {g} {g==="A"?"≥90%":g==="B"?"≥80%":g==="C"?"≥70%":g==="D"?"≥60%":"<60%"}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          {/* Grades table */}
-          <div className="bg-card border border-border/60 rounded-3xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.01)]">
-            {tabLoading ? (
-              <div className="flex justify-center py-16">
-                <div className="h-8 w-8 border-4 border-[#0038A8] border-t-transparent rounded-full animate-spin" />
-              </div>
-            ) : grades.length === 0 ? (
-              <div className="text-center py-16 text-muted-foreground">
-                <BarChart2 className="h-10 w-10 mx-auto mb-3 opacity-20" />
-                <p className="text-sm font-bold">No grades recorded yet.</p>
-                <p className="text-xs mt-1 opacity-70">Grades will appear here once assessments are evaluated.</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border/60 bg-[#F7F8FA]/80 text-[10px] uppercase tracking-wider text-muted-foreground font-black">
-                      {isTeacher && <th className="text-left py-3 px-4">Student</th>}
-                      <th className="text-left py-3 px-4">Assessment</th>
-                      <th className="text-left py-3 px-4">Score</th>
-                      <th className="text-left py-3 px-4">%</th>
-                      <th className="text-left py-3 px-4">Grade</th>
-                      <th className="text-left py-3 px-4">Status</th>
-                      <th className="text-left py-3 px-4">Feedback</th>
-                      {isTeacher && <th className="text-left py-3 px-4">Action</th>}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border/40">
-                    {grades.map((g: any) => (
+            {/* Grades table */}
+            <div className="bg-card border border-border/60 rounded-3xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.01)]">
+              {tabLoading ? (
+                <div className="flex justify-center py-16">
+                  <div className="h-8 w-8 border-4 border-[#0038A8] border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : grades.length === 0 ? (
+                <div className="text-center py-16 text-muted-foreground">
+                  <BarChart2 className="h-10 w-10 mx-auto mb-3 opacity-20" />
+                  <p className="text-sm font-bold">No grades recorded yet.</p>
+                  <p className="text-xs mt-1 opacity-70">Grades will appear here once assessments are evaluated.</p>
+                </div>
+              ) : filteredGrades.length === 0 ? (
+                <div className="text-center py-16 text-muted-foreground bg-card p-6">
+                  <BarChart2 className="h-10 w-10 mx-auto mb-3 opacity-20" />
+                  <p className="text-sm font-bold">No matching grades found.</p>
+                  <p className="text-xs mt-1 opacity-70">Try adjusting your module, lesson, or type filters.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border/60 bg-[#F7F8FA]/80 text-[10px] uppercase tracking-wider text-muted-foreground font-black select-none">
+                        {isTeacher && (
+                          <th className="text-left py-3 px-4 cursor-pointer hover:text-[#0038A8] transition-colors" onClick={() => handleSort("student")}>
+                            <div className="flex items-center">
+                              Student {renderSortArrow("student")}
+                            </div>
+                          </th>
+                        )}
+                        <th className="text-left py-3 px-4 cursor-pointer hover:text-[#0038A8] transition-colors" onClick={() => handleSort("assessment")}>
+                          <div className="flex items-center">
+                            Assessment {renderSortArrow("assessment")}
+                          </div>
+                        </th>
+                        <th className="text-left py-3 px-4 cursor-pointer hover:text-[#0038A8] transition-colors" onClick={() => handleSort("score")}>
+                          <div className="flex items-center">
+                            Score {renderSortArrow("score")}
+                          </div>
+                        </th>
+                        <th className="text-left py-3 px-4 cursor-pointer hover:text-[#0038A8] transition-colors" onClick={() => handleSort("percentage")}>
+                          <div className="flex items-center">
+                            % {renderSortArrow("percentage")}
+                          </div>
+                        </th>
+                        <th className="text-left py-3 px-4 cursor-pointer hover:text-[#0038A8] transition-colors" onClick={() => handleSort("grade")}>
+                          <div className="flex items-center">
+                            Grade {renderSortArrow("grade")}
+                          </div>
+                        </th>
+                        <th className="text-left py-3 px-4 cursor-pointer hover:text-[#0038A8] transition-colors" onClick={() => handleSort("status")}>
+                          <div className="flex items-center">
+                            Status {renderSortArrow("status")}
+                          </div>
+                        </th>
+                        <th className="text-left py-3 px-4">Feedback</th>
+                        {isTeacher && <th className="text-left py-3 px-4">Action</th>}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/40">
+                      {sortedGrades.map((g: any) => (
                       <tr key={g.id} className="hover:bg-muted/20 transition-colors">
                         {isTeacher && (
                           <td className="py-3 px-4">
@@ -519,6 +894,240 @@ export default function CourseDetailPage() {
             )}
           </div>
         </div>
+      );
+    })()}
+
+      {/* ── SUBMISSIONS TAB (Teacher/Admin) ───────────────────────────── */}
+      {activeTab === "submissions" && (
+        <div className="space-y-6">
+          {/* Selector header card */}
+          <div className="bg-card border border-border/60 rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.01)] text-left flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <ClipboardList className="h-4 w-4 text-[#0038A8]" />
+              <h2 className="text-sm font-black text-gray-900 uppercase tracking-wider">Student Assessment Submissions</h2>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-500 uppercase select-none">Select Assessment:</span>
+              <select
+                value={selectedAssessment}
+                onChange={(e) => {
+                  setSelectedAssessment(e.target.value);
+                  setExpandedSubRow(null);
+                  cancelGradingSub();
+                }}
+                className="px-3 py-2 bg-slate-50 border border-border/80 rounded-xl outline-none text-xs font-bold text-foreground focus:border-[#0038A8]/50 focus:ring-1 focus:ring-[#0038A8]/50 min-w-[200px]"
+              >
+                <option value="">-- Choose Assignment or Quiz --</option>
+                {courseAssignments.length > 0 && (
+                  <optgroup label="Assignments">
+                    {courseAssignments.map((a: any) => (
+                      <option key={`assignment_${a.id}`} value={`assignment_${a.id}`}>{a.title}</option>
+                    ))}
+                  </optgroup>
+                )}
+                {courseQuizzes.length > 0 && (
+                  <optgroup label="Quizzes">
+                    {courseQuizzes.map((q: any) => (
+                      <option key={`quiz_${q.id}`} value={`quiz_${q.id}`}>{q.title}</option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+            </div>
+          </div>
+
+          {/* Submissions table/state view */}
+          {loadingSubmissions ? (
+            <div className="bg-card border border-border/60 rounded-3xl p-12 text-center text-muted-foreground select-none">
+              <div className="h-8 w-8 border-4 border-[#0038A8] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+              <p className="text-xs font-bold">Loading submissions data...</p>
+            </div>
+          ) : !selectedAssessment ? (
+            <div className="bg-card border border-border/60 rounded-3xl p-12 text-center text-muted-foreground select-none">
+              <ClipboardList className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-sm font-bold">No assessment selected.</p>
+              <p className="text-xs mt-1 opacity-70">Please select an assignment or quiz from the dropdown to review submissions.</p>
+            </div>
+          ) : submissions.length === 0 ? (
+            <div className="bg-card border border-border/60 rounded-3xl p-12 text-center text-muted-foreground select-none">
+              <ClipboardList className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-sm font-bold">No submissions yet.</p>
+              <p className="text-xs mt-1 opacity-70">No student has submitted this assessment yet.</p>
+            </div>
+          ) : (
+            <div className="bg-card border border-border/60 rounded-3xl overflow-hidden shadow-sm">
+              {gradeSubMessage && (
+                <div className={`m-5 flex items-center gap-2 p-4 rounded-2xl text-sm font-semibold border ${gradeSubMessage.type === "success" ? "bg-emerald-50 border-emerald-200 text-emerald-800" : "bg-red-50 border-red-200 text-red-800"}`}>
+                  {gradeSubMessage.type === "success" ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />} {gradeSubMessage.text}
+                </div>
+              )}
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-border/60 bg-[#F7F8FA]/80 text-[10px] uppercase tracking-wider text-muted-foreground font-black">
+                      <th className="py-3.5 px-5">Student</th>
+                      <th className="py-3.5 px-4">Submitted At</th>
+                      <th className="py-3.5 px-4">Status</th>
+                      <th className="py-3.5 px-4">Score</th>
+                      <th className="py-3.5 px-4">Grade</th>
+                      <th className="py-3.5 px-4">Attachment</th>
+                      <th className="py-3.5 px-5 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/40 font-medium text-xs">
+                    {submissions.map((sub: any) => {
+                      const isExpanded = expandedSubRow === sub.id;
+                      const isGrading = gradingSubId === sub.id;
+                      const [type, refId] = selectedAssessment.split("_");
+                      let maxMarks = 100;
+                      if (type === "assignment") {
+                        const activeAsgn = courseAssignments.find(a => String(a.id) === refId);
+                        if (activeAsgn) maxMarks = activeAsgn.total_marks || 100;
+                      } else if (type === "quiz") {
+                        const activeQuiz = courseQuizzes.find(q => String(q.id) === refId);
+                        if (activeQuiz) maxMarks = activeQuiz.total_marks || 100;
+                      }
+
+                      const pct = sub.score != null ? ((sub.score / maxMarks) * 100).toFixed(1) : null;
+                      const gradeLetter = pct != null
+                        ? parseFloat(pct) >= 90 ? "A" : parseFloat(pct) >= 80 ? "B" : parseFloat(pct) >= 70 ? "C" : parseFloat(pct) >= 60 ? "D" : "F"
+                        : null;
+
+                      return (
+                        <React.Fragment key={sub.id}>
+                          <tr className={`hover:bg-muted/10 transition-colors ${isExpanded ? "bg-muted/5 border-l-2 border-[#8b5cf6]" : ""}`}>
+                            <td className="py-4 px-5">
+                              <div className="flex items-center gap-3">
+                                <div className="h-8 w-8 rounded-full bg-[#0038A8]/10 text-[#0038A8] flex items-center justify-center text-xs font-black shrink-0 border border-[#0038A8]/10">
+                                  {(sub.student_name || sub.student_id || "?")[0].toUpperCase()}
+                                </div>
+                                <div>
+                                  <p className="font-bold text-xs text-foreground leading-tight">{sub.student_name || "—"}</p>
+                                  <p className="text-[10px] text-muted-foreground font-mono mt-0.5">{sub.student_code || `ID: ${sub.student_id.substring(0, 8)}`}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-4 px-4 text-xs text-muted-foreground font-sans">{new Date(sub.submitted_at).toLocaleString()}</td>
+                            <td className="py-4 px-4">
+                              <span className={`px-2 py-0.5 text-[9px] font-black rounded border tracking-wide uppercase ${statusBadge(sub.status)}`}>
+                                {sub.status}
+                              </span>
+                            </td>
+                            <td className="py-4 px-4 font-bold text-xs font-sans">
+                              {sub.score != null ? (
+                                <span>{sub.score} <span className="text-muted-foreground/60 font-medium">/ {maxMarks}</span></span>
+                              ) : (
+                                <span className="text-muted-foreground/40 font-normal">—</span>
+                              )}
+                            </td>
+                            <td className="py-4 px-4">
+                              {gradeLetter ? (
+                                <span className={`px-2 py-0.5 text-[10px] font-black rounded border ${gradePillClass(gradeLetter)}`}>{gradeLetter}</span>
+                              ) : (
+                                <span className="text-muted-foreground/40 text-xs">—</span>
+                              )}
+                            </td>
+                            <td className="py-4 px-4">
+                              {sub.submission_file ? (
+                                <a href={getImageUrl(sub.submission_file) || "#"} download className="inline-flex items-center gap-1 text-[10px] font-black text-[#0038A8] hover:underline">
+                                  <Download className="h-3.5 w-3.5" /> Download
+                                </a>
+                              ) : (
+                                <span className="text-muted-foreground/40 text-xs">—</span>
+                              )}
+                            </td>
+                            <td className="py-4 px-5 text-right">
+                              <div className="inline-flex items-center gap-2">
+                                <button
+                                  onClick={() => startGradingSub(sub)}
+                                  disabled={savingSubGrade || (gradingSubId !== null && gradingSubId !== sub.id)}
+                                  className="px-3 py-1 text-[10px] font-black bg-[#8b5cf6]/10 text-[#8b5cf6] border border-[#8b5cf6]/20 rounded-lg hover:bg-[#8b5cf6]/20 transition-all uppercase tracking-wider shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                  {sub.status?.toLowerCase() === "graded" ? "Re-grade" : "Grade"}
+                                </button>
+                                <button onClick={() => setExpandedSubRow(isExpanded ? null : sub.id)} className="p-1.5 text-muted-foreground hover:text-foreground border border-border/60 rounded-lg bg-background shadow-sm">
+                                  {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+
+                          {/* EXPANDED VIEW IN SUBMISSIONS TAB */}
+                          {isExpanded && (
+                            <tr key={`${sub.id}-expanded`}>
+                              <td colSpan={7} className="px-5 pb-5 bg-muted/10 border-b border-border/40">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-3">
+                                  <div className="bg-card border border-border/50 rounded-2xl p-5 space-y-3 shadow-sm text-left">
+                                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-wider flex items-center gap-1 border-b pb-1.5 border-border/40">
+                                      <User className="h-3 w-3 text-[#0038A8]" /> Student Response Context
+                                    </p>
+                                    {sub.submission_text ? (
+                                      <div className="bg-muted/20 border border-border/30 rounded-xl p-3 max-h-[220px] overflow-y-auto">
+                                        <p className="text-xs text-foreground leading-relaxed font-medium whitespace-pre-wrap">{sub.submission_text}</p>
+                                      </div>
+                                    ) : (
+                                      <p className="text-xs text-muted-foreground/60 italic p-2">No text response payload provided.</p>
+                                    )}
+                                  </div>
+
+                                  {isGrading ? (
+                                    <div className="bg-card border border-[#8b5cf6]/30 rounded-2xl p-5 space-y-4 shadow-sm text-left">
+                                      <p className="text-[10px] font-black text-[#8b5cf6] uppercase tracking-wider flex items-center gap-1 border-b pb-1.5 border-[#8b5cf6]/10">
+                                        <Award className="h-3.5 w-3.5" /> Assessment Grading Canvas
+                                      </p>
+                                      <div className="space-y-1">
+                                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-wide">Score Obtained (Scale Max: {maxMarks})</label>
+                                        <input
+                                          type="number"
+                                          value={gradeSubScore}
+                                          onChange={(e) => setGradeSubScore(e.target.value)}
+                                          min={0}
+                                          max={maxMarks}
+                                          className="w-full max-w-[140px] px-3 py-2 bg-muted/20 border border-border/80 focus:border-[#8b5cf6]/40 rounded-xl text-sm font-bold font-sans outline-none"
+                                        />
+                                      </div>
+                                      <div className="space-y-1">
+                                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-wide">Instructor Feedback & Remarks</label>
+                                        <textarea
+                                          rows={3}
+                                          value={gradeSubFeedback}
+                                          onChange={(e) => setGradeSubFeedback(e.target.value)}
+                                          placeholder="Provide instructional feedback commentary..."
+                                          className="w-full px-3 py-2 bg-muted/20 border border-border/80 focus:border-[#8b5cf6]/40 rounded-xl text-xs leading-relaxed font-medium outline-none"
+                                        />
+                                      </div>
+                                      <div className="flex gap-2 pt-1 select-none">
+                                        <button
+                                          onClick={submitGradingSub}
+                                          disabled={savingSubGrade || !gradeSubScore.trim()}
+                                          className="flex items-center gap-1.5 px-4 py-2 bg-[#8b5cf6] text-white font-black text-xs rounded-xl hover:bg-[#7c3aed] transition-all disabled:opacity-50 uppercase tracking-wider shadow-sm"
+                                        >
+                                          <Check className="h-3.5 w-3.5" /> {savingSubGrade ? "Saving..." : "Save Evaluation"}
+                                        </button>
+                                        <button onClick={cancelGradingSub} className="flex items-center gap-1.5 px-3 py-2 bg-background border border-border text-muted-foreground font-bold text-xs rounded-xl hover:bg-muted transition-all">
+                                          <X className="h-3.5 w-3.5" /> Cancel
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="bg-muted/20 border border-dashed border-border/60 rounded-2xl p-5 flex flex-col items-center justify-center gap-2 text-center">
+                                      <Award className="h-7 w-7 text-muted-foreground/30" />
+                                      <p className="text-xs font-bold text-muted-foreground">Select the Grade action node to evaluate this student&apos;s submission.</p>
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       {/* ── ANALYTICS TAB (Teacher/Admin) ────────────────────────────── */}
@@ -531,43 +1140,111 @@ export default function CourseDetailPage() {
               {/* Summary Cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
-                  { label: "Enrolled", value: analyticsData.enrolled_students, color: "text-[#0038A8]" },
-                  { label: "Attendance", value: `${analyticsData.attendance_rate}%`, color: "text-emerald-600" },
-                  { label: "Avg Grade", value: `${analyticsData.avg_grade_percentage}%`, color: "text-amber-600" },
-                  { label: "Pass / Fail", value: `${analyticsData.pass_count} / ${analyticsData.fail_count}`, color: "text-foreground" },
-                ].map(({ label, value, color }) => (
-                  <div key={label} className="bg-card border border-border/60 rounded-2xl p-4 text-center">
+                  { 
+                    label: "Students Enrolled", 
+                    value: analyticsData.enrolled_students, 
+                    color: "text-[#0038A8]", 
+                    tooltip: "Total count of unique students registered for this course." 
+                  },
+                  { 
+                    label: "Avg Attendance", 
+                    value: `${analyticsData.attendance_rate}%`, 
+                    color: "text-[#0038A8]", 
+                    tooltip: "Average attendance rate based on daily presence logs of all students in this course." 
+                  },
+                  { 
+                    label: "Avg Assessment Score", 
+                    value: `${analyticsData.avg_grade_percentage}%`, 
+                    color: "text-amber-600", 
+                    tooltip: "Average score across all graded quizzes and assignments in this course." 
+                  },
+                  { 
+                    label: "Evaluations (Pass / Fail)", 
+                    value: `${analyticsData.pass_count} / ${analyticsData.fail_count}`, 
+                    color: "text-foreground", 
+                    tooltip: "Total graded submissions that met the passing score vs. those that fell below it. A student can complete multiple assessments." 
+                  },
+                ].map(({ label, value, color, tooltip }) => (
+                  <div key={label} className="bg-card border border-border/60 rounded-2xl p-4 text-center relative group flex flex-col justify-center min-h-[92px]">
                     <p className={`text-2xl font-black ${color}`}>{value}</p>
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-1">{label}</p>
+                    <div className="flex items-center justify-center gap-1 mt-1 cursor-help select-none">
+                      <p className="text-[9px] font-black text-muted-foreground uppercase tracking-wider">{label}</p>
+                      <Info className="h-3 w-3 text-muted-foreground/50 hover:text-muted-foreground transition-colors shrink-0" />
+                    </div>
+                    {/* Tooltip Popup */}
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-slate-800 text-white text-[10px] p-2.5 rounded-xl shadow-xl w-48 z-50 text-center font-bold normal-case leading-normal pointer-events-none">
+                      {tooltip}
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-slate-800" />
+                    </div>
                   </div>
                 ))}
               </div>
 
               {/* Grade Distribution */}
-              <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-sm">
-                <h3 className="text-sm font-black text-foreground uppercase tracking-wider mb-4">Grade Distribution</h3>
-                <div className="flex items-end gap-3 h-40">
-                  {Object.entries(analyticsData.grade_distribution || {}).map(([grade, count]) => {
-                    const total = Object.values(analyticsData.grade_distribution || {}).reduce((s: number, v: any) => s + (v as number), 0) as number;
-                    const pct = total > 0 ? ((count as number) / total) * 100 : 0;
-                    const colors: Record<string, string> = { A: "bg-emerald-500", B: "bg-blue-500", C: "bg-amber-500", D: "bg-orange-500", F: "bg-red-500" };
-                    return (
-                      <div key={grade} className="flex-1 flex flex-col items-center gap-1">
-                        <span className="text-xs font-black text-muted-foreground">{count as number}</span>
-                        <div className="w-full rounded-t-lg transition-all" style={{ height: `${Math.max(pct, 4)}%` }}>
-                          <div className={`w-full h-full rounded-t-lg ${colors[grade] || "bg-muted"}`} />
-                        </div>
-                        <span className="text-xs font-black">{grade}</span>
+              {(() => {
+                const gradesOrder = ["A", "B", "C", "D", "E", "F"];
+                const chartData = Object.entries(analyticsData.grade_distribution || {})
+                  .map(([grade, count]) => ({
+                    grade,
+                    count: count as number,
+                  }))
+                  .sort((a, b) => gradesOrder.indexOf(a.grade) - gradesOrder.indexOf(b.grade));
+
+                const colorMap: Record<string, string> = {
+                  A: "#10B981",
+                  B: "#0038A8",
+                  C: "#F59E0B",
+                  D: "#F97316",
+                  F: "#EF4444",
+                };
+
+                return (
+                  <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-sm relative group">
+                    <div className="flex items-center gap-1.5 mb-4 select-none cursor-help">
+                      <h3 className="text-sm font-black text-foreground uppercase tracking-wider">Assessment Grade Distribution</h3>
+                      <Info className="h-3.5 w-3.5 text-muted-foreground/50 hover:text-muted-foreground transition-colors" />
+                      {/* Tooltip Popup */}
+                      <div className="absolute bottom-full left-6 mb-2 hidden group-hover:block bg-slate-800 text-white text-[10px] p-2.5 rounded-xl shadow-xl w-64 z-50 text-left font-bold normal-case leading-normal pointer-events-none">
+                        Reflects the grades of all evaluated quizzes and assignments (totaling {chartData.reduce((acc, curr) => acc + curr.count, 0)} grades), not unique student counts.
+                        <div className="absolute top-full left-6 -mt-1 border-4 border-transparent border-t-slate-800" />
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
+                    </div>
+                    <div className="w-full h-64 text-xs font-semibold">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={chartData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                          <XAxis
+                            dataKey="grade"
+                            axisLine={false}
+                            tick={{ fill: "#64748B", fontSize: 11, fontWeight: 700 }}
+                            tickLine={false}
+                          />
+                          <YAxis
+                            axisLine={false}
+                            tick={{ fill: "#64748B", fontSize: 11, fontWeight: 600 }}
+                            tickLine={false}
+                            allowDecimals={false}
+                          />
+                          <Tooltip
+                            contentStyle={{ borderRadius: "12px", borderColor: "#E2E8F0", fontSize: "12px", fontWeight: "bold" }}
+                            cursor={{ fill: "rgba(0, 56, 168, 0.03)" }}
+                          />
+                          <Bar dataKey="count" name="Students" barSize={35} radius={[6, 6, 0, 0]} label={{ position: "top", fill: "#64748B", fontSize: 10, fontWeight: 700 }}>
+                            {chartData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={colorMap[entry.grade] || "#64748B"} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Quiz Performance */}
               {analyticsData.quiz_stats?.length > 0 && (
                 <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-sm">
-                  <h3 className="text-sm font-black text-foreground uppercase tracking-wider mb-4">Quiz Performance</h3>
+                  <h3 className="text-sm font-black text-foreground uppercase tracking-wider mb-4">Quiz Attempts & Performance</h3>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
@@ -594,7 +1271,7 @@ export default function CourseDetailPage() {
               {/* Assignment Completion */}
               {analyticsData.assignment_stats?.length > 0 && (
                 <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-sm">
-                  <h3 className="text-sm font-black text-foreground uppercase tracking-wider mb-4">Assignment Completion</h3>
+                  <h3 className="text-sm font-black text-foreground uppercase tracking-wider mb-4">Assignment Submissions</h3>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
@@ -646,8 +1323,8 @@ export default function CourseDetailPage() {
 
             {/* Hero cover */}
             <div className="bg-card border border-border/60 rounded-3xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.01)]">
-              <div className="relative aspect-[21/9] w-full bg-muted border-b border-border/60">
-                <img src={getImageUrl(thumbnail) || "https://images.unsplash.com/photo-1610962381137-50ef93055125?auto=format&fit=crop&q=80&w=800"} alt={courseName} className="h-full w-full object-cover" />
+              <div className="relative w-full aspect-[21/9] bg-muted border-b border-border/60 overflow-hidden">
+                <img src={getCourseThumbnail(thumbnail, category, courseName)} alt={courseName} className="absolute inset-0 h-full w-full object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
                 <span className="absolute bottom-4 left-4 px-3 py-1 bg-white/95 backdrop-blur shadow-sm rounded-xl text-xs font-black uppercase text-[#0038A8] tracking-widest">
                   {category}
@@ -717,18 +1394,20 @@ export default function CourseDetailPage() {
                                         {lesson.duration && <span className="text-[10px] text-muted-foreground font-semibold font-mono">Duration: {lesson.duration}</span>}
                                       </div>
                                     </div>
-                                    {/* FINALLY CORRECTED LINK: Force navigation into the authorized student path namespace */}
-                                    <Link 
-                                      href={
-                                        role === "student"
-                                          ? `/student?lessonId=${lesson.id}`
-                                          : `/list/courses/${courseId}/learn?lessonId=${lesson.id}` 
-                                      }
-                                    >
-                                      <button className="px-3 py-1.5 bg-[#0038A8]/10 hover:bg-[#0038A8]/20 border border-[#0038A8]/20 text-[#0038A8] font-bold text-[9px] rounded-lg shadow-sm transition-colors active:scale-[0.98]">
-                                        Enter Activity
-                                      </button>
-                                    </Link>
+                                      <Link 
+                                        href={
+                                          role === "student"
+                                            ? `/student?lessonId=${lesson.id}`
+                                            : `/list/courses/${courseId}/learn?lessonId=${lesson.id}` 
+                                        }
+                                      >
+                                        <button 
+                                          type="button"
+                                          className="px-3 py-1.5 bg-[#0038A8]/10 hover:bg-[#0038A8]/20 border border-[#0038A8]/20 text-[#0038A8] font-bold text-[9px] rounded-lg shadow-sm transition-colors active:scale-[0.98]"
+                                        >
+                                          Enter Activity
+                                        </button>
+                                      </Link>
                                   </div>
                                 )) : (
                                   <p className="text-xs text-muted-foreground italic">No learning resources in this topic.</p>

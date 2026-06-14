@@ -1,6 +1,9 @@
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel
 from datetime import datetime
+from app.schemas.lesson_material import LessonMaterialResponse
+from app.schemas.quiz import QuizResponse
+from app.schemas.assignment import AssignmentResponse
 
 
 class LessonBase(BaseModel):
@@ -39,6 +42,10 @@ class LessonResponse(LessonBase):
     module_name: Optional[str] = None
     course_name: Optional[str] = None
 
+    materials: List[LessonMaterialResponse] = []
+    quizzes: List[QuizResponse] = []
+    assignments: List[AssignmentResponse] = []
+
     model_config = {"from_attributes": True}
     
     
@@ -50,4 +57,8 @@ class Lesson(LessonBase):
     module_name: Optional[str] = None
     course_name: Optional[str] = None
     
+    materials: List[LessonMaterialResponse] = []
+    quizzes: List[QuizResponse] = []
+    assignments: List[AssignmentResponse] = []
+
     model_config = {"from_attributes": True}

@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useDialog } from "@/hooks/DialogProvider";
+import { toast } from "react-toastify";
 
 type ScheduleSlot = {
   id: number;
@@ -84,12 +85,12 @@ export default function TimetableSchedulesPage() {
   });
   const [generating, setGenerating] = useState(false);
 
-  // Global messages
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-
   const showMsg = (type: "success" | "error", text: string) => {
-    setMessage({ type, text });
-    setTimeout(() => setMessage(null), 5000);
+    if (type === "success") {
+      toast.success(text);
+    } else {
+      toast.error(text);
+    }
   };
 
   const loadData = useCallback(async () => {
@@ -247,33 +248,13 @@ export default function TimetableSchedulesPage() {
           </button>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-1.5 px-4 py-2.5 bg-[#0038A8] text-white font-black text-xs rounded-xl hover:bg-[#002D86] transition-colors shadow-md shadow-blue-500/10"
+            className="flex items-center gap-1.5 px-4 py-2 bg-[#0038A8] text-white font-black text-xs rounded-xl hover:bg-[#002D86] transition-colors shadow-md shadow-blue-500/10"
           >
             <Plus className="h-3.5 w-3.5" />Allocate Weekly Slot
           </button>
         </div>
       </div>
 
-      {/* Messages */}
-      {message && (
-        <div
-          className={`flex items-center gap-2 p-4 rounded-2xl text-sm font-semibold border animate-fade-in ${
-            message.type === "success"
-              ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-              : "bg-red-50 border-red-200 text-red-800"
-          }`}
-        >
-          {message.type === "success" ? (
-            <CheckCircle className="h-4 w-4 shrink-0" />
-          ) : (
-            <AlertTriangle className="h-4 w-4 shrink-0" />
-          )}
-          <span className="flex-1">{message.text}</span>
-          <button onClick={() => setMessage(null)}>
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      )}
 
       {/* Bulk Generate Sessions Card */}
       {showGenCard && (
@@ -326,7 +307,7 @@ export default function TimetableSchedulesPage() {
             <button
               onClick={handleGenerateSessions}
               disabled={generating}
-              className="px-5 py-2 bg-[#0038A8] text-white font-black text-xs rounded-xl hover:bg-[#002D86] disabled:opacity-50 flex items-center gap-1.5"
+              className="px-4 py-2 bg-[#0038A8] text-white font-black text-xs rounded-xl hover:bg-[#002D86] disabled:opacity-50 flex items-center gap-1.5"
             >
               {generating ? "Generating..." : "Generate Sessions"}
             </button>
@@ -573,7 +554,7 @@ export default function TimetableSchedulesPage() {
               <button
                 onClick={handleCreateSlot}
                 disabled={savingSlot}
-                className="px-4 py-2 rounded-xl bg-[#0038A8] text-white hover:bg-[#002b80] active:scale-[0.98] text-xs font-bold transition-all disabled:opacity-50 shadow-sm"
+                className="px-4 py-2 rounded-xl bg-[#0038A8] text-white hover:bg-[#002D86] active:scale-[0.98] text-xs font-black transition-all disabled:opacity-50 shadow-sm"
               >
                 {savingSlot ? "Allocating..." : "Allocate Slot"}
               </button>
