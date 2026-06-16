@@ -48,11 +48,11 @@ type Assignment = {
 function statusBadge(status: string) {
   switch (status) {
     case "graded":
-      return "bg-emerald-50 text-emerald-700 border-emerald-200";
+      return "bg-slate-100 text-slate-700 border-slate-300";
     case "submitted":
-      return "bg-blue-50 text-blue-700 border-blue-200";
+      return "bg-slate-50 text-slate-600 border-slate-200";
     case "late":
-      return "bg-amber-50 text-amber-700 border-amber-200";
+      return "bg-slate-50 text-slate-500 border-slate-200";
     default:
       return "bg-muted text-muted-foreground border-border";
   }
@@ -187,7 +187,7 @@ export default function AssignmentSubmissionsPage() {
             Total marks: <span className="font-black text-foreground">{assignment?.total_marks ?? 100}</span>
           </span>
           {assignment?.due_date && (
-            <span className="px-3 py-1 bg-amber-50 text-amber-700 border border-amber-200 font-bold text-xs rounded-xl">
+            <span className="px-3 py-1 bg-slate-100 text-slate-600 border border-slate-200 font-bold text-xs rounded-xl">
               Due: {new Date(assignment.due_date).toLocaleDateString()}
             </span>
           )}
@@ -197,10 +197,10 @@ export default function AssignmentSubmissionsPage() {
       {/* STATS ROW */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Total Submissions", value: total, icon: <ClipboardList className="h-4 w-4" />, color: "text-[#0038A8] bg-blue-50 border-blue-100" },
-          { label: "Pending Review", value: pending, icon: <Clock className="h-4 w-4" />, color: "text-amber-700 bg-amber-50 border-amber-100" },
-          { label: "Graded", value: graded, icon: <CheckCircle className="h-4 w-4" />, color: "text-emerald-700 bg-emerald-50 border-emerald-100" },
-          { label: "Average Score", value: avgScore ?? "—", icon: <Award className="h-4 w-4" />, color: "text-violet-700 bg-violet-50 border-violet-100" },
+          { label: "Total Submissions", value: total, icon: <ClipboardList className="h-4 w-4" />, color: "text-slate-700 bg-slate-50 border-slate-200" },
+          { label: "Pending Review", value: pending, icon: <Clock className="h-4 w-4" />, color: "text-slate-600 bg-slate-50 border-slate-200" },
+          { label: "Graded", value: graded, icon: <CheckCircle className="h-4 w-4" />, color: "text-slate-700 bg-slate-50 border-slate-200" },
+          { label: "Average Score", value: avgScore ?? "—", icon: <Award className="h-4 w-4" />, color: "text-slate-700 bg-slate-50 border-slate-200" },
         ].map(({ label, value, icon, color }) => (
           <div key={label} className={`bg-card border rounded-2xl p-4 text-left flex items-center gap-3 ${color}`}>
             <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${color}`}>{icon}</div>
@@ -216,8 +216,8 @@ export default function AssignmentSubmissionsPage() {
       {gradeMessage && (
         <div className={`flex items-center gap-2 p-4 rounded-2xl text-sm font-semibold border ${
           gradeMessage.type === "success"
-            ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-            : "bg-red-50 border-red-200 text-red-800"
+            ? "bg-slate-100 border-slate-300 text-slate-800"
+            : "bg-slate-50 border-slate-200 text-slate-600"
         }`}>
           {gradeMessage.type === "success" ? <CheckCircle className="h-4 w-4 shrink-0" /> : <AlertCircle className="h-4 w-4 shrink-0" />}
           {gradeMessage.text}
@@ -290,11 +290,11 @@ export default function AssignmentSubmissionsPage() {
                         <td className="py-3 px-4">
                           {gradeLetter ? (
                             <span className={`px-2.5 py-0.5 text-xs font-black rounded border ${
-                              gradeLetter === "A" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
-                              gradeLetter === "B" ? "bg-blue-50 text-blue-700 border-blue-200" :
-                              gradeLetter === "C" ? "bg-amber-50 text-amber-700 border-amber-200" :
-                              gradeLetter === "D" ? "bg-orange-50 text-orange-700 border-orange-200" :
-                              "bg-red-50 text-red-700 border-red-200"
+                              gradeLetter === "A" ? "bg-slate-100 text-slate-800 border-slate-300" :
+                              gradeLetter === "B" ? "bg-slate-100 text-slate-700 border-slate-300" :
+                              gradeLetter === "C" ? "bg-slate-50 text-slate-600 border-slate-200" :
+                              gradeLetter === "D" ? "bg-slate-50 text-slate-500 border-slate-200" :
+                              "bg-slate-50 text-slate-400 border-slate-200"
                             }`}>{gradeLetter}</span>
                           ) : <span className="text-muted-foreground text-xs">—</span>}
                         </td>

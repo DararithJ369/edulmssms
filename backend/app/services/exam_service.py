@@ -16,7 +16,9 @@ class ExamService:
         page: int = 1,
         limit: int = 10,
         class_id: Optional[int] = None,
-        course_id: Optional[int] = None
+        course_id: Optional[int] = None,
+        sort_by: Optional[str] = None,
+        sort_order: Optional[str] = None
     ) -> dict:
         query = db.query(Exam)
 
@@ -30,7 +32,14 @@ class ExamService:
                 course_ids = get_course_ids_for_class(db, class_id)
                 query = query.filter(Module.course_id.in_(course_ids))
 
-        return paginate(db, Exam, ExamResponse, Exam.created_at.desc(), page, limit, query=query)
+        # Determine sort order
+        order = Exam.created_at.desc()
+        if sort_by:
+            column = getattr(Exam, sort_by, None)
+            if column is not None:
+                order = column.asc() if sort_order == "asc" else column.desc()
+
+        return paginate(db, Exam, ExamResponse, order, page, limit, query=query)
 
     @staticmethod
     def get_exam_by_id(db: Session, exam_id: int) -> ExamResponse:

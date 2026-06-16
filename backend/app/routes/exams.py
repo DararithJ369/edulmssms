@@ -36,9 +36,11 @@ def get_all_exams(
     limit: int = 10,
     class_id: Optional[int] = None,
     course_id: Optional[int] = None,
+    sort_by: Optional[str] = None,
+    sort_order: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    return ExamService.get_exams(db, page, limit, class_id=class_id, course_id=course_id)
+    return ExamService.get_exams(db, page, limit, class_id=class_id, course_id=course_id, sort_by=sort_by, sort_order=sort_order)
 
 
 @exam_router.post(

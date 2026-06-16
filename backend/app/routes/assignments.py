@@ -20,9 +20,11 @@ def get_all_assignments(
     search: str = "",
     class_id: Optional[int] = None,
     course_id: Optional[int] = None,
+    sort_by: Optional[str] = None,
+    sort_order: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    return AssignmentService.get_assignments(db, page, limit, search, class_id=class_id, course_id=course_id)
+    return AssignmentService.get_assignments(db, page, limit, search, class_id=class_id, course_id=course_id, sort_by=sort_by, sort_order=sort_order)
 
 
 @assignment_router.get("/{assignment_id}", response_model=AssignmentResponse)

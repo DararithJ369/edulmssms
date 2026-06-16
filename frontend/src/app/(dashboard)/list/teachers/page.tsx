@@ -80,7 +80,7 @@ const TeacherListPage = async ({
     }
 
     const response = await serverFetch<{ data: TeacherList[]; meta?: { total?: number } }>(
-      `/users/instructors?limit=1000`,
+      `/users/instructors?limit=100`,
       fetchOptions
     ).catch(() => ({ data: [], meta: { total: 0 } }));
 

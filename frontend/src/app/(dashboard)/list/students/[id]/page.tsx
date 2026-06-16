@@ -339,7 +339,7 @@ const SingleStudentPage = async ({ params: { id } }: PageProps) => {
                 </div>
                 <div>
                   <h1 className="text-xl font-extrabold text-slate-800 leading-tight">{lessonsCount}</h1>
-                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mt-0.5">Assigned Lessons</span>
+                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mt-0.5">Scheduled Sessions</span>
                 </div>
               </div>
 

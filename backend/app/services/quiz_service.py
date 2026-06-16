@@ -18,7 +18,9 @@ class QuizService:
         limit: int = 10,
         search: str = "",
         class_id: Optional[int] = None,
-        course_id: Optional[int] = None
+        course_id: Optional[int] = None,
+        sort_by: Optional[str] = None,
+        sort_order: Optional[str] = None
     ) -> dict:
         query = db.query(Quiz)
 
@@ -37,7 +39,14 @@ class QuizService:
                 (Quiz.module_name.ilike(f"%{search}%"))
             )
 
-        return paginate(db, Quiz, QuizResponse, Quiz.created_at.desc(), page, limit, query=query)
+        # Determine sort order
+        order = Quiz.created_at.desc()
+        if sort_by:
+            column = getattr(Quiz, sort_by, None)
+            if column is not None:
+                order = column.asc() if sort_order == "asc" else column.desc()
+
+        return paginate(db, Quiz, QuizResponse, order, page, limit, query=query)
 
     @staticmethod
     def get_quiz_by_id(db: Session, quiz_id: int) -> QuizResponse:

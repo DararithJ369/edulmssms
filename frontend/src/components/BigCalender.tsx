@@ -22,7 +22,7 @@ const CustomHeader = ({ date }: { date: Date }) => {
       <div
         className={`flex items-center justify-center text-sm font-black rounded-full transition-all duration-200 ${
           isToday
-            ? "h-8 w-8 bg-[#0038A8] text-white shadow-md"
+            ? "h-8 w-8 bg-slate-800 text-white shadow-md"
             : "h-8 w-8 hover:bg-slate-200 text-slate-700"
         }`}
       >
@@ -75,8 +75,8 @@ const CustomToolbar = (toolbarProps: any) => {
           onClick={() => onView(Views.WORK_WEEK)}
           className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
             view === Views.WORK_WEEK
-              ? "bg-[#0038A8] text-white shadow-sm"
-              : "text-slate-500 hover:text-slate-850 hover:bg-slate-250"
+              ? "bg-slate-800 text-white shadow-sm"
+              : "text-slate-500 hover:text-slate-700 hover:bg-slate-100"
           }`}
         >
           Work Week
@@ -85,8 +85,8 @@ const CustomToolbar = (toolbarProps: any) => {
           onClick={() => onView(Views.DAY)}
           className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
             view === Views.DAY
-              ? "bg-[#0038A8] text-white shadow-sm"
-              : "text-slate-500 hover:text-slate-855 hover:bg-slate-255"
+              ? "bg-slate-800 text-white shadow-sm"
+              : "text-slate-500 hover:text-slate-700 hover:bg-slate-100"
           }`}
         >
           Day
@@ -108,58 +108,23 @@ const BigCalendar = ({
     setView(selectedView);
   };
 
-  const getLatestMonday = (refDate: Date): Date => {
-    const dayOfWeek = refDate.getDay();
-    const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    const latestMonday = new Date(refDate);
-    latestMonday.setDate(refDate.getDate() - daysSinceMonday);
-    return latestMonday;
-  };
-
-  const adjustEventsToWeek = (
-    eventsList: { title: string; start: Date | string; end: Date | string }[],
-    refDate: Date
-  ) => {
-    const latestMonday = getLatestMonday(refDate);
-    return eventsList.map((event) => {
-      const eventDayOfWeek = new Date(event.start).getDay();
-      const daysFromMonday = eventDayOfWeek === 0 ? 6 : eventDayOfWeek - 1;
-
-      const adjustedStartDate = new Date(latestMonday);
-      adjustedStartDate.setDate(latestMonday.getDate() + daysFromMonday);
-      adjustedStartDate.setHours(
-        new Date(event.start).getHours(),
-        new Date(event.start).getMinutes(),
-        0,
-        0
-      );
-      const adjustedEndDate = new Date(adjustedStartDate);
-      adjustedEndDate.setHours(
-        new Date(event.end).getHours(),
-        new Date(event.end).getMinutes(),
-        0,
-        0
-      );
-
-      return {
-        ...event,
-        start: adjustedStartDate,
-        end: adjustedEndDate,
-      };
-    });
-  };
-
-  const adjustedEvents = adjustEventsToWeek(data, date);
+  // Parse events — data already has correct dates from the server
+  const adjustedEvents = data.map((event) => ({
+    ...event,
+    start: new Date(event.start),
+    end: new Date(event.end),
+  }));
 
 
-  // Google Calendar aesthetic event colors mapper
+  // Colorful event style for better readability
   const eventPropGetter = (event: any) => {
-    const colors = [
-      { bg: "#E8F0FE", text: "#1A73E8", border: "#1A73E8" }, // Blue
-      { bg: "#E6F4EA", text: "#137333", border: "#137333" }, // Green
-      { bg: "#FEF7E0", text: "#B06000", border: "#B06000" }, // Yellow/Amber
-      { bg: "#FCE8E6", text: "#C5221F", border: "#C5221F" }, // Red/Pink
-      { bg: "#F3E8FD", text: "#8430D9", border: "#8430D9" }, // Purple
+    const shades = [
+      { bg: "#EFF6FF", text: "#1E40AF", border: "#3B82F6" }, // blue
+      { bg: "#F0FDF4", text: "#166534", border: "#22C55E" }, // green
+      { bg: "#FEF3C7", text: "#92400E", border: "#F59E0B" }, // amber
+      { bg: "#EDE9FE", text: "#5B21B6", border: "#8B5CF6" }, // violet
+      { bg: "#FFF1F2", text: "#9F1239", border: "#F43F5E" }, // rose
+      { bg: "#ECFEFF", text: "#155E75", border: "#06B6D4" }, // cyan
     ];
 
     let hash = 0;
@@ -167,22 +132,25 @@ const BigCalendar = ({
     for (let i = 0; i < title.length; i++) {
       hash = title.charCodeAt(i) + ((hash << 5) - hash);
     }
-    const color = colors[Math.abs(hash) % colors.length];
+    const shade = shades[Math.abs(hash) % shades.length];
 
     return {
       style: {
-        backgroundColor: color.bg,
-        color: color.text,
-        borderLeft: `4px solid ${color.border}`,
-        borderRadius: "8px",
-        fontSize: "11px",
-        fontWeight: "700",
-        padding: "5px 10px",
+        backgroundColor: shade.bg,
+        color: shade.text,
+        borderLeft: `3px solid ${shade.border}`,
+        borderRadius: "6px",
+        fontSize: "10px",
+        fontWeight: "800",
+        padding: "3px 6px",
         borderTop: "none",
         borderRight: "none",
         borderBottom: "none",
         display: "block",
-        lineHeight: "1.3",
+        lineHeight: "1.4",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap" as const,
       },
     };
   };
@@ -192,7 +160,7 @@ const BigCalendar = ({
   };
 
   return (
-    <div style={{height:'100%',position:'relative'}}>
+    <div style={{height:'100%',minHeight:'500px',position:'relative'}}>
       <Calendar
         localizer={localizer}
         events={adjustedEvents}
@@ -204,8 +172,10 @@ const BigCalendar = ({
         onNavigate={(newDate) => setDate(newDate)}
         style={{ height: "98%" }}
         onView={handleOnChangeView}
-        min={new Date(2025, 1, 0, 8, 0, 0)}
+        min={new Date(2025, 1, 0, 7, 0, 0)}
         max={new Date(2025, 1, 0, 17, 0, 0)}
+        step={60}
+        timeslots={1}
         eventPropGetter={eventPropGetter}
         components={{
           toolbar: CustomToolbar,

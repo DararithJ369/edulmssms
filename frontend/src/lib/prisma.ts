@@ -225,7 +225,7 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
 
   if (model === "attendance") {
     if (method === "findMany") {
-      const res = await callApi("/attendance?limit=10000");
+      const res = await callApi("/attendance?limit=100");
       const raw = res?.data || [];
       let mapped = raw.map((a: any) => ({
         id: a.id,
@@ -247,7 +247,7 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
     if (method === "findMany") {
       let url = "/results?limit=5000";
       if (args?.where?.studentId) {
-        url = `/results?student_id=${args.where.studentId}&limit=1000`;
+        url = `/results?student_id=${args.where.studentId}&limit=100`;
       }
       const res = await callApi(url);
       const raw = res?.data || [];
@@ -364,7 +364,7 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
 
   if (model === "course") {
     if (method === "findMany") {
-      const res = await callApi("/courses?limit=1000");
+      const res = await callApi("/courses?limit=100");
       const raw = res?.data || [];
       return raw.map((c: any) => ({
         id: c.id,
@@ -436,7 +436,7 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
 
   if (model === "class") {
     if (method === "findMany") {
-      const res = await callApi("/classes?limit=1000");
+      const res = await callApi("/classes?limit=100");
       const raw = res?.data || [];
       return raw.map((c: any) => ({
         id: c.id,
@@ -450,7 +450,7 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
 
   if (model === "grade") {
     if (method === "findMany") {
-      const res = await callApi("/grade_level?limit=1000");
+      const res = await callApi("/grade_level?limit=100");
       const raw = res?.data || [];
       return raw.map((g: any) => ({
         id: g.id,
@@ -461,7 +461,7 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
 
   if (model === "subject") {
     if (method === "findMany") {
-      const res = await callApi("/subjects?limit=1000");
+      const res = await callApi("/subjects?limit=100");
       const raw = res?.data || [];
       return raw.map((s: any) => ({
         id: s.id,
@@ -472,11 +472,18 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
 
   if (model === "lesson") {
     if (method === "findMany") {
-      const res = await callApi("/lessons?limit=1000");
-      const raw = res?.data || [];
+      // Run independent API calls in parallel for speed
+      const [res, coursesRes, filterData] = await Promise.all([
+        callApi("/lessons?limit=100"),
+        callApi("/courses?limit=100"),
+        args?.where?.studentId
+          ? callApi(`/students/${args.where.studentId}/overview`)
+          : args?.where?.classId
+            ? callApi(`/classes/${args.where.classId}/students`)
+            : Promise.resolve(null),
+      ]);
 
-      // Resolve course-to-instructor mapping
-      const coursesRes = await callApi("/courses?limit=1000");
+      const raw = res?.data || [];
       const courses = coursesRes?.data || [];
       const courseToInstructor: Record<number, string> = {};
       courses.forEach((c: any) => {
@@ -490,15 +497,14 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
 
       if (args?.where) {
         if (args.where.studentId) {
-          const overview = await callApi(`/students/${args.where.studentId}/overview`);
-          const studentCourses = overview?.courses || [];
+          const studentCourses = filterData?.courses || [];
           filterCourseIds = studentCourses.map((c: any) => c.course_id);
         } else if (args.where.teacherId) {
           const teacherCourses = courses.filter((c: any) => c.instructor_id === args.where.teacherId);
           filterCourseIds = teacherCourses.map((c: any) => c.id);
         } else if (args.where.classId) {
-          const students = await callApi(`/classes/${args.where.classId}/students`);
-          if (students && students.length > 0) {
+          const students = filterData || [];
+          if (students.length > 0) {
             const firstStudentId = students[0].id || students[0].user_id;
             const overview = await callApi(`/students/${firstStudentId}/overview`);
             const studentCourses = overview?.courses || [];
@@ -517,18 +523,15 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
       }
 
       // Calendar slot assignment:
-      // Each unique course gets a fixed day (Mon=1 … Fri=5) and a time band.
-      // Within a course, lessons rotate through 3 time slots so they don't all overlap.
-      const uniqueCourseIds = [...new Set(filteredRaw.map((l: any) => l.course_id || l.module?.course_id || 1))] as number[];
-      const dayBands = [1, 3, 2, 4, 5];          // Mon, Wed, Tue, Thu, Fri
-      const hourBands = [8, 10, 13, 15];          // 08:00, 10:00, 13:00, 15:00
-
-      const courseSlotDay: Record<number, number> = {};
-      const courseSlotHour: Record<number, number> = {};
-      uniqueCourseIds.forEach((cid, ci) => {
-        courseSlotDay[cid]  = dayBands[ci % dayBands.length];
-        courseSlotHour[cid] = hourBands[ci % hourBands.length];
-      });
+      // Distribute lessons across Mon-Fri with rotating time slots.
+      // Each lesson gets its own day+time slot so the schedule is spread across the week.
+      const days = [1, 2, 3, 4, 5]; // Mon, Tue, Wed, Thu, Fri
+      const timeSlots = [
+        { start: 8, end: 9 },
+        { start: 9, end: 10 },
+        { start: 10, end: 11 },
+        { start: 13, end: 14 },
+      ];
 
       const nowFresh = new Date();
       const currentDay = nowFresh.getDay(); // 0=Sun, 1=Mon …
@@ -538,28 +541,24 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
         return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
       };
 
-      // Track per-course lesson index for hour rotation
-      const courseIdx: Record<number, number> = {};
-
-      const mappedLessons = filteredRaw.map((item: any) => {
+      const mappedLessons = filteredRaw.map((item: any, idx: number) => {
         const lessonCourseId = item.course_id || item.module?.course_id || 1;
         const mappedInstructorId = courseToInstructor[lessonCourseId] || "instructor-placeholder";
 
-        const assignedDay  = courseSlotDay[lessonCourseId]  || 1;
-        courseIdx[lessonCourseId] = (courseIdx[lessonCourseId] ?? 0) + 1;
-        const localHourBase = courseSlotHour[lessonCourseId] || 8;
-        // Rotate hour by 2h each lesson within the same course so lessons stagger
-        const startHour = localHourBase + ((courseIdx[lessonCourseId] - 1) % 2) * 2;
-        const endHour   = startHour + 1;
+        // Spread lessons across days and time slots using the lesson index
+        const assignedDay = days[idx % days.length];
+        const slot = timeSlots[idx % timeSlots.length];
+        const startHour = slot.start;
+        const endHour = slot.end;
 
         // Compute the date for that day-of-week in the current week
-        const dayOffset = assignedDay - (currentDay === 0 ? 7 : currentDay); // align to Mon-based week
+        const dayOffset = assignedDay - (currentDay === 0 ? 7 : currentDay);
         const startDate = new Date(nowFresh);
         startDate.setDate(nowFresh.getDate() + dayOffset);
         startDate.setHours(startHour, 0, 0, 0);
 
         const endDate = new Date(startDate);
-        endDate.setHours(endHour, 30, 0, 0);
+        endDate.setHours(endHour, 0, 0, 0);
 
         return {
           id: item.id,
@@ -582,7 +581,7 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
 
   if (model === "exam") {
     if (method === "findMany") {
-      const res = await callApi("/exams?limit=1000");
+      const res = await callApi("/exams?limit=100");
       const raw = res?.data || [];
       return raw.map((e: any) => ({
         id: e.id,
@@ -594,7 +593,7 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
 
   if (model === "assignment") {
     if (method === "findMany") {
-      const res = await callApi("/assignments?limit=1000");
+      const res = await callApi("/assignments?limit=100");
       const raw = res?.data || [];
       return raw.map((a: any) => ({
         id: a.id,
@@ -605,7 +604,7 @@ const resolveLiveApiQuery = async (model: string, method: string, args: any) => 
 
   if (model === "announcement") {
     if (method === "findMany") {
-      const res = await callApi("/announcements?limit=1000");
+      const res = await callApi("/announcements?limit=100");
       const raw = res?.data || [];
       const items = raw.map((a: any) => ({
         id: a.id,

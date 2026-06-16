@@ -18,9 +18,11 @@ def get_all_quizzes(
     search: str = "",
     class_id: Optional[int] = None,
     course_id: Optional[int] = None,
+    sort_by: Optional[str] = None,
+    sort_order: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    return QuizService.get_quizzes(db, page, limit, search, class_id=class_id, course_id=course_id)
+    return QuizService.get_quizzes(db, page, limit, search, class_id=class_id, course_id=course_id, sort_by=sort_by, sort_order=sort_order)
 
 
 @quiz_router.get("/{quiz_id}", response_model=QuizResponse)

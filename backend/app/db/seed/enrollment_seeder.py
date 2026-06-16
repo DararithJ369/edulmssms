@@ -110,5 +110,17 @@ class EnrollmentSeeder(BaseSeeder):
                     created.append(instance)
 
         self.db.commit()
+
+        # Sync student_enrolled count on each course
+        from sqlalchemy import func as sqla_func
+        course_ids = set(e.course_id for e in created)
+        for cid in course_ids:
+            count = self.db.query(sqla_func.count(Enrollment.id)).filter(
+                Enrollment.course_id == cid,
+                Enrollment.is_active == True,
+            ).scalar() or 0
+            self.db.query(Course).filter(Course.id == cid).update({"student_enrolled": count})
+        self.db.commit()
+
         Colors.success(f"{len(created)} enrollment(s) seeded successfully")
         return created

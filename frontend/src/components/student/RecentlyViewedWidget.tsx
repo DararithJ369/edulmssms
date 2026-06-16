@@ -41,7 +41,7 @@ const RecentlyViewedWidget = async () => {
   return (
     <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.015)] space-y-4 select-none animate-in fade-in slide-in-from-bottom-2 duration-300">
       <div className="flex items-center gap-2">
-        <Clock className="h-4.5 w-4.5 text-[#0038A8]" />
+        <Clock className="h-4.5 w-4.5 text-slate-500" />
         <h2 className="text-base font-black text-slate-800 tracking-tight">
           Recently Viewed Lessons
         </h2>
@@ -64,7 +64,7 @@ const RecentlyViewedWidget = async () => {
             <Link 
               key={view.lesson_id}
               href={`/student?lessonId=${view.lesson_id}`}
-              className="group flex flex-col p-3 border border-slate-100 bg-slate-50/20 hover:bg-white hover:border-[#0038A8]/30 rounded-xl transition-all duration-300 hover:shadow-[0_8px_30px_rgba(0,56,168,0.02)]"
+              className="group flex flex-col p-3 border border-slate-100 bg-slate-50/20 hover:bg-white hover:border-slate-300 rounded-xl transition-all duration-300 hover:shadow-sm"
             >
               <div className="flex justify-between items-start">
                 <span className="text-[9px] text-slate-400 font-bold truncate font-mono uppercase tracking-wider">
@@ -72,7 +72,7 @@ const RecentlyViewedWidget = async () => {
                 </span>
                 <ExternalLink className="h-3 w-3 text-slate-350 opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
-              <span className="text-xs font-black text-slate-800 mt-0.5 truncate group-hover:text-[#0038A8] transition-colors leading-tight">
+              <span className="text-xs font-black text-slate-800 mt-0.5 truncate group-hover:text-slate-900 transition-colors leading-tight">
                 {view.lesson_title}
               </span>
               <span className="text-[9px] text-slate-400 font-bold font-mono mt-1.5 self-end">

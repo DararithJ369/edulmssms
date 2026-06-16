@@ -32,6 +32,16 @@ class LessonSeeder(BaseSeeder):
         admin = self.db.query(User).filter_by(username="admin").first()
         admin_id = admin.id if admin else "admin-fallback"
 
+        # Real YouTube video IDs for seeding working playback
+        _yt_ids = [
+            "OqjJjpjDRLc", "ztHopE5Wnpc", "HXV3zeQKqGY", "qw--VYLpxG4",
+            "7S_tz1z_5bA", "W2Z7fbCLSTw", "p3qvj9hO_Bo", "zsjvFFKOm3c",
+            "27axs9dO7AE", "FR4QIeZaPeM", "kqtD5dpn9C8", "DFhBHOhcNSM",
+            "lPTfhyJsP7k", "8jLOx1hD3_o", "5PcpBw5Hbwo", "rfscVS0vtbw",
+            "Oe421EPjeBE", "ZM-DNkC8xBY", "1Rs2ND1ryYc", "PkZNo7MFNFg",
+        ]
+        _yt_idx = 0
+
         # Custom lessons for core courses
         custom_lessons = {
             # Database Design & SQL
@@ -117,10 +127,14 @@ class LessonSeeder(BaseSeeder):
             ])
 
             for order_idx, (title, desc, duration) in enumerate(lesson_list, start=1):
+                yt_id = _yt_ids[_yt_idx % len(_yt_ids)]
+                _yt_idx += 1
+                yt_url = f"https://youtu.be/{yt_id}"
+
                 existing = self.db.query(Lesson).filter_by(title=title, module_id=module_id).first()
                 if existing:
                     lessons.append(existing)
-                    self._seed_materials_for_lesson(existing, instructor_id)
+                    self._seed_materials_for_lesson(existing, instructor_id, yt_id)
                     continue
 
                 lesson = Lesson(
@@ -128,8 +142,8 @@ class LessonSeeder(BaseSeeder):
                     description=desc,
                     content=f"Detailed academic reading material covering {title}. This content describes the primary workflows, implementation patterns, and theoretical analysis required for university-grade mastery.",
                     duration=duration,
-                    material_type="article",
-                    material_url=None,
+                    material_type="url",
+                    material_url=yt_url,
                     material_file=None,
                     order=order_idx,
                     module_id=module_id
@@ -137,7 +151,7 @@ class LessonSeeder(BaseSeeder):
                 self.db.add(lesson)
                 self.db.flush()
                 lessons.append(lesson)
-                self._seed_materials_for_lesson(lesson, instructor_id)
+                self._seed_materials_for_lesson(lesson, instructor_id, yt_id)
 
         try:
             self.db.commit()
@@ -149,10 +163,10 @@ class LessonSeeder(BaseSeeder):
 
         return lessons
 
-    def _seed_materials_for_lesson(self, lesson: Lesson, instructor_id: str):
+    def _seed_materials_for_lesson(self, lesson: Lesson, instructor_id: str, yt_id: str = "OqjJjpjDRLc"):
         """Seed exactly 3 materials (video, pdf, link) for a lesson to prevent empty content blocks"""
         
-        # 1. Video Material
+        # 1. Video Material — use real YouTube URL so the player can embed it
         video_exists = self.db.query(LessonMaterial).filter_by(lesson_id=lesson.id, type="video").first()
         if not video_exists:
             video = LessonMaterial(
@@ -160,14 +174,15 @@ class LessonSeeder(BaseSeeder):
                 uploaded_by=instructor_id,
                 title=f"Video Lecture: {lesson.title}",
                 description=f"Recorded lecture video introducing and demonstrating {lesson.title} concepts.",
-                file_url="https://res.cloudinary.com/demo/video/upload/dog.mp4",  # Fallback dynamic video player path
+                file_url=f"https://www.youtube.com/watch?v={yt_id}",
+                external_url=f"https://www.youtube.com/watch?v={yt_id}",
                 type="video",
                 file_size=15240000,
                 is_visible=True
             )
             self.db.add(video)
 
-        # 2. PDF Material
+        # 2. PDF Material — use a real publicly accessible sample PDF
         pdf_exists = self.db.query(LessonMaterial).filter_by(lesson_id=lesson.id, type="pdf").first()
         if not pdf_exists:
             pdf = LessonMaterial(
@@ -175,14 +190,15 @@ class LessonSeeder(BaseSeeder):
                 uploaded_by=instructor_id,
                 title=f"Lecture Slides: {lesson.title}",
                 description=f"Academic slide deck and notes covering key methodologies for {lesson.title}.",
-                file_url=f"https://example.com/materials/slides_{lesson.id}.pdf",
+                file_url="https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+                external_url=None,
                 type="pdf",
                 file_size=3250000,
                 is_visible=True
             )
             self.db.add(pdf)
 
-        # 3. Document/Link Material
+        # 3. Document/Link Material — use a real reference link
         link_exists = self.db.query(LessonMaterial).filter_by(lesson_id=lesson.id, type="link").first()
         if not link_exists:
             link = LessonMaterial(
@@ -190,9 +206,10 @@ class LessonSeeder(BaseSeeder):
                 uploaded_by=instructor_id,
                 title=f"Reference Documentation: {lesson.title}",
                 description=f"Additional references, exercises, and official documentation links for {lesson.title}.",
-                file_url=f"https://example.com/references/guide_{lesson.id}",
+                file_url=None,
+                external_url=f"https://en.wikipedia.org/wiki/{lesson.title.replace(' ', '_')}",
                 type="link",
-                file_size=1024,
+                file_size=None,
                 is_visible=True
             )
             self.db.add(link)

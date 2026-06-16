@@ -14,6 +14,7 @@ import { toast } from "react-toastify";
 // Import your standardized modal form component
 import LessonForm from "@/components/forms/LessonForm";
 import BackButton from "@/components/BackButton";
+import { CldUploadWidget } from "next-cloudinary";
 
 type MaterialItem = {
   id: number;
@@ -76,7 +77,7 @@ export default function LessonDetailsWorkspacePage() {
   const [newTitle, setNewTitle] = useState("");
   const [newType, setNewType] = useState("video");
   const [newUrl, setNewUrl] = useState("");
-  const [newFile, setNewFile] = useState<File | null>(null);
+  const [newFileUrl, setNewFileUrl] = useState("");
   const [uploading, setUploading] = useState(false);
 
   const loadWorkspaceData = async () => {
@@ -142,7 +143,7 @@ export default function LessonDetailsWorkspacePage() {
       formData.append("type", newType);
       formData.append("uploaded_by", localStorage.getItem("user_id") || "admin");
       if (newUrl) formData.append("external_url", newUrl);
-      if (newFile) formData.append("file", newFile);
+      if (newFileUrl) formData.append("file_url", newFileUrl);
 
       await api.post(`/lessons/${lessonId}/materials`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
@@ -150,7 +151,7 @@ export default function LessonDetailsWorkspacePage() {
       toast.success("Learning material added successfully!");
       setNewTitle("");
       setNewUrl("");
-      setNewFile(null);
+      setNewFileUrl("");
       await loadWorkspaceData();
     } catch (err) {
       console.error(err);
@@ -230,17 +231,6 @@ export default function LessonDetailsWorkspacePage() {
           onClick={() => setActiveMaterial(m)}
           className="flex items-start gap-2 text-left min-w-0 flex-1"
         >
-          <div className="mt-0.5 shrink-0">
-            {m.type === "video" ? (
-              <Video className="h-4 w-4 text-[#0038A8]" />
-            ) : m.type === "pdf" || m.type === "doc" || m.type === "document" ? (
-              <FileText className="h-4 w-4 text-emerald-600" />
-            ) : m.type === "image" ? (
-              <ImageIcon className="h-4 w-4 text-amber-500" />
-            ) : (
-              <ExternalLink className="h-4 w-4 text-[#8b5cf6]" />
-            )}
-          </div>
           <div className="min-w-0 flex-1">
             <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{m.title}</p>
             <span className="text-[8px] text-slate-400 font-bold uppercase">{m.type}</span>
@@ -281,7 +271,7 @@ export default function LessonDetailsWorkspacePage() {
       {/* HEADER SECTION PANEL */}
       <div className="bg-white dark:bg-[#1c1c1c] p-5 rounded-3xl border border-slate-100 dark:border-zinc-800 shadow-sm flex items-center justify-between select-none">
         <div className="flex items-center gap-3">
-          <BackButton href={courseId ? `/list/courses/${courseId}` : (hasAccessToEdit ? "/teacher" : "/student")} />
+          <BackButton href={courseId ? `/list/courses/${courseId}?expandedModuleId=${moduleId}` : (hasAccessToEdit ? "/teacher" : "/student")} />
           <div>
             <span className="text-[10px] font-black text-[#0038A8] dark:text-sky-400 uppercase tracking-widest font-mono">
               MODULE: {moduleTitle || "Syllabus Track"}
@@ -299,13 +289,33 @@ export default function LessonDetailsWorkspacePage() {
           </div>
 
           {hasAccessToEdit && (
-            <button
-              onClick={() => setIsEditing(true)}
-              className="px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] text-white font-black text-xs rounded-xl transition-all shadow-md flex items-center gap-1.5 active:scale-[0.98]"
-            >
-              <Edit className="w-3.5 h-3.5" />
-              <span>Edit Details</span>
-            </button>
+            isEditing ? (
+              <div className="flex items-center gap-2">
+                <button
+                  type="submit"
+                  form="lesson-form-element"
+                  className="px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] text-white font-black text-xs rounded-xl transition-all shadow-md flex items-center gap-1.5 active:scale-[0.98]"
+                >
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  <span>Save Changes</span>
+                </button>
+                <button
+                  onClick={() => setIsEditing(false)}
+                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-slate-700 dark:text-slate-200 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 active:scale-[0.98]"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span>Cancel</span>
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setIsEditing(true)}
+                className="px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] text-white font-black text-xs rounded-xl transition-all shadow-md flex items-center gap-1.5 active:scale-[0.98]"
+              >
+                <Edit className="w-3.5 h-3.5" />
+                <span>Edit Details</span>
+              </button>
+            )
           )}
         </div>
       </div>
@@ -390,8 +400,7 @@ export default function LessonDetailsWorkspacePage() {
           
           {/* LESSON MATERIALS MANAGER & LIST */}
           <div className="bg-white dark:bg-[#1c1c1c] p-5 rounded-3xl border border-slate-100 dark:border-zinc-800 shadow-sm space-y-4">
-            <div className="flex items-center gap-2 select-none pb-2 border-b border-slate-100 dark:border-zinc-800">
-              <BookOpen className="h-4 w-4 text-[#0038A8]" />
+            <div className="select-none pb-2 border-b border-slate-100 dark:border-zinc-800">
               <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                 Lesson Materials List
               </h3>
@@ -400,7 +409,7 @@ export default function LessonDetailsWorkspacePage() {
             <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1">
               {videos.length > 0 && (
                 <div className="space-y-1">
-                  <p className="text-[9px] font-black text-indigo-500 uppercase tracking-wider">Video Section</p>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Video Section</p>
                   <div className="space-y-1">
                     {videos.map(m => renderMaterialRow(m))}
                   </div>
@@ -408,7 +417,7 @@ export default function LessonDetailsWorkspacePage() {
               )}
               {documents.length > 0 && (
                 <div className="space-y-1">
-                  <p className="text-[9px] font-black text-rose-500 uppercase tracking-wider">Documents Section</p>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Documents Section</p>
                   <div className="space-y-1">
                     {documents.map(m => renderMaterialRow(m))}
                   </div>
@@ -416,7 +425,7 @@ export default function LessonDetailsWorkspacePage() {
               )}
               {slides.length > 0 && (
                 <div className="space-y-1">
-                  <p className="text-[9px] font-black text-blue-500 uppercase tracking-wider">Slides Section</p>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Slides Section</p>
                   <div className="space-y-1">
                     {slides.map(m => renderMaterialRow(m))}
                   </div>
@@ -424,7 +433,7 @@ export default function LessonDetailsWorkspacePage() {
               )}
               {resources.length > 0 && (
                 <div className="space-y-1">
-                  <p className="text-[9px] font-black text-amber-500 uppercase tracking-wider">Resources Section</p>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Resources Section</p>
                   <div className="space-y-1">
                     {resources.map(m => renderMaterialRow(m))}
                   </div>
@@ -432,7 +441,7 @@ export default function LessonDetailsWorkspacePage() {
               )}
               {downloads.length > 0 && (
                 <div className="space-y-1">
-                  <p className="text-[9px] font-black text-emerald-500 uppercase tracking-wider">Downloads Section</p>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Downloads Section</p>
                   <div className="space-y-1">
                     {downloads.map(m => renderMaterialRow(m))}
                   </div>
@@ -447,10 +456,9 @@ export default function LessonDetailsWorkspacePage() {
           {/* ADD MATERIAL PANEL */}
           {hasAccessToEdit && (
             <div className="bg-white dark:bg-[#1c1c1c] p-5 rounded-3xl border border-slate-100 dark:border-zinc-800 shadow-sm space-y-4">
-              <div className="flex items-center gap-2 select-none pb-2 border-b border-slate-100 dark:border-zinc-800">
-                <Plus className="h-4 w-4 text-emerald-600" />
+              <div className="select-none pb-2 border-b border-slate-100 dark:border-zinc-800">
                 <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  Add Learning Resource
+                  + Add Learning Resource
                 </h3>
               </div>
               <form onSubmit={handleAddMaterial} className="space-y-3 text-xs">
@@ -479,45 +487,66 @@ export default function LessonDetailsWorkspacePage() {
                     <option value="image">Image / Diagram</option>
                   </select>
                 </div>
-                {newType === "link" ? (
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
+                    {newType === "link" ? "URL" : "External URL (optional)"}
+                  </label>
+                  <input
+                    type="url"
+                    value={newUrl}
+                    onChange={(e) => setNewUrl(e.target.value)}
+                    placeholder={newType === "video" ? "https://youtube.com/watch?v=..." : newType === "pdf" ? "https://example.com/file.pdf" : "https://..."}
+                    className="w-full border p-2 rounded-xl focus:outline-none focus:border-[#0038A8]"
+                    required={newType === "link"}
+                  />
+                </div>
+                {newType !== "link" && (
                   <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">URL</label>
-                    <input
-                      type="url"
-                      value={newUrl}
-                      onChange={(e) => setNewUrl(e.target.value)}
-                      placeholder="https://..."
-                      className="w-full border p-2 rounded-xl focus:outline-none"
-                      required
-                    />
-                  </div>
-                ) : (
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Upload File</label>
-                    <input
-                      type="file"
-                      onChange={(e) => setNewFile(e.target.files?.[0] || null)}
-                      className="w-full border p-1 rounded-xl bg-slate-50 text-[10px]"
-                      required
-                    />
+                    <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
+                      Upload File {newUrl ? "(optional if URL provided)" : ""}
+                    </label>
+                    {newFileUrl ? (
+                      <div className="flex items-center gap-2 p-2 bg-slate-50 border rounded-xl">
+                        <CheckCircle className="h-3.5 w-3.5 text-slate-600 shrink-0" />
+                        <span className="text-[10px] font-medium text-slate-600 truncate flex-1">File uploaded</span>
+                        <button type="button" onClick={() => setNewFileUrl("")} className="text-slate-400 hover:text-slate-600">
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <CldUploadWidget
+                        options={{
+                          cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || "dlykcgjdh",
+                          uploadPreset: process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "lms_preset",
+                          multiple: false,
+                          resourceType: "auto",
+                          sources: ["local", "url", "camera"],
+                        }}
+                        onSuccess={(result: any) => {
+                          const url = result?.info?.secure_url;
+                          if (url) setNewFileUrl(url);
+                        }}
+                      >
+                        {({ open }) => (
+                          <button
+                            type="button"
+                            onClick={() => open()}
+                            className="w-full py-2 border-2 border-dashed border-slate-300 hover:border-slate-400 rounded-xl text-[10px] font-bold text-slate-500 hover:text-slate-700 transition-colors flex items-center justify-center gap-1.5"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            Choose File from Cloudinary
+                          </button>
+                        )}
+                      </CldUploadWidget>
+                    )}
                   </div>
                 )}
                 <button
                   type="submit"
                   disabled={uploading}
-                  className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
+                  className="w-full py-2 bg-[#0038A8] hover:bg-[#002D86] text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
                 >
-                  {uploading ? (
-                    <>
-                      <Loader className="w-3.5 h-3.5 animate-spin" />
-                      <span>Uploading...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Add Resource</span>
-                    </>
-                  )}
+                  {uploading ? <span>Uploading...</span> : <span>+ Add Resource</span>}
                 </button>
               </form>
             </div>
@@ -586,18 +615,6 @@ export default function LessonDetailsWorkspacePage() {
         />
       )}
 
-      {/* FLOATING ACTION ASSISTANT HOOK BUTTONS */}
-      <div className="fixed bottom-6 right-6 z-40">
-        <button
-          onClick={() => toast.info("AI Coach feature is coming soon!")}
-          className="w-14 h-14 bg-gradient-to-tr from-[#0038A8] to-[#1e40af] text-white rounded-full shadow-2xl flex items-center justify-center relative hover:scale-105 active:scale-95 transition-transform group border border-[#0038A8]/20"
-        >
-          <Sparkles className="w-6 h-6 animate-pulse" />
-          <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full border border-white">
-            AI COACH
-          </span>
-        </button>
-      </div>
     </div>
   );
 }

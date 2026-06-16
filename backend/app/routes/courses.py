@@ -21,6 +21,19 @@ def get_all_courses(
     return CourseService.get_courses(db, page, limit, search, category, published)
 
 
+@course_router.get("/my-enrolled")
+def get_my_enrolled_courses(
+    page: int = 1,
+    limit: int = 10,
+    search: str | None = None,
+    category: str | None = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(PermissionGuard.get_current_user),
+):
+    """Return only courses that the current student is enrolled in."""
+    return CourseService.get_enrolled_courses(db, current_user, page, limit, search, category)
+
+
 @course_router.get("/{course_id}", response_model=CourseResponse)
 def get_course(course_id: int, db: Session = Depends(get_db)):
     return CourseService.get_course_by_id(db, course_id)
@@ -79,6 +92,18 @@ def get_course_modules(course_id: int, db: Session = Depends(get_db)):
 @course_router.post("/{course_id}/enroll", dependencies=[Depends(PermissionGuard.admin_or_instructor)])
 def enroll_student(course_id: int, payload: EnrollmentCreate, db: Session = Depends(get_db)):
     return CourseService.enroll_student(db, course_id, payload)
+
+
+@course_router.post("/{course_id}/self-enroll")
+def self_enroll(course_id: int, db: Session = Depends(get_db), current_user=Depends(PermissionGuard.get_current_user)):
+    """Allow a student to self-enroll in a free course."""
+    return CourseService.self_enroll(db, course_id, current_user)
+
+
+@course_router.get("/{course_id}/my-enrollment")
+def check_my_enrollment(course_id: int, db: Session = Depends(get_db), current_user=Depends(PermissionGuard.get_current_user)):
+    """Check if the current user is enrolled in this course."""
+    return CourseService.check_enrollment(db, course_id, current_user)
 
 
 @course_router.delete("/{course_id}/enroll/{student_id}", dependencies=[Depends(PermissionGuard.admin_or_instructor)])

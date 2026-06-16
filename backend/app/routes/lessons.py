@@ -119,13 +119,14 @@ def add_material(
     uploaded_by: str = Form(...),
     description: Optional[str] = Form(None),
     external_url: Optional[str] = Form(None),
+    file_url: Optional[str] = Form(None),
     file: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
 ):
-    final_file_url = None
+    final_file_url = file_url  # Use pre-uploaded Cloudinary URL if provided
     final_file_size = None
 
-    if file:
+    if file and not final_file_url:
         validate_upload(file, allowed_categories=["image", "document", "video"])
         try:
             content_type = file.content_type or ""

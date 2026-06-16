@@ -88,12 +88,16 @@ class AttendanceService:
 
     @staticmethod
     def get_all_attendance(
-        db: Session, page: int = 1, limit: int = 10, search: str = "", current_user = None, course_id: int = None
+        db: Session, page: int = 1, limit: int = 10, search: str = "", current_user = None, course_id: int = None,
+        status: str = None, sort_by: str = None, sort_order: str = None
     ) -> dict:
         query = db.query(Attendance)
 
         if course_id is not None:
             query = query.filter(Attendance.course_id == course_id)
+
+        if status:
+            query = query.filter(Attendance.status == status)
 
         query, early = apply_student_role_filter(query, Attendance.student_id, current_user, page, limit)
         if early is not None:
@@ -106,7 +110,14 @@ class AttendanceService:
                 (Attendance.status.ilike(f"%{search}%"))
             )
 
-        return paginate(db, Attendance, AttendanceResponse, Attendance.created_at.desc(), page, limit, query=query)
+        # Determine sort order
+        order = Attendance.created_at.desc()
+        if sort_by:
+            column = getattr(Attendance, sort_by, None)
+            if column is not None:
+                order = column.asc() if sort_order == "asc" else column.desc()
+
+        return paginate(db, Attendance, AttendanceResponse, order, page, limit, query=query)
 
     @staticmethod
     def delete_attendance(db: Session, attendance_id: int) -> dict:

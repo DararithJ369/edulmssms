@@ -1,9 +1,12 @@
+from datetime import date
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from app.models.course import Course, Lesson, Module
 from app.models.enrollment import Enrollment
 from app.models.user import User
+from app.models.student_profile import StudentProfile
+from app.models.user_profile import UserProfile
 from app.schemas.course import CourseCreate, CourseUpdate, CourseResponse
 from app.schemas.lesson import LessonResponse
 from app.schemas.enrollment import EnrollmentCreate, EnrollmentResponse
@@ -35,6 +38,55 @@ class CourseService:
 
         if published is not None:
             query = query.filter(Course.is_published == published)
+
+        total = query.with_entities(func.count(Course.id)).scalar()
+        courses = (
+            query.order_by(Course.created_at.desc())
+            .offset((page - 1) * limit)
+            .limit(limit)
+            .all()
+        )
+        return {
+            "data": [CourseResponse.model_validate(c) for c in courses],
+            "meta": {"page": page, "total": total, "limit": limit},
+        }
+
+    @staticmethod
+    def get_enrolled_courses(
+        db: Session,
+        current_user,
+        page: int = 1,
+        limit: int = 10,
+        search: str | None = None,
+        category: str | None = None,
+    ) -> dict:
+        up = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
+        if not up:
+            return {"data": [], "meta": {"page": page, "total": 0, "limit": limit}}
+        sp = db.query(StudentProfile).filter_by(profile_id=up.id).first()
+        if not sp:
+            return {"data": [], "meta": {"page": page, "total": 0, "limit": limit}}
+        enrolled_ids = [
+            row[0] for row in db.query(Enrollment.course_id).filter(
+                Enrollment.student_profile_id == sp.id,
+                Enrollment.is_active == True,
+            ).all()
+        ]
+
+        if not enrolled_ids:
+            return {"data": [], "meta": {"page": page, "total": 0, "limit": limit}}
+
+        query = db.query(Course).filter(Course.id.in_(enrolled_ids))
+
+        if search:
+            query = query.filter(
+                (Course.course_name.ilike(f"%{search}%"))
+                | (Course.course_code.ilike(f"%{search}%"))
+                | (Course.description.ilike(f"%{search}%"))
+            )
+
+        if category:
+            query = query.filter(Course.category == category)
 
         total = query.with_entities(func.count(Course.id)).scalar()
         courses = (
@@ -238,6 +290,15 @@ class CourseService:
     # ── Enrollments ───────────────────────────────────────────────────────────
 
     @staticmethod
+    def _sync_enrolled_count(db: Session, course_id: int):
+        count = db.query(func.count(Enrollment.id)).filter(
+            Enrollment.course_id == course_id,
+            Enrollment.is_active == True,
+        ).scalar() or 0
+        db.query(Course).filter(Course.id == course_id).update({"student_enrolled": count})
+        db.commit()
+
+    @staticmethod
     def enroll_student(
         db: Session, course_id: int, payload: EnrollmentCreate
     ) -> EnrollmentResponse:
@@ -271,6 +332,7 @@ class CourseService:
         db.add(enrollment)
         db.commit()
         db.refresh(enrollment)
+        CourseService._sync_enrolled_count(db, course_id)
         return EnrollmentResponse.model_validate(enrollment)
 
     @staticmethod
@@ -288,7 +350,88 @@ class CourseService:
             raise HTTPException(status_code=404, detail="Active enrollment not found")
         enrollment.is_active = False
         db.commit()
+        CourseService._sync_enrolled_count(db, course_id)
         return {"detail": "Student unenrolled successfully"}
+
+    @staticmethod
+    def _get_student_profile(db: Session, user) -> StudentProfile:
+        """Resolve student_profile from the current user object."""
+        up = db.query(UserProfile).filter_by(user_id=user.id).first()
+        if not up:
+            raise HTTPException(status_code=400, detail="User profile not found")
+        sp = db.query(StudentProfile).filter_by(profile_id=up.id).first()
+        if not sp:
+            raise HTTPException(status_code=400, detail="Student profile not found. Only students can self-enroll.")
+        return sp
+
+    @staticmethod
+    def self_enroll(db: Session, course_id: int, current_user) -> dict:
+        from app.models.academic_year import AcademicYear
+
+        course = db.query(Course).filter(Course.id == course_id).first()
+        if not course:
+            raise HTTPException(status_code=404, detail="Course not found")
+
+        sp = CourseService._get_student_profile(db, current_user)
+
+        # Check existing
+        existing = (
+            db.query(Enrollment)
+            .filter(Enrollment.course_id == course_id, Enrollment.student_profile_id == sp.id)
+            .first()
+        )
+        if existing:
+            if existing.is_active:
+                raise HTTPException(status_code=400, detail="Already enrolled in this course")
+            existing.is_active = True
+            existing.dropped_date = None
+            existing.enrolled_date = date.today()
+            db.commit()
+            CourseService._sync_enrolled_count(db, course_id)
+            return {"detail": "Re-enrolled successfully", "enrollment_id": existing.id}
+
+        # Get current academic year
+        ay = db.query(AcademicYear).filter(AcademicYear.is_current == True).first()
+        if not ay:
+            ay = db.query(AcademicYear).order_by(AcademicYear.id.desc()).first()
+        if not ay:
+            raise HTTPException(status_code=500, detail="No academic year configured")
+
+        enrollment = Enrollment(
+            course_id=course_id,
+            student_profile_id=sp.id,
+            grade_level_id=sp.grade_level_id,
+            academic_year_id=ay.id,
+            term_id=1,
+            is_active=True,
+            enrolled_date=date.today(),
+            payment_status="completed",
+            amount_paid=0,
+        )
+        db.add(enrollment)
+        db.commit()
+        db.refresh(enrollment)
+        CourseService._sync_enrolled_count(db, course_id)
+        return {"detail": "Enrolled successfully", "enrollment_id": enrollment.id}
+
+    @staticmethod
+    def check_enrollment(db: Session, course_id: int, current_user) -> dict:
+        up = db.query(UserProfile).filter_by(user_id=current_user.id).first()
+        if not up:
+            return {"enrolled": False}
+        sp = db.query(StudentProfile).filter_by(profile_id=up.id).first()
+        if not sp:
+            return {"enrolled": False}
+        existing = (
+            db.query(Enrollment)
+            .filter(
+                Enrollment.course_id == course_id,
+                Enrollment.student_profile_id == sp.id,
+                Enrollment.is_active == True,
+            )
+            .first()
+        )
+        return {"enrolled": existing is not None, "enrollment_id": existing.id if existing else None}
 
     @staticmethod
     def get_course_students(db: Session, course_id: int) -> list:
@@ -312,6 +455,8 @@ class CourseService:
                 continue
             result.append({
                 "id": user.id,
+                "student_profile_id": sp.id,
+                "student_code": sp.student_id,
                 "username": user.username,
                 "email": user.email,
                 "full_name": up.full_name or user.username,

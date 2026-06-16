@@ -12,8 +12,8 @@ from app.models.result import Result
 from app.models.assignment import Assignment
 from app.models.quiz import Quiz
 from app.models.exam import Exam
-from app.services.file_manager import FileManager
 from app.utils.upload_validator import validate_upload
+import cloudinary.uploader
 from app.schemas.submission import SubmissionResponse, SubmissionUpdate
 
 submission_router = APIRouter(prefix="/submissions", tags=["Submissions"])
@@ -83,6 +83,7 @@ async def submit_homework(
     submission_type: str = Form(...),
     reference_id: int = Form(...),
     submission_text: Optional[str] = Form(None),
+    file_url: Optional[str] = Form(None),
     file: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -102,10 +103,28 @@ async def submit_homework(
     if sub and sub.status == "graded":
         raise HTTPException(status_code=400, detail="Cannot edit a submission that has already been graded.")
 
-    saved_file_url = None
-    if file:
-        file_meta = FileManager.validate_and_save(file)
-        saved_file_url = file_meta["url"]
+    # Use pre-uploaded Cloudinary URL if provided, otherwise upload file to Cloudinary
+    saved_file_url = file_url
+    if file and not saved_file_url:
+        try:
+            content_type = file.content_type or ""
+            is_video = "video" in content_type
+            resource_type_spec = "video" if is_video else "raw"
+
+            file.file.seek(0)
+            upload_result = cloudinary.uploader.unsigned_upload(
+                file.file,
+                upload_preset="lms_preset",
+                cloud_name="dlykcgjdh",
+                resource_type=resource_type_spec,
+                folder="lms_submissions"
+            )
+            saved_file_url = upload_result.get("secure_url")
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"File upload failed: {str(e)}"
+            )
 
     if not sub:
         # Create new submission record

@@ -129,7 +129,7 @@ export default function StudentTranscriptPage() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#F4F6FA]">
-        <div className="h-9 w-9 border-4 border-[#0038A8] border-t-transparent rounded-full animate-spin mb-2" />
+        <div className="h-9 w-9 border-4 border-slate-400 border-t-transparent rounded-full animate-spin mb-2" />
         <p className="text-xs font-bold text-slate-400">Loading Transcript Profile...</p>
       </div>
     );
@@ -161,22 +161,22 @@ export default function StudentTranscriptPage() {
       {transcript && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 print:hidden select-none">
           <div className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-col items-center text-center shadow-xs">
-            <Award className="h-5 w-5 text-[#0038A8] mb-1" />
+            <Award className="h-5 w-5 text-slate-600 mb-1" />
             <p className="text-xl font-black text-slate-800">{transcript.cumulative_gpa.toFixed(2)}</p>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cumulative GPA</p>
           </div>
           <div className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-col items-center text-center shadow-xs">
-            <BookOpen className="h-5 w-5 text-emerald-600 mb-1" />
+            <BookOpen className="h-5 w-5 text-slate-600 mb-1" />
             <p className="text-xl font-black text-slate-800">{transcript.total_credits}</p>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Earned Credits</p>
           </div>
           <div className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-col items-center text-center shadow-xs">
-            <CheckCircle2 className="h-5 w-5 text-indigo-600 mb-1" />
+            <CheckCircle2 className="h-5 w-5 text-slate-600 mb-1" />
             <p className="text-xl font-black text-slate-800">{transcript.passed_subjects}</p>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Passed Courses</p>
           </div>
           <div className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-col items-center text-center shadow-xs">
-            <AlertCircle className="h-5 w-5 text-amber-600 mb-1" />
+            <AlertCircle className="h-5 w-5 text-slate-600 mb-1" />
             <p className="text-xl font-black text-slate-800">{transcript.failed_subjects}</p>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Failed Courses</p>
           </div>
@@ -189,7 +189,7 @@ export default function StudentTranscriptPage() {
           onClick={() => setActiveTab("transcript")}
           className={`pb-2.5 pt-2 px-4 text-xs font-black uppercase tracking-wider border-b-2 transition-colors mr-4 ${
             activeTab === "transcript"
-              ? "border-[#0038A8] text-[#0038A8]"
+              ? "border-slate-800 text-slate-800"
               : "border-transparent text-slate-400 hover:text-slate-600"
           }`}
         >
@@ -199,7 +199,7 @@ export default function StudentTranscriptPage() {
           onClick={() => setActiveTab("certificates")}
           className={`pb-2.5 pt-2 px-4 text-xs font-black uppercase tracking-wider border-b-2 transition-colors ${
             activeTab === "certificates"
-              ? "border-[#0038A8] text-[#0038A8]"
+              ? "border-slate-800 text-slate-800"
               : "border-transparent text-slate-400 hover:text-slate-600"
           }`}
         >
@@ -222,7 +222,7 @@ export default function StudentTranscriptPage() {
                   {/* Semester Header */}
                   <div className="bg-slate-50 border-b border-slate-100 px-5 py-3.5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 select-none print:bg-white print:border-b-2 print:border-slate-800 print:px-0">
                     <div>
-                      <p className="text-[9px] font-black text-[#0038A8] uppercase tracking-widest">
+                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">
                         {sem.academic_year}
                       </p>
                       <h3 className="text-sm font-black text-slate-800 uppercase mt-0.5">
@@ -257,11 +257,11 @@ export default function StudentTranscriptPage() {
                             <td className="px-5 py-3.5 text-xs font-bold text-slate-600 text-center print:text-black print:px-1">{course.percentage.toFixed(1)}%</td>
                             <td className="px-5 py-3.5 text-center print:px-1">
                               <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${
-                                course.grade === "A" ? "bg-emerald-50 text-emerald-700 border border-emerald-100" :
-                                course.grade.startsWith("B") ? "bg-blue-50 text-[#0038A8] border border-blue-100" :
-                                course.grade.startsWith("C") ? "bg-indigo-50 text-indigo-700 border border-indigo-100" :
-                                course.grade === "D" ? "bg-amber-50 text-amber-700 border border-amber-100" :
-                                "bg-rose-50 text-rose-700 border border-rose-100"
+                                course.grade === "A" ? "bg-slate-100 text-slate-800 border border-slate-200" :
+                                course.grade.startsWith("B") ? "bg-slate-50 text-slate-700 border border-slate-200" :
+                                course.grade.startsWith("C") ? "bg-slate-50 text-slate-600 border border-slate-200" :
+                                course.grade === "D" ? "bg-slate-50 text-slate-500 border border-slate-200" :
+                                "bg-slate-50 text-slate-500 border border-slate-200"
                               } print:bg-white print:text-black print:border-none print:font-extrabold print:text-xs`}>
                                 {course.grade}
                               </span>
@@ -291,8 +291,8 @@ export default function StudentTranscriptPage() {
                   <div className="min-w-0 flex-1 space-y-1">
                     <span className={`text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
                       c.isCompleted 
-                        ? "bg-emerald-50 text-emerald-700 border border-emerald-100" 
-                        : "bg-amber-50 text-amber-700 border border-amber-100"
+                        ? "bg-slate-100 text-slate-700 border border-slate-200" 
+                        : "bg-slate-50 text-slate-500 border border-slate-200"
                     }`}>
                       {c.isCompleted ? "Completed" : `In Progress (${c.progress_percentage.toFixed(0)}%)`}
                     </span>
@@ -307,7 +307,7 @@ export default function StudentTranscriptPage() {
                       c.claimedCert ? (
                         <button
                           onClick={() => openCertificatePreview(c.claimedCert!)}
-                          className="w-full sm:w-auto px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] text-white text-xs font-black rounded-xl shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"
+                          className="w-full sm:w-auto px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-black rounded-xl shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"
                         >
                           <ShieldCheck className="h-3.5 w-3.5" />
                           <span>View Certificate</span>
@@ -315,7 +315,7 @@ export default function StudentTranscriptPage() {
                       ) : (
                         <button
                           onClick={() => handleClaimCertificate(c.course_id)}
-                          className="w-full sm:w-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform animate-pulse"
+                          className="w-full sm:w-auto px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-black rounded-xl shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"
                         >
                           Claim Certificate
                         </button>

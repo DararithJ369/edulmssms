@@ -136,13 +136,10 @@ def get_course_progress(
     ).all()
     completed_module_ids = [p.module_id for p in completed_modules]
 
-    # Course Progress record
-    course_progress = db.query(StudentCourseProgress).filter(
-        StudentCourseProgress.student_id == student_id,
-        StudentCourseProgress.course_id == course_id
-    ).first()
-
-    progress_percentage = course_progress.progress_percentage if course_progress else 0.0
+    # Calculate progress dynamically from completed lessons vs total
+    total_lessons_count = len(lesson_ids)
+    completed_lessons_count = len(completed_lesson_ids)
+    progress_percentage = (completed_lessons_count / total_lessons_count * 100) if total_lessons_count > 0 else 0.0
 
     return CourseProgressAggregate(
         course_id=course_id,
@@ -408,23 +405,33 @@ def get_continue_learning(
         Enrollment.is_active == True
     ).all()
     
+    from app.models.course import Lesson, Module
+
     result = []
     for e in enrollments:
         course = e.course
         if course:
-            cp_rec = db.query(StudentCourseProgress).filter(
-                StudentCourseProgress.student_id == current_user.id,
-                StudentCourseProgress.course_id == course.id
-            ).first()
+            # Calculate progress dynamically from completed lessons vs total lessons
+            total_lessons = db.query(Lesson).join(Module).filter(
+                Module.course_id == course.id
+            ).count()
             
-            progress = cp_rec.progress_percentage if cp_rec else 0.0
+            completed_lessons = db.query(StudentLessonProgress).join(
+                Lesson, Lesson.id == StudentLessonProgress.lesson_id
+            ).join(Module, Module.id == Lesson.module_id).filter(
+                Module.course_id == course.id,
+                StudentLessonProgress.student_id == current_user.id,
+                StudentLessonProgress.completed == True
+            ).count()
+            
+            progress = (completed_lessons / total_lessons * 100) if total_lessons > 0 else 0.0
             
             result.append({
                 "course_id": course.id,
                 "course_name": course.course_name,
                 "description": course.description,
                 "image": course.thumbnail,
-                "progress_percentage": progress
+                "progress_percentage": round(progress, 1)
             })
     return result
 
@@ -462,7 +469,7 @@ def get_recommended_courses(
             "course_name": c.course_name,
             "description": c.description,
             "image": c.thumbnail,
-            "teacher_name": c.teacher.profile.full_name if c.teacher and c.teacher.profile else (c.teacher.username if c.teacher else "Unknown Instructor")
+            "teacher_name": c.instructor_name or (c.instructor.username if c.instructor else "Unknown Instructor")
         }
         for c in recommended
     ]

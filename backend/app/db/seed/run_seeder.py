@@ -311,6 +311,15 @@ def main():
             quiz_seeder = QuizSeeder(db)
             quizzes = quiz_seeder.seed_quizzes(courses, instructor_ids)
 
+            # 13.5 Sync has_modules / has_quizzes flags on courses
+            from app.models.course import Module as CourseModule
+            from app.models.quiz import Quiz
+            for c in courses:
+                c.has_modules = db.query(CourseModule).filter_by(course_id=c.id).first() is not None
+                c.has_quizzes = db.query(Quiz).filter_by(course_id=c.id).first() is not None
+            db.commit()
+            Colors.success("Synced has_modules / has_quizzes flags on all courses")
+
             # 14. Seed Exams
             exam_seeder = ExamSeeder(db)
             exams = exam_seeder.seed_exams(lessons, instructor_ids)

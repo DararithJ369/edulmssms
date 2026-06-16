@@ -48,28 +48,28 @@ const StatsOverviewWidget = async () => {
       label: "Current GPA",
       value: stats.gpa !== undefined ? `${stats.gpa.toFixed(2)}` : "0.00",
       sub: "Academic GPA",
-      color: "text-[#0038A8] bg-blue-50 border-blue-100",
+      color: "text-slate-700 bg-white border-slate-200",
     },
     {
       icon: <BookOpen className="h-4 w-4" />,
       label: "Total Credits",
       value: stats.total_credits !== undefined ? `${stats.total_credits}` : "0",
       sub: "Earned Credits",
-      color: "text-emerald-600 bg-emerald-50 border-emerald-100",
+      color: "text-slate-700 bg-white border-slate-200",
     },
     {
       icon: <CheckCircle2 className="h-4 w-4" />,
       label: "Passed Subjects",
       value: stats.passed_subjects !== undefined ? `${stats.passed_subjects}` : "0",
       sub: "Courses Passed",
-      color: "text-indigo-600 bg-indigo-50 border-indigo-100",
+      color: "text-slate-700 bg-white border-slate-200",
     },
     {
       icon: <AlertCircle className="h-4 w-4" />,
       label: "Failed Subjects",
       value: stats.failed_subjects !== undefined ? `${stats.failed_subjects}` : "0",
       sub: "Courses Failed",
-      color: "text-amber-600 bg-amber-50 border-amber-100",
+      color: "text-slate-700 bg-white border-slate-200",
     },
   ];
 
@@ -80,7 +80,6 @@ const StatsOverviewWidget = async () => {
           key={label}
           className={`flex flex-col items-center justify-center gap-1 p-4 rounded-2xl border text-center ${color}`}
         >
-          {icon}
           <p className="text-xl font-black">{value}</p>
           <p className="text-[10px] font-bold opacity-75 uppercase tracking-wider">
             {label}

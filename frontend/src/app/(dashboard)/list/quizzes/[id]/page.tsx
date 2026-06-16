@@ -135,7 +135,7 @@ export default function QuizAttemptPage() {
         } else {
           // Students: check if already submitted
           try {
-            const resultsRes = await api.get(`/results?type=quiz&limit=1000`);
+            const resultsRes = await api.get(`/results?type=quiz&limit=100`);
             const results = resultsRes.data?.data || [];
             const existing = results.find(
               (r: any) => r.quiz_id === Number(quizId)
@@ -184,6 +184,7 @@ export default function QuizAttemptPage() {
       const { data } = await api.post(`/quizzes/${quizId}/submit`, { answers: payload });
       setResult(data);
       setPhase("submitted");
+      router.refresh();
     } catch (err: any) {
       const detail = err?.response?.data?.detail || "Failed to submit quiz.";
       setSubmitError(detail);

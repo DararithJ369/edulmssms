@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import Announcements from "@/components/Announcements";
 import BigCalendarContainer from "@/components/BigCalendarContainer";
 import EventCalendar from "@/components/EventCalendar";
-import prisma from "@/lib/prisma";
+
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
@@ -23,6 +23,8 @@ import {
   RecentlyViewedSkeleton,
   CalendarSkeleton,
 } from "@/components/student/WidgetSkeleton";
+
+export const dynamic = "force-dynamic";
 
 interface PageProps {
   searchParams: { [key: string]: string | string[] | undefined };
@@ -48,10 +50,6 @@ const StudentPage = async ({ searchParams }: PageProps) => {
       </div>
     );
   }
-
-  const classItem = await prisma.class.findMany({
-    where: { students: { some: { id: userId } } },
-  });
 
   // Today's date info
   const now = new Date();
@@ -107,70 +105,21 @@ const StudentPage = async ({ searchParams }: PageProps) => {
           <div className="xl:col-span-2 space-y-6">
 
             {/* Weekly Schedule */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-              <div className="flex items-center justify-between px-5 pt-5 pb-3">
-                <h2 className="text-[15px] font-bold text-slate-800">
-                  My Schedule
-                </h2>
-                <Link
-                  href="/list/classes"
-                  className="flex items-center gap-1 text-[11px] font-semibold text-[#0038A8] hover:text-[#002D86]"
-                >
-                  View All <ChevronRight className="h-3 w-3" />
-                </Link>
-              </div>
-              <div className="px-5 pb-5">
-                <Suspense fallback={<CalendarSkeleton />}>
-                  {classItem[0] ? (
-                    <BigCalendarContainer type="studentId" id={userId} />
-                  ) : (
-                    <p className="text-slate-400 text-xs font-semibold py-8 text-center">
-                      No academic schedule found for this account.
-                    </p>
-                  )}
-                </Suspense>
-              </div>
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden p-5">
+              <Suspense fallback={<CalendarSkeleton />}>
+                <BigCalendarContainer type="studentId" id={userId} />
+              </Suspense>
             </div>
 
             {/* My Courses — Continue Learning */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-              <div className="flex items-center justify-between px-5 pt-5 pb-3">
-                <h2 className="text-[15px] font-bold text-slate-800">
-                  My Online Courses
-                </h2>
-                <Link
-                  href="/list/courses"
-                  className="flex items-center gap-1 text-[11px] font-semibold text-[#0038A8] hover:text-[#002D86]"
-                >
-                  View All <ChevronRight className="h-3 w-3" />
-                </Link>
-              </div>
-              <div className="px-5 pb-5">
-                <Suspense fallback={<CourseCardGridSkeleton />}>
-                  <ContinueLearningWidget />
-                </Suspense>
-              </div>
-            </div>
+            <Suspense fallback={<CourseCardGridSkeleton />}>
+              <ContinueLearningWidget />
+            </Suspense>
 
             {/* Recommended Courses */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-              <div className="flex items-center justify-between px-5 pt-5 pb-3">
-                <h2 className="text-[15px] font-bold text-slate-800">
-                  Recommended For You
-                </h2>
-                <Link
-                  href="/list/courses"
-                  className="flex items-center gap-1 text-[11px] font-semibold text-[#0038A8] hover:text-[#002D86]"
-                >
-                  View All <ChevronRight className="h-3 w-3" />
-                </Link>
-              </div>
-              <div className="px-5 pb-5">
-                <Suspense fallback={<RecommendedGridSkeleton />}>
-                  <RecommendedCoursesWidget />
-                </Suspense>
-              </div>
-            </div>
+            <Suspense fallback={<RecommendedGridSkeleton />}>
+              <RecommendedCoursesWidget />
+            </Suspense>
           </div>
 
           {/* ── COL 3: Right Panel ───────────────────────────────── */}
@@ -182,35 +131,17 @@ const StudentPage = async ({ searchParams }: PageProps) => {
             </div>
 
             {/* Announcements */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-              <div className="flex items-center justify-between px-5 pt-5 pb-3">
-                <h2 className="text-[15px] font-bold text-slate-800">
-                  Announcements
-                </h2>
-                <Link
-                  href="/list/announcements"
-                  className="flex items-center gap-1 text-[11px] font-semibold text-[#0038A8] hover:text-[#002D86]"
-                >
-                  View All <ChevronRight className="h-3 w-3" />
-                </Link>
-              </div>
-              <div className="px-5 pb-5">
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden p-4">
+              <Suspense fallback={<div className="space-y-3">{[...Array(3)].map((_, i) => <div key={i} className="h-16 bg-slate-100 rounded-xl animate-pulse" />)}</div>}>
                 <Announcements />
-              </div>
+              </Suspense>
             </div>
 
             {/* Recently Viewed Lessons */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-              <div className="flex items-center justify-between px-5 pt-5 pb-3">
-                <h2 className="text-[15px] font-bold text-slate-800">
-                  Recently Viewed
-                </h2>
-              </div>
-              <div className="px-5 pb-5">
-                <Suspense fallback={<RecentlyViewedSkeleton />}>
-                  <RecentlyViewedWidget />
-                </Suspense>
-              </div>
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden p-4">
+              <Suspense fallback={<RecentlyViewedSkeleton />}>
+                <RecentlyViewedWidget />
+              </Suspense>
             </div>
           </div>
         </div>

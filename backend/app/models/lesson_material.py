@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, Enum
+from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.config.base import Base
@@ -18,12 +18,10 @@ class LessonMaterial(Base):
     title = Column(String, nullable=False)
     description = Column(Text)
 
-    file_url = Column(String, nullable=False)
+    file_url = Column(String, nullable=True)
+    external_url = Column(String, nullable=True)
 
-    type = Column(
-        Enum("pdf", "video", "doc", "link", "image", name="material_type"),
-        nullable=False
-    )
+    type = Column(String, nullable=False)
 
     file_size = Column(Integer)
 

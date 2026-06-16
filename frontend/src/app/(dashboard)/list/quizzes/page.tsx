@@ -1,17 +1,14 @@
 import Pagination from "@/components/Pagination";
 import TableSearch from "@/components/TableSearch";
+import TableRowActions from "@/components/TableRowActions";
+import ListFilterSort from "@/components/ListFilterSort";
 import { serverFetch } from "@/lib/server-api";
 import { ITEM_PER_PAGE } from "@/lib/settings";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { 
   Globe, 
-  CheckSquare, 
-  BookOpen, 
-  GraduationCap, 
   CheckCircle2,
-  ListFilter,
-  ArrowUpDown,
   Plus
 } from "lucide-react";
 
@@ -39,7 +36,7 @@ const QuizListPage = async ({
   const cookieStore = cookies();
   const role = normalizeRole(cookieStore.get("user_role")?.value);
 
-  const { page, classId } = searchParams;
+  const { page, courseId, sortBy, sortOrder } = searchParams;
   const p = page ? parseInt(page) : 1;
 
   const exactToken = cookieStore.get("access_token")?.value || cookieStore.get("token")?.value || "";
@@ -53,7 +50,7 @@ const QuizListPage = async ({
     try {
       const resultsResponse = await serverFetch<{
         data: Array<{ quiz_id: number }>;
-      }>(`/results?type=quiz&limit=1000`, fetchOptions);
+      }>(`/results?type=quiz&limit=100`, fetchOptions);
       
       const resultsData = resultsResponse?.data || [];
       completedQuizIds = new Set<number>(
@@ -64,12 +61,20 @@ const QuizListPage = async ({
     }
   }
 
+  // Fetch courses for filter options
+  const coursesResponse = await serverFetch<{
+    data: Array<{ id: number; course_name: string; course_code: string }>;
+  }>("/courses?limit=100", fetchOptions).catch(() => ({ data: [] }));
+  const courses = coursesResponse.data || [];
+
   const queryParams = new URLSearchParams();
   queryParams.set("page", String(p));
   queryParams.set("limit", String(ITEM_PER_PAGE));
-  if (classId) {
-    queryParams.set("class_id", classId);
+  if (courseId) {
+    queryParams.set("course_id", courseId);
   }
+  if (sortBy) queryParams.set("sort_by", sortBy);
+  if (sortOrder) queryParams.set("sort_order", sortOrder);
 
   const quizzesResponse = await serverFetch<{
     data: QuizList[];
@@ -125,12 +130,23 @@ const QuizListPage = async ({
 
         <div className="flex items-center gap-2 self-start md:self-auto">
           <TableSearch />
-          <button className="w-8 h-8 flex items-center justify-center rounded-xl bg-background border border-border/80 hover:bg-accent text-muted-foreground/80 transition-colors" title="Filters">
-            <ListFilter className="h-4 w-4" />
-          </button>
-          <button className="w-8 h-8 flex items-center justify-center rounded-xl bg-background border border-border/80 hover:bg-accent text-muted-foreground/80 transition-colors" title="Sort Options">
-            <ArrowUpDown className="h-4 w-4" />
-          </button>
+          <ListFilterSort
+            filters={[
+              {
+                key: "courseId",
+                label: "Course",
+                allLabel: "All Courses",
+                options: courses.map((c) => ({ id: c.id, label: `${c.course_name} (${c.course_code})` })),
+              },
+            ]}
+            sortOptions={[
+              { label: "Default Order", value: "" },
+              { label: "Title (A-Z)", value: "title-asc" },
+              { label: "Title (Z-A)", value: "title-desc" },
+              { label: "Due Date (Earliest)", value: "due_date-asc" },
+              { label: "Due Date (Latest)", value: "due_date-desc" },
+            ]}
+          />
         </div>
       </div>
 
@@ -142,34 +158,32 @@ const QuizListPage = async ({
             return (
               <div 
                 key={item.id} 
-                className="relative flex items-center justify-between p-5 bg-card/65 hover:bg-card border border-border/50 hover:border-red-500/25 rounded-3xl transition-all duration-300 shadow-[0_2px_8px_rgba(0,0,0,0.01)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.02)] hover:-translate-y-[1px] group overflow-hidden"
+                className="flex items-center justify-between p-4 bg-[#fbf5fc]/40 dark:bg-muted/5 border border-border/40 hover:border-violet-300/50 dark:hover:border-violet-950/30 rounded-2xl transition-all shadow-sm group animate-fade-in"
               >
-                <span className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-3xl bg-red-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                
-                <div className="flex items-center gap-4 max-w-[70%] z-10">
-                  <div className="flex flex-col text-left gap-1">
-                    <span className="text-sm font-extrabold text-foreground tracking-tight leading-snug group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors">
+                <div className="flex items-center gap-4 max-w-[70%] w-full">
+                  <div className="flex flex-col text-left gap-0.5 w-full">
+                    <span className="text-sm font-extrabold text-foreground tracking-tight leading-snug group-hover:text-[#0038A8] transition-colors">
                       {item.title}
                     </span>
 
                     <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap font-medium">
-                      <span className="text-[#0038A8] dark:text-[#4f88ef] font-bold font-sans">
+                      <span className="text-[#0038A8] dark:text-[#4f88ef] font-semibold font-sans">
                         {item.course_name || `Course #${item.course_id}`}
                       </span>
                       {item.module_name && (
                         <>
                           <span className="text-muted-foreground/40">•</span>
-                          <span className="text-slate-600 dark:text-slate-400 font-sans font-semibold">{item.module_name}</span>
+                          <span className="text-violet-600 font-sans">{item.module_name}</span>
                         </>
                       )}
                       {item.lesson_id && (
                         <>
                           <span className="text-muted-foreground/40">•</span>
-                          <span className="text-sky-600 dark:text-sky-400 font-sans">{item.lesson_title || `Lesson #${item.lesson_id}`}</span>
+                          <span className="text-violet-600 font-sans">{item.lesson_title || `Lesson #${item.lesson_id}`}</span>
                         </>
                       )}
                       <span className="text-muted-foreground/40">•</span>
-                      <span className="text-red-500 font-sans">
+                      <span className="text-gray-500 font-sans">
                         Due: {new Intl.DateTimeFormat("en-US", {
                           month: "short",
                           day: "numeric",
@@ -181,16 +195,23 @@ const QuizListPage = async ({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4 z-10">
+                <div className="flex items-center gap-4">
+                  <TableRowActions
+                    id={item.id}
+                    table="quiz"
+                    editData={item}
+                    role={role}
+                  />
+
                   {role === "student" ? (
                     <Link href={`/list/quizzes/${item.id}`}>
-                      <button className="px-4 py-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/25 text-red-700 dark:text-red-400 font-extrabold text-[9px] rounded-lg shadow-sm transition-colors active:scale-[0.98] uppercase tracking-wider">
+                      <button className="px-3.5 py-1.5 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 text-violet-700 dark:text-violet-400 font-bold text-[9px] rounded-lg shadow-sm transition-colors active:scale-[0.98]">
                         {isDone ? "Review Attempt" : "Attempt Quiz"}
                       </button>
                     </Link>
                   ) : (
                     <Link href={`/list/quizzes/${item.id}/submissions`}>
-                      <button className="px-4 py-1.5 bg-[#0038A8]/10 hover:bg-[#0038A8]/20 border border-[#0038A8]/25 text-[#0038A8] font-extrabold text-[9px] rounded-lg shadow-sm transition-colors active:scale-[0.98] uppercase tracking-wider">
+                      <button className="px-3.5 py-1.5 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 text-violet-700 dark:text-violet-400 font-bold text-[9px] rounded-lg shadow-sm transition-colors active:scale-[0.98]">
                         Review Submissions
                       </button>
                     </Link>
@@ -202,8 +223,8 @@ const QuizListPage = async ({
                         <CheckCircle2 className="h-3.5 w-3.5" />
                       </div>
                     ) : (
-                      <div className="h-5.5 w-5.5 rounded-full border border-dashed border-red-400 flex items-center justify-center shrink-0 shadow-sm" title="Pending">
-                        <div className="h-1.5 w-1.5 rounded-full bg-red-400" />
+                      <div className="h-5.5 w-5.5 rounded-full border border-dashed border-violet-400 flex items-center justify-center shrink-0 shadow-sm" title="Pending">
+                        <div className="h-1.5 w-1.5 rounded-full bg-violet-400" />
                       </div>
                     )
                   )}
@@ -214,7 +235,6 @@ const QuizListPage = async ({
         </div>
       ) : (
         <div className="bg-card border border-border/60 rounded-3xl p-12 text-center text-muted-foreground select-none">
-          <CheckSquare className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
           <p className="text-sm font-bold">No academic quizzes registered in database.</p>
         </div>
       )}

@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   ArrowLeft, FileText, Play, Download, ExternalLink, X, Edit, Save,
   Image as ImageIcon, BookOpen, ChevronDown, ChevronUp, Check,
-  CheckCircle2, ClipboardList, Video, Link2, Clock, Layers,
+  CheckCircle2, ClipboardList, Video, Link2, Clock, Layers, PanelRightOpen, PanelRightClose,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { api } from "@/lib/api";
@@ -50,11 +50,11 @@ function getYouTubeId(url: string) {
 }
 
 const TYPE_ICON: Record<string, React.ReactNode> = {
-  video : <Video        className="h-4 w-4 text-indigo-500" />,
-  pdf   : <FileText     className="h-4 w-4 text-rose-500" />,
-  doc   : <FileText     className="h-4 w-4 text-blue-500" />,
-  link  : <Link2        className="h-4 w-4 text-amber-500" />,
-  image : <ImageIcon    className="h-4 w-4 text-emerald-500" />,
+  video : <Video        className="h-4 w-4 text-slate-600" />,
+  pdf   : <FileText     className="h-4 w-4 text-slate-600" />,
+  doc   : <FileText     className="h-4 w-4 text-slate-500" />,
+  link  : <Link2        className="h-4 w-4 text-slate-500" />,
+  image : <ImageIcon    className="h-4 w-4 text-slate-500" />,
 };
 
 /* ─── Main Component ──────────────────────────────────────────── */
@@ -73,8 +73,9 @@ export default function StudentLessonPlayerPage() {
   const [loading,         setLoading]         = useState(true);
   const [role,            setRole]            = useState("");
   const [activeMaterial,  setActiveMaterial]  = useState<any | null>(null);
-  const [activeTab,       setActiveTab]       = useState("notes");
+  const [activeTab,       setActiveTab]       = useState("materials");
   const [completed,       setCompleted]       = useState(false);
+  const [showPanel,       setShowPanel]       = useState(false);
 
   // Edit modal states
   const [editing,         setEditing]         = useState(false);
@@ -117,6 +118,14 @@ export default function StudentLessonPlayerPage() {
           setModules(mods);
           setExpanded(prev => ({ ...prev, [Number(moduleId)]: true }));
         }
+
+        // Check if lesson is already completed
+        try {
+          const { data: progressData } = await api.get(`/progress/course/${courseId}`);
+          if (progressData?.completed_lesson_ids?.includes(Number(lessonId))) {
+            setCompleted(true);
+          }
+        } catch {}
       }
     } catch (err) {
       console.error("Failed to load lesson:", err);
@@ -220,26 +229,31 @@ export default function StudentLessonPlayerPage() {
   });
 
   const renderMaterialCard = (m: MaterialItem) => {
-    const isActive = activeMaterial?.id === m.id;
+    const url = m.file_url || m.external_url || "";
+    const isVideo = m.type === "video" || url.includes("youtube.com") || url.includes("youtu.be");
     return (
-      <button
+      <a
         key={m.id}
-        onClick={() => setActiveMaterial(m)}
-        className={`w-full flex items-center gap-3 p-2.5 rounded-xl border text-left transition-all ${
-          isActive
-            ? "bg-indigo-50 border-indigo-200 text-indigo-700 font-bold"
-            : "bg-white border-slate-100 hover:border-slate-200 hover:bg-slate-50 text-slate-700"
-        }`}
+        href={url || "#"}
+        target={isVideo ? undefined : "_blank"}
+        rel={isVideo ? undefined : "noopener noreferrer"}
+        onClick={(e) => {
+          if (isVideo) {
+            e.preventDefault();
+            setActiveMaterial(m);
+          }
+        }}
+        className="w-full flex items-center gap-3 p-2.5 rounded-xl border text-left transition-all bg-white border-slate-100 hover:border-slate-200 hover:bg-slate-50 text-slate-700"
       >
         <div className="shrink-0">
           {m.type === "video" ? (
-            <Video className="h-3.5 w-3.5 text-indigo-500" />
+            <Video className="h-3.5 w-3.5 text-slate-600" />
           ) : m.type === "pdf" || m.type === "doc" || m.type === "document" ? (
-            <FileText className="h-3.5 w-3.5 text-rose-500" />
+            <FileText className="h-3.5 w-3.5 text-slate-600" />
           ) : m.type === "image" ? (
-            <ImageIcon className="h-3.5 w-3.5 text-emerald-500" />
+            <ImageIcon className="h-3.5 w-3.5 text-slate-500" />
           ) : m.type === "link" ? (
-            <Link2 className="h-3.5 w-3.5 text-amber-500" />
+            <Link2 className="h-3.5 w-3.5 text-slate-500" />
           ) : (
             <Layers className="h-3.5 w-3.5 text-slate-400" />
           )}
@@ -248,8 +262,8 @@ export default function StudentLessonPlayerPage() {
           <p className="text-[11px] font-bold truncate leading-tight">{m.title}</p>
           <span className="text-[8px] text-slate-400 font-semibold uppercase tracking-wider">{m.type}</span>
         </div>
-        {isActive && <div className="h-1.5 w-1.5 rounded-full bg-indigo-500 shrink-0" />}
-      </button>
+        {!isVideo && <ExternalLink className="h-3 w-3 text-slate-300 shrink-0" />}
+      </a>
     );
   };
 
@@ -296,10 +310,10 @@ export default function StudentLessonPlayerPage() {
     if (type === "link") {
       return (
         <div className="flex flex-col items-center justify-center h-full gap-4">
-          <div className="h-16 w-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-3xl">🔗</div>
+          <div className="h-16 w-16 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-3xl">🔗</div>
           <p className="text-sm font-bold text-slate-700">{activeMaterial.title}</p>
           <a href={target} target="_blank" rel="noreferrer"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow transition-all active:scale-95">
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl shadow transition-all active:scale-95">
             <ExternalLink className="h-4 w-4" /> Visit External Link
           </a>
         </div>
@@ -324,7 +338,7 @@ export default function StudentLessonPlayerPage() {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#F4F6FA]">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-9 w-9 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+          <div className="h-9 w-9 border-4 border-slate-400 border-t-transparent rounded-full animate-spin" />
           <p className="text-xs font-semibold text-slate-400">Loading lesson…</p>
         </div>
       </div>
@@ -346,13 +360,13 @@ export default function StudentLessonPlayerPage() {
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider leading-none">Return</p>
               <Link
                 href={courseId ? `/list/courses/${courseId}` : (canEdit ? "/teacher" : "/student")}
-                className="text-[11px] font-extrabold text-slate-600 hover:text-indigo-600 transition-colors mt-0.5 inline-block"
+                className="text-[11px] font-extrabold text-slate-600 hover:text-slate-900 transition-colors mt-0.5 inline-block"
               >
                 Back to course
               </Link>
             </div>
           </div>
-          <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Course Syllabus</p>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Course Syllabus</p>
           <h2 className="text-sm font-black text-slate-800 mt-0.5 leading-snug">
             {lesson?.course_name || "Course Content"}
           </h2>
@@ -375,7 +389,7 @@ export default function StudentLessonPlayerPage() {
                   className="w-full flex items-center justify-between px-3.5 py-3 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
                 >
                   <div className="min-w-0 pr-2">
-                    <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
                       Module {idx + 1}
                     </span>
                     <p className="text-xs font-bold text-slate-700 truncate leading-tight mt-0.5">
@@ -399,7 +413,7 @@ export default function StudentLessonPlayerPage() {
                         <>
                           <div className={`h-5 w-5 rounded-md flex items-center justify-center shrink-0 border ${
                             isCurrent
-                              ? "bg-indigo-500 border-indigo-400 text-white"
+                              ? "bg-slate-800 border-slate-700 text-white"
                               : "bg-white border-slate-200 text-slate-300 group-hover:border-slate-300"
                           }`}>
                             {isCurrent
@@ -407,7 +421,7 @@ export default function StudentLessonPlayerPage() {
                               : <div className="h-1 w-1 rounded-full bg-slate-300" />}
                           </div>
                           <p className={`text-xs truncate flex-1 ${
-                            isCurrent ? "font-bold text-indigo-700" : "font-medium text-slate-600 group-hover:text-slate-800"
+                            isCurrent ? "font-bold text-slate-900" : "font-medium text-slate-600 group-hover:text-slate-800"
                           }`}>
                             {les.title} {isDoc && "📄"}
                           </p>
@@ -415,7 +429,7 @@ export default function StudentLessonPlayerPage() {
                       );
                       const linkClassName = `flex items-center gap-2.5 px-4 py-2.5 transition-colors group ${
                         isCurrent
-                          ? "bg-indigo-50 border-l-2 border-indigo-500"
+                          ? "bg-slate-100 border-l-2 border-slate-800"
                           : "hover:bg-slate-50 border-l-2 border-transparent"
                       }`;
 
@@ -448,8 +462,8 @@ export default function StudentLessonPlayerPage() {
         {/* Top bar */}
         <div className="bg-white border-b border-slate-100 px-6 py-3 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2 min-w-0">
-            <div className="h-7 w-7 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
-              <BookOpen className="h-3.5 w-3.5 text-indigo-500" />
+            <div className="h-7 w-7 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
+              <BookOpen className="h-3.5 w-3.5 text-slate-600" />
             </div>
             <div className="min-w-0">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">
@@ -466,6 +480,14 @@ export default function StudentLessonPlayerPage() {
                 <Clock className="h-3 w-3" /> {lesson.duration}
               </span>
             )}
+            <button
+              onClick={() => setShowPanel(p => !p)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 text-xs font-bold rounded-lg transition-colors"
+              title={showPanel ? "Hide Resources" : "Show Resources"}
+            >
+              {showPanel ? <PanelRightClose className="h-3.5 w-3.5" /> : <PanelRightOpen className="h-3.5 w-3.5" />}
+              <span className="hidden sm:inline">{showPanel ? "Hide" : "Resources"}</span>
+            </button>
             {canEdit && (
               <button
                 onClick={() => setEditing(true)}
@@ -475,13 +497,19 @@ export default function StudentLessonPlayerPage() {
               </button>
             )}
             <button
-              onClick={() => {
-                setCompleted(p => !p);
-                toast.success(completed ? "Marked as incomplete" : "Lesson completed! 🎉");
+              onClick={async () => {
+                const newVal = !completed;
+                try {
+                  await api.post(`/progress/lesson/${lessonId}`, { completed: newVal });
+                  setCompleted(newVal);
+                  toast.success(newVal ? "Lesson completed!" : "Marked as incomplete");
+                } catch (err: any) {
+                  toast.error(err?.response?.data?.detail || "Failed to update progress");
+                }
               }}
               className={`flex items-center gap-1.5 px-4 py-2 text-xs font-black rounded-xl border transition-all ${
                 completed
-                  ? "bg-emerald-500 border-emerald-400 text-white"
+                  ? "bg-green-600 border-green-600 text-white hover:bg-green-700"
                   : "bg-[#0038A8] border-[#0038A8] text-white hover:bg-[#002D86]"
               }`}
             >
@@ -492,34 +520,15 @@ export default function StudentLessonPlayerPage() {
         </div>
 
         {/* Content area */}
-        <div className="flex-1 p-5 grid grid-cols-1 xl:grid-cols-3 gap-5">
+        <div className={`flex-1 p-5 grid grid-cols-1 gap-5 ${showPanel ? "xl:grid-cols-3" : ""}`}>
 
-          {/* ── Video / Media player (col-span-2) ─────────────── */}
-          <div className="xl:col-span-2 flex flex-col gap-4">
+          {/* ── Video / Media player ─────────────────────────── */}
+          <div className={`${showPanel ? "xl:col-span-2" : ""} flex flex-col gap-4`}>
 
-            {/* Material tabs (if multiple) */}
-            {lesson?.materials && lesson.materials.length > 1 && (
-              <div className="flex gap-2 flex-wrap">
-                {lesson.materials.map(m => (
-                  <button
-                    key={m.id}
-                    onClick={() => setActiveMaterial(m)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
-                      activeMaterial?.id === m.id
-                        ? "bg-indigo-600 border-indigo-500 text-white"
-                        : "bg-white border-slate-200 text-slate-600 hover:border-indigo-300"
-                    }`}
-                  >
-                    {TYPE_ICON[m.type] || <Layers className="h-4 w-4" />}
-                    {m.title}
-                  </button>
-                ))}
-              </div>
-            )}
 
             {/* Player card */}
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-              <div className={`relative w-full bg-slate-50 flex items-center justify-center ${
+              <div className={`relative w-full bg-slate-100 flex items-center justify-center ${
                 activeMaterial?.type === "pdf" || activeMaterial?.type === "doc" || activeMaterial?.type === "document" || target?.toLowerCase().split('?')[0].endsWith(".pdf")
                   ? "h-[650px]"
                   : "aspect-video"
@@ -538,7 +547,7 @@ export default function StudentLessonPlayerPage() {
                   </p>
                 </div>
                 {lesson?.order && (
-                  <span className="shrink-0 text-[10px] font-black text-indigo-400 bg-indigo-50 border border-indigo-100 px-2 py-1 rounded-lg uppercase tracking-wider">
+                  <span className="shrink-0 text-[10px] font-black text-slate-500 bg-slate-50 border border-slate-200 px-2 py-1 rounded-lg uppercase tracking-wider">
                     Lesson {lesson.order}
                   </span>
                 )}
@@ -547,6 +556,7 @@ export default function StudentLessonPlayerPage() {
           </div>
 
           {/* ── Right Panel: Notes / Resources / Assessments ──── */}
+          {showPanel && (
           <div className="flex flex-col gap-4">
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col overflow-hidden">
 
@@ -562,7 +572,7 @@ export default function StudentLessonPlayerPage() {
                     onClick={() => setActiveTab(tab.key)}
                     className={`flex items-center gap-1 pb-2.5 pt-2 px-2 text-[10px] font-bold uppercase tracking-wider border-b-2 transition-colors mr-2 ${
                       activeTab === tab.key
-                        ? "border-indigo-500 text-indigo-600"
+                        ? "border-slate-800 text-slate-800"
                         : "border-transparent text-slate-400 hover:text-slate-600"
                     }`}
                   >
@@ -589,7 +599,7 @@ export default function StudentLessonPlayerPage() {
                   <div className="space-y-4">
                     {videos.length > 0 && (
                       <div className="space-y-1.5">
-                        <p className="text-[9px] font-black text-indigo-500 uppercase tracking-wider">Video Section</p>
+                        <p className="text-[9px] font-black text-slate-600 uppercase tracking-wider">Video Section</p>
                         <div className="space-y-1.5">
                           {videos.map(m => renderMaterialCard(m))}
                         </div>
@@ -597,7 +607,7 @@ export default function StudentLessonPlayerPage() {
                     )}
                     {documents.length > 0 && (
                       <div className="space-y-1.5">
-                        <p className="text-[9px] font-black text-rose-500 uppercase tracking-wider">Documents Section</p>
+                        <p className="text-[9px] font-black text-slate-600 uppercase tracking-wider">Documents Section</p>
                         <div className="space-y-1.5">
                           {documents.map(m => renderMaterialCard(m))}
                         </div>
@@ -605,7 +615,7 @@ export default function StudentLessonPlayerPage() {
                     )}
                     {slides.length > 0 && (
                       <div className="space-y-1.5">
-                        <p className="text-[9px] font-black text-blue-500 uppercase tracking-wider">Slides Section</p>
+                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider">Slides Section</p>
                         <div className="space-y-1.5">
                           {slides.map(m => renderMaterialCard(m))}
                         </div>
@@ -613,7 +623,7 @@ export default function StudentLessonPlayerPage() {
                     )}
                     {resources.length > 0 && (
                       <div className="space-y-1.5">
-                        <p className="text-[9px] font-black text-amber-500 uppercase tracking-wider">Resources Section</p>
+                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider">Resources Section</p>
                         <div className="space-y-1.5">
                           {resources.map(m => renderMaterialCard(m))}
                         </div>
@@ -621,7 +631,7 @@ export default function StudentLessonPlayerPage() {
                     )}
                     {downloads.length > 0 && (
                       <div className="space-y-1.5">
-                        <p className="text-[9px] font-black text-emerald-500 uppercase tracking-wider">Downloads Section</p>
+                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider">Downloads Section</p>
                         <div className="space-y-1.5">
                           {downloads.map(m => renderMaterialCard(m))}
                         </div>
@@ -640,28 +650,28 @@ export default function StudentLessonPlayerPage() {
                       <Link
                         key={q.id}
                         href={`/list/quizzes/${q.id}`}
-                        className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-white hover:border-emerald-200 hover:bg-emerald-50 transition-all group"
+                        className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-white hover:border-slate-300 hover:bg-slate-50 transition-all group"
                       >
-                        <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                        <CheckCircle2 className="h-4 w-4 text-slate-600 shrink-0" />
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs font-bold text-slate-700 truncate group-hover:text-emerald-700">{q.title}</p>
+                          <p className="text-xs font-bold text-slate-700 truncate group-hover:text-slate-900">{q.title}</p>
                           <span className="text-[9px] text-slate-400 font-semibold uppercase tracking-wider">Quiz · {q.total_marks} marks</span>
                         </div>
-                        <ExternalLink className="h-3.5 w-3.5 text-slate-300 group-hover:text-emerald-400" />
+                        <ExternalLink className="h-3.5 w-3.5 text-slate-300 group-hover:text-slate-500" />
                       </Link>
                     ))}
                     {lesson?.assignments?.map(a => (
                       <Link
                         key={a.id}
                         href={`/list/assignments/${a.id}/submit`}
-                        className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-white hover:border-indigo-200 hover:bg-indigo-50 transition-all group"
+                        className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-white hover:border-slate-300 hover:bg-slate-50 transition-all group"
                       >
-                        <ClipboardList className="h-4 w-4 text-indigo-500 shrink-0" />
+                        <ClipboardList className="h-4 w-4 text-slate-600 shrink-0" />
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs font-bold text-slate-700 truncate group-hover:text-indigo-700">{a.title}</p>
+                          <p className="text-xs font-bold text-slate-700 truncate group-hover:text-slate-900">{a.title}</p>
                           <span className="text-[9px] text-slate-400 font-semibold uppercase tracking-wider">Assignment</span>
                         </div>
-                        <ExternalLink className="h-3.5 w-3.5 text-slate-300 group-hover:text-indigo-400" />
+                        <ExternalLink className="h-3.5 w-3.5 text-slate-300 group-hover:text-slate-500" />
                       </Link>
                     ))}
                     {!lesson?.quizzes?.length && !lesson?.assignments?.length && (
@@ -672,6 +682,7 @@ export default function StudentLessonPlayerPage() {
               </div>
             </div>
           </div>
+          )}
         </div>
       </main>
 
@@ -702,7 +713,7 @@ export default function StudentLessonPlayerPage() {
                   <label className="text-xs font-bold text-slate-500 block mb-1">Title</label>
                   <input
                     type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-300"
                     required
                   />
                 </div>
@@ -752,7 +763,7 @@ export default function StudentLessonPlayerPage() {
                 <div>
                   <label className="text-xs font-bold text-slate-500 block mb-1">Notes / Content</label>
                   <textarea rows={4} value={editContent} onChange={e => setEditContent(e.target.value)}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none" />
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-300 resize-none" />
                 </div>
 
                 <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-3">
@@ -761,7 +772,7 @@ export default function StudentLessonPlayerPage() {
                     Cancel
                   </button>
                   <button type="submit" disabled={saving}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] text-white font-black text-xs rounded-xl shadow transition-all disabled:opacity-60">
+                    className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-black text-xs rounded-xl shadow transition-all disabled:opacity-60">
                     <Save className="h-3.5 w-3.5" />
                     {saving ? "Saving…" : "Save changes"}
                   </button>

@@ -328,7 +328,7 @@ export default function CourseCreatePage() {
 
   const renderActivityIcon = (type: string) => {
     switch (type) {
-      case "file": return <FileUp className="h-4 w-4 text-emerald-600 shrink-0" />;
+      case "file": return <FileText className="h-4 w-4 text-rose-500 shrink-0" />;
       case "url": return <ExternalLink className="h-4 w-4 text-amber-600 shrink-0" />;
       default: return <BookOpen className="h-4 w-4 text-[#0038A8] shrink-0" />;
     }
@@ -436,9 +436,10 @@ export default function CourseCreatePage() {
               <div className="md:col-span-4">
                 <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full md:w-2/3 px-3 py-2.5 bg-slate-50 border rounded-xl text-xs font-bold focus:outline-none">
                   <option value="Computer Science">Computer Science</option>
-                  <option value="Business">Business</option>
-                  <option value="Economics">Economics</option>
-                  <option value="Mathematics">Mathematics</option>
+                  <option value="Data Science">Data Science</option>
+                  <option value="Information Technology">Information Technology</option>
+                  <option value="Software Engineering">Software Engineering</option>
+                  <option value="Applied Mathematics & Statistics">Applied Mathematics & Statistics</option>
                 </select>
               </div>
               <label className="md:col-span-2 text-xs font-bold text-slate-500 uppercase tracking-wide md:pt-3">Difficulty Level</label>

@@ -30,6 +30,7 @@ import {
   deleteCourse,
   deleteEvent,
   deleteUser,
+  deleteQuiz,
 } from "@/lib/actions";
 
 const deleteActionMap = {
@@ -47,6 +48,7 @@ const deleteActionMap = {
   course: deleteCourse,
   announcement: deleteAnnouncement,
   user: deleteUser,
+  quiz: deleteQuiz,
 };
 
 interface TableRowActionsProps {
@@ -143,13 +145,22 @@ export default function TableRowActions({
             </DropdownMenuItem>
           )}
           
-          {(role === "admin" || (role === "teacher" && ["lesson", "assignment", "exam", "result"].includes(table))) && editData && (
-            <DropdownMenuItem onSelect={() => setEditOpen(true)}>
-              <div className="flex items-center gap-2 w-full text-left cursor-pointer">
-                <Image src="/update.png" alt="" width={14} height={14} className="opacity-75" />
-                <span>Edit Details</span>
-              </div>
-            </DropdownMenuItem>
+          {(role === "admin" || (role === "teacher" && ["lesson", "assignment", "exam", "result", "quiz"].includes(table))) && editData && (
+            table === "quiz" ? (
+              <DropdownMenuItem asChild>
+                <Link href={`/list/quizzes/${id}/edit`} className="flex items-center gap-2">
+                  <Image src="/update.png" alt="" width={14} height={14} className="opacity-75" />
+                  <span>Edit Details</span>
+                </Link>
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem onSelect={() => setEditOpen(true)}>
+                <div className="flex items-center gap-2 w-full text-left cursor-pointer">
+                  <Image src="/update.png" alt="" width={14} height={14} className="opacity-75" />
+                  <span>Edit Details</span>
+                </div>
+              </DropdownMenuItem>
+            )
           )}
 
           {role === "admin" && (table === "course" || table === "class") && (
@@ -161,7 +172,7 @@ export default function TableRowActions({
             </DropdownMenuItem>
           )}
 
-          {(role === "admin" || (role === "teacher" && ["lesson", "assignment", "exam", "result"].includes(table))) && (
+          {(role === "admin" || (role === "teacher" && ["lesson", "assignment", "exam", "result", "quiz"].includes(table))) && (
             <DropdownMenuItem asChild>
               <button
                 onClick={handleArchive}
@@ -173,7 +184,7 @@ export default function TableRowActions({
             </DropdownMenuItem>
           )}
 
-          {(role === "admin" || (role === "teacher" && ["lesson", "assignment", "exam", "result"].includes(table))) && (
+          {(role === "admin" || (role === "teacher" && ["lesson", "assignment", "exam", "result", "quiz"].includes(table))) && (
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={(e) => e.preventDefault()} asChild>

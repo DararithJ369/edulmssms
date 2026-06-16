@@ -42,7 +42,7 @@ const RecommendedCoursesWidget = async () => {
   return (
     <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.015)] space-y-4 select-none animate-in fade-in slide-in-from-bottom-2 duration-300">
       <div className="flex items-center gap-2">
-        <Sparkles className="h-4.5 w-4.5 text-amber-500 animate-pulse" />
+        <Sparkles className="h-4.5 w-4.5 text-slate-500" />
         <h2 className="text-lg font-black text-slate-800 tracking-tight">
           Recommended for You
         </h2>
@@ -76,7 +76,7 @@ const RecommendedCoursesWidget = async () => {
               )}
               <div className="flex-1 min-w-0 flex flex-col justify-between">
                 <div>
-                  <h3 className="text-xs font-black text-slate-800 truncate leading-tight hover:text-[#0038A8] transition-colors">
+                  <h3 className="text-xs font-black text-slate-800 truncate leading-tight hover:text-slate-900 transition-colors">
                     {course.course_name}
                   </h3>
                   <p className="text-[10px] text-slate-400 font-semibold mt-0.5 line-clamp-2 leading-normal">
@@ -90,7 +90,7 @@ const RecommendedCoursesWidget = async () => {
                   </div>
                   <Link 
                     href={`/list/courses/${course.id}`}
-                    className="text-[10px] text-[#0038A8] font-black hover:underline"
+                    className="text-[10px] text-slate-600 font-black hover:underline"
                   >
                     Learn More
                   </Link>

@@ -22,7 +22,7 @@ const UserCard = async ({
     <div className="rounded-2xl border border-border bg-card/80 p-4 flex-1 min-w-[130px] transition-colors duration-300">
       <div className="flex justify-between items-center">
         <span className="text-[10px] bg-secondary px-2 py-1 rounded-full text-secondary-foreground">
-          2024/25
+          2025/26
         </span>
         <Image src="/more.png" alt="" width={20} height={20} />
       </div>

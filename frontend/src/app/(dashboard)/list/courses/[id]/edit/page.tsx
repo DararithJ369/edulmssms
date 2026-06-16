@@ -653,7 +653,7 @@ export default function CourseDetailEditorPage() {
 
   const renderActivityIcon = (type: string) => {
     switch (type) {
-      case "file": return <FileUp className="h-4 w-4 text-emerald-600 shrink-0" />;
+      case "file": return <FileText className="h-4 w-4 text-rose-500 shrink-0" />;
       case "url": return <ExternalLink className="h-4 w-4 text-amber-600 shrink-0" />;
       default: return <BookOpen className="h-4 w-4 text-[#0038A8] shrink-0" />;
     }
@@ -729,15 +729,34 @@ export default function CourseDetailEditorPage() {
             <span>/</span>
             <span className="text-slate-800">Edit settings</span>
           </div>
-          <div className="flex items-center gap-3 pt-1">
-            <BackButton />
-            <div>
-              <span className="text-xs font-extrabold text-[#0038A8] uppercase tracking-wider font-mono">
-                Course Configuration Dashboard
-              </span>
-              <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-tight mt-0.5">
-                Edit Course settings: {courseName}
-              </h1>
+          <div className="flex items-center justify-between pt-1">
+            <div className="flex items-center gap-3">
+              <BackButton />
+              <div>
+                <span className="text-xs font-extrabold text-[#0038A8] uppercase tracking-wider font-mono">
+                  Course Configuration Dashboard
+                </span>
+                <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-tight mt-0.5">
+                  Edit Course settings: {courseName}
+                </h1>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saving}
+                className="flex items-center gap-1.5 px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] text-white text-xs font-black rounded-xl shadow-sm transition-colors disabled:opacity-50"
+              >
+                {saving ? "Saving..." : "Save Changes"}
+              </button>
+              <Link
+                href={`/list/courses/${courseId}`}
+                className="flex items-center gap-1.5 px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl transition-colors"
+              >
+                <span>✕</span>
+                <span>Cancel</span>
+              </Link>
             </div>
           </div>
         </div>
@@ -796,9 +815,10 @@ export default function CourseDetailEditorPage() {
               <div className="md:col-span-4">
                 <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full md:w-2/3 px-3 py-2.5 bg-slate-50 border rounded-xl text-xs font-bold focus:outline-none">
                   <option value="Computer Science">Computer Science</option>
-                  <option value="Business">Business</option>
-                  <option value="Economics">Economics</option>
-                  <option value="Mathematics">Mathematics</option>
+                  <option value="Data Science">Data Science</option>
+                  <option value="Information Technology">Information Technology</option>
+                  <option value="Software Engineering">Software Engineering</option>
+                  <option value="Applied Mathematics & Statistics">Applied Mathematics & Statistics</option>
                 </select>
               </div>
               <label className="md:col-span-2 text-xs font-bold text-slate-500 uppercase tracking-wide md:pt-3">Difficulty Level</label>
@@ -877,8 +897,21 @@ export default function CourseDetailEditorPage() {
                 </CldUploadWidget>
                 <div className="flex gap-2 max-w-md">
                   <div className="relative flex-1">
-                    <Link2 className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
-                    <input type="text" value={thumbnail} onChange={(e) => setThumbnail(e.target.value)} placeholder="Paste Unsplash banner asset link or Cloudinary string path..." className="w-full pl-10 pr-4 py-2 bg-slate-50 border rounded-xl text-xs font-mono font-medium focus:outline-none" />
+                    <Link2 className="absolute left-3.5 top-3 h-4 w-4 text-slate-400 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={thumbnail}
+                      onChange={(e) => setThumbnail(e.target.value)}
+                      onPaste={(e) => {
+                        const text = e.clipboardData.getData("text");
+                        if (text) {
+                          e.preventDefault();
+                          setThumbnail(text.trim());
+                        }
+                      }}
+                      placeholder="Paste image URL here (e.g. https://images.unsplash.com/...)"
+                      className="w-full pl-10 pr-4 py-2.5 bg-white border-2 border-slate-200 rounded-xl text-xs font-mono font-medium focus:outline-none focus:border-[#0038A8] focus:ring-1 focus:ring-[#0038A8]/30 transition-colors"
+                    />
                   </div>
                   <CldUploadWidget 
                     options={{

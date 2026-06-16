@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { getImageUrl } from "@/lib/image-url";
@@ -10,6 +11,7 @@ import {
   Calendar, Award, MessageSquare, AlertCircle
 } from "lucide-react";
 import { toast } from "react-toastify";
+import { CldUploadWidget } from "next-cloudinary";
 
 type Assignment = {
   id: number;
@@ -32,12 +34,14 @@ type Submission = {
 };
 
 export default function AssignmentSubmissionPage({ params }: { params: { id: string } }) {
+  const router = useRouter();
   const assignmentId = parseInt(params.id);
   const [assignment, setAssignment] = useState<Assignment | null>(null);
   const [submission, setSubmission] = useState<Submission | null>(null);
   
   const [submissionText, setSubmissionText] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadedFileUrl, setUploadedFileUrl] = useState<string | null>(null);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -102,8 +106,8 @@ export default function AssignmentSubmissionPage({ params }: { params: { id: str
       if (submissionText) {
         fd.append("submission_text", submissionText);
       }
-      if (selectedFile) {
-        fd.append("file", selectedFile);
+      if (uploadedFileUrl) {
+        fd.append("file_url", uploadedFileUrl);
       }
 
       const res = await api.post(`/submissions`, fd, {
@@ -114,7 +118,9 @@ export default function AssignmentSubmissionPage({ params }: { params: { id: str
 
       setSubmission(res.data);
       toast.success("Homework submitted successfully! You can edit this submission before grading if needed.");
-      setSelectedFile(null);
+      setUploadedFileUrl(null);
+      setUploadedFileName(null);
+      router.refresh();
       setSubmitting(false);
     } catch (err: any) {
       console.error(err);
@@ -242,22 +248,43 @@ export default function AssignmentSubmissionPage({ params }: { params: { id: str
                     </div>
                   )}
 
-                  <div className="border-2 border-dashed border-border/80 hover:border-[#0038A8]/60 bg-muted/10 hover:bg-muted/30 p-6 rounded-2xl transition-all flex flex-col items-center justify-center cursor-pointer relative overflow-hidden select-none">
-                    <input
-                      type="file"
-                      onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    />
-                    <Upload className="h-8 w-8 text-muted-foreground/60 mb-2" />
-                    <span className="text-sm font-bold text-foreground">
-                      {selectedFile ? selectedFile.name : "Browse / Drop Homework File Here"}
-                    </span>
-                    <span className="text-xs text-muted-foreground mt-1">
-                      {selectedFile 
-                        ? `${round(selectedFile.size / (1024 * 1024), 2)}MB` 
-                        : "Supports PDF, DOCX, ZIP, PPTX, and Images up to 10MB"}
-                    </span>
-                  </div>
+                  <CldUploadWidget
+                    uploadPreset={process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "lms_preset"}
+                    options={{
+                      cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || "dlykcgjdh",
+                      multiple: false,
+                      resourceType: "auto",
+                      sources: ["local", "url"],
+                      folder: "lms_submissions",
+                      maxFileSize: 10485760,
+                    }}
+                    onSuccess={(result: any) => {
+                      const info = result?.info;
+                      if (info?.secure_url) {
+                        setUploadedFileUrl(info.secure_url);
+                        setUploadedFileName(info.original_filename + "." + (info.format || "file"));
+                        toast.success("File uploaded successfully!");
+                      }
+                    }}
+                    onError={() => toast.error("File upload failed. Please try again.")}
+                  >
+                    {({ open }: { open: () => void }) => (
+                      <div
+                        onClick={() => open()}
+                        className="border-2 border-dashed border-border/80 hover:border-[#0038A8]/60 bg-muted/10 hover:bg-muted/30 p-6 rounded-2xl transition-all flex flex-col items-center justify-center cursor-pointer select-none"
+                      >
+                        <Upload className="h-8 w-8 text-muted-foreground/60 mb-2" />
+                        <span className="text-sm font-bold text-foreground">
+                          {uploadedFileName || "Browse / Drop Homework File Here"}
+                        </span>
+                        <span className="text-xs text-muted-foreground mt-1">
+                          {uploadedFileUrl
+                            ? "File uploaded to cloud ✓"
+                            : "Supports PDF, DOCX, ZIP, PPTX, and Images up to 10MB"}
+                        </span>
+                      </div>
+                    )}
+                  </CldUploadWidget>
                 </div>
 
                 <button

@@ -20,7 +20,9 @@ class AssignmentService:
         limit: int = 10,
         search: str = "",
         class_id: Optional[int] = None,
-        course_id: Optional[int] = None
+        course_id: Optional[int] = None,
+        sort_by: Optional[str] = None,
+        sort_order: Optional[str] = None
     ) -> dict:
         query = db.query(Assignment)
 
@@ -38,7 +40,14 @@ class AssignmentService:
                 (Assignment.description.ilike(f"%{search}%"))
             )
 
-        return paginate(db, Assignment, AssignmentResponse, Assignment.created_at.desc(), page, limit, query=query)
+        # Determine sort order
+        order = Assignment.created_at.desc()
+        if sort_by:
+            column = getattr(Assignment, sort_by, None)
+            if column is not None:
+                order = column.asc() if sort_order == "asc" else column.desc()
+
+        return paginate(db, Assignment, AssignmentResponse, order, page, limit, query=query)
 
     @staticmethod
     def get_assignment_by_id(db: Session, assignment_id: int) -> AssignmentResponse:

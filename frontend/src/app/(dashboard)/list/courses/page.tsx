@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import Pagination from "@/components/Pagination";
 import TableSearch from "@/components/TableSearch";
 import TableRowActions from "@/components/TableRowActions";
@@ -18,9 +20,11 @@ import {
   Settings2,
   ListFilter,
   ArrowUpDown,
-  Plus
+  Plus,
+  Search
 } from "lucide-react";
 import { normalizeRole } from "@/lib/auth";
+import EnrollButton from "@/components/EnrollButton";
 
 type CourseItem = {
   id: number;
@@ -46,13 +50,15 @@ const CourseListPage = async ({
   const cookieStore = cookies();
   const role = normalizeRole(cookieStore.get("user_role")?.value);
 
-  const { page, search, category } = searchParams;
+  const { page, search, category, browse } = searchParams;
   const p = page ? parseInt(page) : 1;
+  const isBrowsing = role === "student" && browse === "true";
 
-  // Build query path
+  // Build query path — students only see their enrolled courses unless browsing
   const searchArg = search ? `&search=${encodeURIComponent(search)}` : "";
   const catArg = category ? `&category=${encodeURIComponent(category)}` : "";
-  const queryPath = `/courses?page=${p}&limit=9${searchArg}${catArg}`;
+  const basePath = role === "student" && !isBrowsing ? "/courses/my-enrolled" : "/courses";
+  const queryPath = `${basePath}?page=${p}&limit=9${searchArg}${catArg}`;
 
   // Query backend /courses
   const response = await serverFetch<{
@@ -67,7 +73,7 @@ const CourseListPage = async ({
   const count = response.meta?.total || 0;
 
   // Active Category Options for tab-like filtering
-  const categories = ["All", "Computer Science", "Business", "Economics", "Mathematics"];
+  const categories = ["All", "Computer Science", "Data Science", "Information Technology", "Software Engineering", "Applied Mathematics & Statistics"];
 
   return (
     <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left">
@@ -88,12 +94,29 @@ const CourseListPage = async ({
             Academic Classroom Catalog
           </span>
           <h1 className="text-xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight leading-tight mt-0.5">
-            {category ? `${category} Courses` : "My Course Overview"}
+            {category ? `${category} Courses` : (isBrowsing ? "Browse All Courses" : (role === "student" ? "My Enrolled Courses" : "All Courses"))}
           </h1>
         </div>
 
         {/* Administration Actions */}
         <div className="flex items-center gap-2 shrink-0">
+          {role === "student" && (
+            isBrowsing ? (
+              <Link href="/list/courses">
+                <button className="px-4 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300 font-black text-xs rounded-xl transition-all flex items-center gap-1.5 active:scale-[0.98]">
+                  <BookOpen className="h-4 w-4" />
+                  <span>My Courses</span>
+                </button>
+              </Link>
+            ) : (
+              <Link href="/list/courses?browse=true">
+                <button className="px-4 py-2 bg-[#0038A8] text-white hover:bg-[#002D86] font-black text-xs rounded-xl transition-all shadow-md shadow-blue-500/10 flex items-center gap-1.5 active:scale-[0.98]">
+                  <Search className="h-4 w-4" />
+                  <span>Find New Courses</span>
+                </button>
+              </Link>
+            )
+          )}
           {(role === "admin" || role === "teacher") && (
             <Link href={`/list/courses/create${category ? `?category=${encodeURIComponent(category)}` : ''}`}>
               <button className="px-4 py-2 bg-[#0038A8] text-white hover:bg-[#002D86] font-black text-xs rounded-xl transition-all shadow-md shadow-blue-500/10 flex items-center gap-1.5 active:scale-[0.98]">
@@ -206,18 +229,23 @@ const CourseListPage = async ({
                   </div>
 
                   <div className="flex items-center gap-1.5">
+                    {isBrowsing && (
+                      <EnrollButton courseId={item.id} />
+                    )}
                     <Link href={`/list/courses/${item.id}`}>
                       <button className="px-3 py-1.5 bg-[#0038A8]/10 hover:bg-[#0038A8]/20 border border-[#0038A8]/20 text-[#0038A8] font-bold text-[9px] rounded-lg shadow-sm transition-colors flex items-center gap-1 active:scale-[0.98]">
-                        <span>Enter Course</span>
+                        <span>{isBrowsing ? "View" : "Enter Course"}</span>
                         <ChevronRight className="h-3 w-3" />
                       </button>
                     </Link>
-                    <TableRowActions
-                      id={item.id}
-                      table="course"
-                      viewUrl={`/list/courses/${item.id}`}
-                      role={role}
-                    />
+                    {!isBrowsing && (
+                      <TableRowActions
+                        id={item.id}
+                        table="course"
+                        viewUrl={`/list/courses/${item.id}`}
+                        role={role}
+                      />
+                    )}
                   </div>
                 </div>
 

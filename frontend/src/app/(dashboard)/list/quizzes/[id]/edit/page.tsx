@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
-import { ArrowLeft, Plus, Trash2, Save, Layers, HelpCircle, Globe, GripVertical } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Save, Layers, HelpCircle, Globe, GripVertical, Loader2 } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -180,8 +180,12 @@ function SortableQuestionItem({
   );
 }
 
-export default function CreateQuizPage() {
+export default function EditQuizPage() {
   const router = useRouter();
+  const params = useParams();
+  const quizId = params.id as string;
+
+  const [loading, setLoading] = useState(true);
   const [courses, setCourses] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -192,8 +196,6 @@ export default function CreateQuizPage() {
   const [courseId, setCourseId] = useState("");
   const [modules, setModules] = useState<any[]>([]);
   const [moduleName, setModuleName] = useState("");
-  const [timeLimit, setTimeLimit] = useState<number | "">("");
-  const [passMark, setPassMark] = useState<number>(50);
   const [dueDate, setDueDate] = useState("");
   const [questions, setQuestions] = useState<QuestionForm[]>([]);
 
@@ -216,29 +218,64 @@ export default function CreateQuizPage() {
     }
   };
 
+  // Load quiz data
   useEffect(() => {
-    async function loadMetadataOptions() {
+    async function loadQuizData() {
       try {
-        const { data } = await api.get("/courses?limit=100");
-        setCourses(data?.data || []);
+        const [quizRes, coursesRes] = await Promise.all([
+          api.get(`/quizzes/${quizId}`),
+          api.get("/courses?limit=100"),
+        ]);
+
+        const quiz = quizRes.data;
+        setCourses(coursesRes.data?.data || []);
+
+        setTitle(quiz.title || "");
+        setDescription(quiz.description || "");
+        setCourseId(String(quiz.course_id || ""));
+        setModuleName(quiz.module_name || "");
+
+        // Format due_date for datetime-local input
+        if (quiz.due_date) {
+          const d = new Date(quiz.due_date);
+          const formatted = d.toISOString().slice(0, 16);
+          setDueDate(formatted);
+        }
+
+        // Map questions
+        if (quiz.questions && quiz.questions.length > 0) {
+          const mappedQuestions: QuestionForm[] = quiz.questions.map((q: any) => {
+            const correctIdx = q.options?.findIndex((o: any) => o.is_correct === 1 || o.is_correct === true) ?? 0;
+            return {
+              id: String(q.id || Math.random().toString(36).slice(2, 9)),
+              question_text: q.question_text || "",
+              question_type: q.question_type || "multiple_choice",
+              options: q.options?.map((o: any) => ({ option_text: o.option_text })) || [{ option_text: "" }, { option_text: "" }],
+              correct_option_index: correctIdx >= 0 ? correctIdx : 0,
+            };
+          });
+          setQuestions(mappedQuestions);
+        }
       } catch (err) {
-        console.error("Failed to populate course links:", err);
+        console.error("Failed to load quiz:", err);
+        setError("Failed to load quiz data.");
+      } finally {
+        setLoading(false);
       }
     }
-    loadMetadataOptions();
-  }, []);
+    loadQuizData();
+  }, [quizId]);
 
+  // Load modules when courseId changes
   useEffect(() => {
     if (!courseId) {
       setModules([]);
-      setModuleName("");
       return;
     }
     async function loadCourseModules() {
       try {
         const { data } = await api.get(`/courses/${courseId}/modules`);
         setModules(data || []);
-        setModuleName("");
       } catch (err) {
         console.error("Failed to load modules for course:", err);
       }
@@ -297,32 +334,17 @@ export default function CreateQuizPage() {
     setError(null);
 
     try {
-      // Get current user info for instructor_id
-      const userResponse = await api.get("/users/me");
-      const instructorId = userResponse.data.id;
-
       const payload = {
         title,
         description,
-        course_id: Number(courseId),
-        module_name: moduleName || null,
         due_date: new Date(dueDate).toISOString(),
-        instructor_id: instructorId,
-        questions: questions.map((q) => ({
-          question_text: q.question_text,
-          question_type: q.question_type,
-          options: q.question_type === "essay" || q.question_type === "short_answer" ? [] : q.options.map((o, idx) => ({
-            option_text: o.option_text,
-            is_correct: idx === q.correct_option_index ? 1 : 0
-          })),
-        })),
       };
 
-      await api.post("/quizzes", payload);
+      await api.put(`/quizzes/${quizId}`, payload);
       router.push("/list/quizzes");
       router.refresh();
     } catch (err: any) {
-      setError(err?.response?.data?.detail || "Failed to commit quiz artifact definitions.");
+      setError(err?.response?.data?.detail || "Failed to update quiz.");
     } finally {
       setSaving(false);
     }
@@ -331,6 +353,14 @@ export default function CreateQuizPage() {
   const inputStyles = "w-full px-3 py-2 bg-slate-50 border border-border/80 rounded-xl outline-none text-xs transition-colors duration-300 focus:border-[#0038A8]/50 focus:ring-1 focus:ring-[#0038A8]/50 text-foreground";
   const labelStyles = "text-[10px] font-extrabold uppercase text-muted-foreground tracking-wider block mb-1.5";
 
+  if (loading) {
+    return (
+      <div className="flex-1 p-6 bg-[#F7F8FA] min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-[#0038A8]" />
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen font-sans text-left">
       <div className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase tracking-wider font-bold select-none">
@@ -338,21 +368,21 @@ export default function CreateQuizPage() {
         <span>/</span>
         <Link href="/list/quizzes">Quizzes</Link>
         <span>/</span>
-        <span className="text-foreground">Creator Studio</span>
+        <span className="text-foreground">Edit Quiz</span>
       </div>
 
       <form onSubmit={handleFormSubmit} className="space-y-6">
         <div className="flex items-center justify-between border-b border-slate-100 pb-4">
           <div>
-            <span className="text-xs font-extrabold text-[#0038A8] uppercase tracking-wider font-mono">Structural Assembly</span>
-            <h1 className="text-2xl font-black text-gray-900 tracking-tight">Create Evaluation Task</h1>
+            <span className="text-xs font-extrabold text-[#0038A8] uppercase tracking-wider font-mono">Edit Mode</span>
+            <h1 className="text-2xl font-black text-gray-900 tracking-tight">Update Evaluation Task</h1>
           </div>
           <div className="flex items-center gap-2">
             <button type="button" onClick={() => router.back()} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5">
               <ArrowLeft className="h-3.5 w-3.5" /> Cancel
             </button>
             <button type="submit" disabled={saving} className="px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] text-white text-xs font-black rounded-xl disabled:opacity-50 transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm">
-              <Save className="h-3.5 w-3.5" /> {saving ? "Saving..." : "Save Quiz Blueprint"}
+              <Save className="h-3.5 w-3.5" /> {saving ? "Saving..." : "Update Quiz"}
             </button>
           </div>
         </div>
@@ -375,14 +405,14 @@ export default function CreateQuizPage() {
             </div>
             <div className="flex flex-col gap-1 text-left">
               <label className={labelStyles}>Course Association</label>
-              <select required value={courseId} onChange={(e) => setCourseId(e.target.value)} className={inputStyles}>
+              <select required value={courseId} onChange={(e) => setCourseId(e.target.value)} className={inputStyles} disabled>
                 <option value="">-- Choose Course Connection --</option>
                 {courses.map((c) => <option key={c.id} value={c.id}>{c.course_name} ({c.course_code})</option>)}
               </select>
             </div>
             <div className="flex flex-col gap-1 text-left">
               <label className={labelStyles}>Module Association</label>
-              <select value={moduleName} onChange={(e) => setModuleName(e.target.value)} className={inputStyles} disabled={!courseId}>
+              <select value={moduleName} onChange={(e) => setModuleName(e.target.value)} className={inputStyles} disabled>
                 <option value="">-- Choose Module Connection (Optional) --</option>
                 {modules.map((m) => <option key={m.id} value={m.title}>{m.title}</option>)}
               </select>
@@ -391,14 +421,6 @@ export default function CreateQuizPage() {
               <label className={labelStyles}>Closing Due Date & Time</label>
               <input type="datetime-local" required value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={inputStyles} />
             </div>
-            <div className="flex flex-col gap-1 text-left">
-              <label className={labelStyles}>Time Limit (Minutes - Blank for Untimed)</label>
-              <input type="number" min={1} value={timeLimit} onChange={(e) => setTimeLimit(e.target.value === "" ? "" : Number(e.target.value))} className={inputStyles} />
-            </div>
-            <div className="flex flex-col gap-1 text-left">
-              <label className={labelStyles}>Passing Threshold Percentage (%)</label>
-              <input type="number" min={1} max={100} required value={passMark} onChange={(e) => setPassMark(Number(e.target.value))} className={inputStyles} />
-            </div>
           </div>
         </div>
 
@@ -406,11 +428,8 @@ export default function CreateQuizPage() {
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
               <HelpCircle className="h-4 w-4 text-[#0038A8]" />
-              <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider">Questions Workspace Canvas</h2>
+              <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider">Questions (Read-only)</h2>
             </div>
-            <button type="button" onClick={addQuestionNode} className="px-3 py-1.5 bg-[#0038A8]/10 text-[#0038A8] border border-[#0038A8]/15 font-black text-[10px] uppercase rounded-xl flex items-center gap-1 hover:bg-[#0038A8]/15 transition-colors">
-              <Plus className="h-3.5 w-3.5" /> Append Question Item
-            </button>
           </div>
 
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -430,6 +449,12 @@ export default function CreateQuizPage() {
               ))}
             </SortableContext>
           </DndContext>
+
+          {questions.length === 0 && (
+            <div className="bg-white border border-border/60 rounded-3xl p-8 text-center text-muted-foreground">
+              <p className="text-sm font-bold">No questions found for this quiz.</p>
+            </div>
+          )}
         </div>
       </form>
     </div>

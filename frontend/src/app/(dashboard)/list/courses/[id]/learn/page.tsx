@@ -387,9 +387,9 @@ export default function CourseDetailPage() {
 
   const renderActivityIcon = (type: string) => {
     switch (type) {
-      case "file": return <FileUp className="h-4 w-4 text-emerald-600 shrink-0" />;
+      case "file": return <FileText className="h-4 w-4 text-rose-500 shrink-0" />;
       case "url":  return <ExternalLink className="h-4 w-4 text-amber-600 shrink-0" />;
-      default:     return <BookOpen className="h-4 w-4 text-sky-600 shrink-0" />;
+      default:     return <BookOpen className="h-4 w-4 text-[#0038A8] shrink-0" />;
     }
   };
 
@@ -1386,7 +1386,7 @@ export default function CourseDetailPage() {
                                 {module.lessons?.length > 0 ? module.lessons.map((lesson: any, lIdx: number) => (
                                   <div key={lesson.id} className="flex items-center justify-between p-3 bg-[#f8fafc]/50 border border-border/40 hover:border-border/80 rounded-2xl transition-all shadow-sm">
                                     <div className="flex items-center gap-3 max-w-[70%]">
-                                      <div className="h-8 w-8 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
+                                      <div className="h-8 w-8 rounded-lg bg-[#0038A8]/10 dark:bg-[#0038A8]/20 flex items-center justify-center shrink-0">
                                         {renderActivityIcon(lesson.material_type || "article")}
                                       </div>
                                       <div className="flex flex-col gap-0.5">

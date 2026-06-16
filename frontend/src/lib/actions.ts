@@ -1023,3 +1023,31 @@ export const deleteUser = async (
     return { success: false, error: true };
   }
 };
+
+export const deleteQuiz = async (
+  currentState: CurrentState,
+  data: FormData
+) => {
+  const id = data.get("id") as string;
+  try {
+    const cookieStore = cookies();
+    const token = cookieStore.get("access_token")?.value || cookieStore.get("session")?.value;
+
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const res = await fetch(`${API_URL}/quizzes/${id}`, {
+      method: "DELETE",
+      headers,
+    });
+    if (!res.ok) throw new Error(await res.text());
+
+    revalidatePath("/list/quizzes");
+    return { success: true, error: false };
+  } catch (err) {
+    console.log(err);
+    return { success: false, error: true };
+  }
+};

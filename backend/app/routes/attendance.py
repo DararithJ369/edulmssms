@@ -30,10 +30,13 @@ def get_all_attendance(
     limit: int = 10,
     search: str = "",
     course_id: Optional[int] = None,
+    status: Optional[str] = None,
+    sort_by: Optional[str] = None,
+    sort_order: Optional[str] = None,
     current_user = Depends(PermissionGuard.get_current_user),
     db: Session = Depends(get_db),
 ):
-    return AttendanceService.get_all_attendance(db, page, limit, search, current_user, course_id=course_id)
+    return AttendanceService.get_all_attendance(db, page, limit, search, current_user, course_id=course_id, status=status, sort_by=sort_by, sort_order=sort_order)
 
 
 @attendance_router.delete("/attendance/{attendance_id}", dependencies=[Depends(PermissionGuard.admin_or_instructor)])

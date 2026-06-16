@@ -155,10 +155,8 @@ class LessonService:
         if not db.query(Lesson).filter(Lesson.id == lesson_id).first():
             raise HTTPException(status_code=404, detail="Lesson not found")
         data = material_in.model_dump()
-        ext_url = data.pop("external_url", None)
-        if ext_url and not data.get("file_url"):
-            data["file_url"] = ext_url
-        material = LessonMaterial(lesson_id=lesson_id, **data)
+        data["lesson_id"] = lesson_id
+        material = LessonMaterial(**data)
         if file:
             material.file_url = get_image(file)  # type: ignore
         db.add(material)

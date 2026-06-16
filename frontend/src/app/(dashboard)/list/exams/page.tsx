@@ -1,5 +1,6 @@
 import FormContainer from "@/components/FormContainer";
 import TableRowActions from "@/components/TableRowActions";
+import ListFilterSort from "@/components/ListFilterSort";
 import Pagination from "@/components/Pagination";
 import TableSearch from "@/components/TableSearch";
 import { serverFetch } from "@/lib/server-api";
@@ -9,13 +10,7 @@ import { cookies } from "next/headers";
 import { 
   Globe, 
   Award, 
-  Clock, 
-  BookOpen, 
-  Calendar, 
-  CheckCircle2, 
-  Plus, 
-  ListFilter, 
-  ArrowUpDown 
+  CheckCircle2
 } from "lucide-react";
 import { normalizeRole } from "@/lib/auth";
 
@@ -40,11 +35,17 @@ const ExamListPage = async ({
   const cookieStore = cookies();
   const role = normalizeRole(cookieStore.get("user_role")?.value);
 
-  const { page, classId } = searchParams;
+  const { page, courseId, sortBy, sortOrder } = searchParams;
   const p = page ? parseInt(page) : 1;
 
   const exactToken = cookieStore.get("access_token")?.value || cookieStore.get("token")?.value || "";
   const fetchOptions = { token: exactToken };
+
+  // Fetch courses for filter options
+  const coursesResponse = await serverFetch<{
+    data: Array<{ id: number; course_name: string; course_code: string }>;
+  }>("/courses?limit=100", fetchOptions).catch(() => ({ data: [] }));
+  const courses = coursesResponse.data || [];
 
   let data: ExamList[] = [];
   let count = 0;
@@ -52,9 +53,9 @@ const ExamListPage = async ({
   const queryParams = new URLSearchParams();
   queryParams.set("page", String(p));
   queryParams.set("limit", String(ITEM_PER_PAGE));
-  if (classId) {
-    queryParams.set("class_id", classId);
-  }
+  if (courseId) queryParams.set("course_id", courseId);
+  if (sortBy) queryParams.set("sort_by", sortBy);
+  if (sortOrder) queryParams.set("sort_order", sortOrder);
 
   const examsResponse = await serverFetch<{
     data: ExamList[];
@@ -107,12 +108,23 @@ const ExamListPage = async ({
 
         <div className="flex items-center gap-2 self-start md:self-auto">
           <TableSearch />
-          <button className="w-8 h-8 flex items-center justify-center rounded-xl bg-background border border-border/80 hover:bg-accent text-muted-foreground/80 transition-colors" title="Filters">
-            <ListFilter className="h-4 w-4" />
-          </button>
-          <button className="w-8 h-8 flex items-center justify-center rounded-xl bg-background border border-border/80 hover:bg-accent text-muted-foreground/80 transition-colors" title="Sort Options">
-            <ArrowUpDown className="h-4 w-4" />
-          </button>
+          <ListFilterSort
+            filters={[
+              {
+                key: "courseId",
+                label: "Course",
+                allLabel: "All Courses",
+                options: courses.map((c) => ({ id: c.id, label: `${c.course_name} (${c.course_code})` })),
+              },
+            ]}
+            sortOptions={[
+              { label: "Default Order", value: "" },
+              { label: "Title (A-Z)", value: "title-asc" },
+              { label: "Title (Z-A)", value: "title-desc" },
+              { label: "Exam Date (Earliest)", value: "exam_date-asc" },
+              { label: "Exam Date (Latest)", value: "exam_date-desc" },
+            ]}
+          />
         </div>
       </div>
 

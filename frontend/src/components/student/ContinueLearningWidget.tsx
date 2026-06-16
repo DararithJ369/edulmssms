@@ -41,14 +41,14 @@ const ContinueLearningWidget = async () => {
     <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.015)] space-y-4 select-none animate-in fade-in slide-in-from-bottom-2 duration-300">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <BookOpen className="h-4.5 w-4.5 text-[#0038A8]" />
+          <BookOpen className="h-4.5 w-4.5 text-slate-700" />
           <h2 className="text-lg font-black text-slate-800 tracking-tight">
             Continue Learning
           </h2>
         </div>
         <Link 
           href="/list/courses" 
-          className="group/btn flex items-center gap-0.5 text-xs text-[#0038A8] font-bold hover:underline"
+          className="group/btn flex items-center gap-0.5 text-xs text-slate-600 font-bold hover:underline"
         >
           <span>All courses</span>
           <ChevronRight className="h-3 w-3 group-hover/btn:translate-x-0.5 transition-transform" />
@@ -69,7 +69,7 @@ const ContinueLearningWidget = async () => {
           </p>
           <Link
             href="/list/courses"
-            className="mt-2 inline-flex px-4 py-1.5 bg-slate-100 text-[#0038A8] hover:bg-slate-200 text-[10px] font-black rounded-lg transition-all"
+            className="mt-2 inline-flex px-4 py-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 text-[10px] font-black rounded-lg transition-all"
           >
             Explore Catalog
           </Link>
@@ -80,15 +80,15 @@ const ContinueLearningWidget = async () => {
             <Link 
               key={course.course_id}
               href={`/list/courses/${course.course_id}`}
-              className="group block p-4 border border-slate-100 bg-slate-50/20 hover:bg-white hover:border-[#0038A8]/30 rounded-2xl transition-all duration-300 hover:shadow-[0_8px_30px_rgba(0,56,168,0.04)] hover:-translate-y-0.5"
+              className="group block p-4 border border-slate-100 bg-slate-50/20 hover:bg-white hover:border-slate-300 rounded-2xl transition-all duration-300 hover:shadow-sm hover:-translate-y-0.5"
             >
               <div className="flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[9px] font-black text-[#0038A8] uppercase tracking-wider font-mono">
+                <span className="h-1.5 w-1.5 rounded-full bg-slate-400 animate-pulse" />
+                <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider font-mono">
                   Enrolled Class
                 </span>
               </div>
-              <h3 className="text-sm font-black text-slate-800 truncate mt-1 group-hover:text-[#0038A8] transition-colors leading-tight">
+              <h3 className="text-sm font-black text-slate-800 truncate mt-1 group-hover:text-slate-900 transition-colors leading-tight">
                 {course.course_name}
               </h3>
               <p className="text-[11px] text-slate-400 font-semibold line-clamp-1 mt-0.5">
@@ -101,7 +101,7 @@ const ContinueLearningWidget = async () => {
               </div>
               <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
                 <div 
-                  className="h-full bg-emerald-500 rounded-full transition-all duration-500 ease-out"
+                  className="h-full bg-[#0038A8] rounded-full transition-all duration-500 ease-out"
                   style={{ width: `${course.progress_percentage}%` }}
                 />
               </div>
