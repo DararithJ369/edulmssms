@@ -143,3 +143,20 @@ Since the Next.js frontend client expects nested Prisma-style relationships (e.g
 2. Dispatches optimized AJAX requests to the backend FastAPI endpoints (e.g., `/courses`, `/attendance`, `/profiles`).
 3. Automatically maps and nests backend REST objects into the exact hierarchical data shapes that components expect.
 4. Prevents complex frontend transformations, ensuring smooth, instant state transitions and clean hydration.
+
+---
+
+## 5. Frontend Design System & Standardized Shared Components
+
+To ensure visual consistency and UI clean-up across all LMS/SMS list dashboards, the layout architecture is built on top of a set of modular reusable components:
+
+### A. Shared Visual Components
+- **`PageHeader`**: Unified header component displaying the page eyebrow metadata, dynamic page titles, customizable Action buttons, and automated breadcrumbs.
+- **`Avatar`**: Reusable avatar component managing profile image mapping with fallback initial letter rendering and deterministic color assignment to ensure smooth layout flows.
+- **`EmptyState`**: Consolidated state indicator displaying custom icons and messages when listings or databases return empty records.
+- **`StatusBadge`**: Styled badge mapping states such as 'active', 'inactive', 'passed', and 'failed' to HSL-curated color schemes.
+- **`SkeletonLoaders`**: Consistent, pulsing CSS animation skeleton outlines representing cards, lists, tables, and statistics.
+
+### B. Declarative List Filters & Sorters (`ListFilterSort`)
+- Traditional hardcoded inline role selection buttons have been unified into a single declarative configuration-based `<ListFilterSort>` component.
+- Supports dynamically populated relational select controls (e.g. Classes list, Grade levels) and instant sorting (e.g. name-asc, date-desc) utilizing live Next.js `useRouter` parameters.

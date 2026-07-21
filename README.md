@@ -110,6 +110,10 @@ Default admin credentials are set via `FIRST_SUPERUSER_EMAIL` and `FIRST_SUPERUS
 ## Notes
 - Lessons are accessed through Courses (no standalone Lessons page).
 - Finance module is removed from the frontend.
+- **Frontend Refactoring & Component Library**:
+  - All dashboard view listing pages are standardized to use `<PageHeader>` and `<ListFilterSort>`.
+  - Reusable avatar and status indicator states have been modularized under `<Avatar>` and `<StatusBadge>`.
+  - Staged loading animations and null records utilize `<SkeletonLoaders>` and `<EmptyState>` respectively.
 
 ## License
 Private/internal project.
