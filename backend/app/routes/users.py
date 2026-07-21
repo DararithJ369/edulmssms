@@ -1,23 +1,11 @@
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request
 from sqlalchemy.orm import Session
-from datetime import timedelta
-import os
-from dotenv import load_dotenv
 from app.middleware.guard.permission import PermissionGuard
 from app.config.session import get_db
 from app.services.user_service import UserService
-from app.schemas.user import User, UserCreate, UserUpdate, UserResponse, LoginRequest, Token, PhoneUpdateRequest, PasswordChangeRequest
-from app.middleware.jwt_service import JWTService
-from app.config.logger import security_logger
-from app.utils.device_tracker import DeviceTracker
+from app.schemas.user import User, UserCreate, UserUpdate, UserResponse, PhoneUpdateRequest, PasswordChangeRequest
 from app.services.audit_log_service import AuditLogService
-
-load_dotenv()
-
-SECRET_KEY = os.getenv("SECRET_KEY")
-ALGORITHM = os.getenv("JWT_ALGORITHM")
-ACCESS_TOKEN_EXPIRE_MINUTES = os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES")
 
 user_router = APIRouter(
     prefix="/users",
@@ -106,8 +94,8 @@ def change_my_password(
         raise HTTPException(status_code=404, detail="User not found")
 
     # Verify current password
-    from app.utils.argon2 import verify_password, hash_password
-    if not verify_password(db_user.hashed_password, payload.current_password):
+    from app.config.security import verify_password, get_password_hash
+    if not verify_password(payload.current_password, db_user.hashed_password):
         raise HTTPException(status_code=400, detail="Incorrect current password")
 
     # Password confirmation validation
@@ -115,7 +103,7 @@ def change_my_password(
         raise HTTPException(status_code=400, detail="New password and confirmation password do not match")
 
     # Prevent password reuse
-    if verify_password(db_user.hashed_password, payload.new_password):
+    if verify_password(payload.new_password, db_user.hashed_password):
         raise HTTPException(status_code=400, detail="New password cannot be the same as your current password")
 
     # Password strength validation
@@ -128,7 +116,7 @@ def change_my_password(
         raise HTTPException(status_code=400, detail="New password must contain at least one letter")
 
     # Update password
-    db_user.hashed_password = hash_password(new_password)
+    db_user.hashed_password = get_password_hash(new_password)
     db.commit()
 
     # Log audit event

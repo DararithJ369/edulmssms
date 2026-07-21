@@ -1,5 +1,5 @@
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
+from fastapi import APIRouter, Depends, HTTPException, Form, status
 from sqlalchemy.orm import Session
 from app.middleware.guard.permission import PermissionGuard
 from app.config.session import get_db
@@ -8,7 +8,6 @@ from app.models.user import User
 from app.models.enrollment import Enrollment
 from app.models.result import Result
 from app.models.attendance import Attendance
-from app.models.course import Course
 from app.services.user_profile_service import StudentProfileService
 from app.schemas.user_profile import (
     StudentProfileCreate,
@@ -147,7 +146,7 @@ def get_student_overview(
     # ── Enrollments + course info ─────────────────────────────────────────────
     enrollments = (
         db.query(Enrollment)
-        .filter(Enrollment.student_profile_id == sp.id, Enrollment.is_active == True)
+        .filter(Enrollment.student_profile_id == sp.id, Enrollment.is_active)
         .all()
     ) if sp else []
 

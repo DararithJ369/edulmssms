@@ -1,17 +1,24 @@
 from datetime import datetime, timedelta
-from typing import Any, Optional, Union
+from typing import Any, Optional, Tuple, Union
+from uuid import uuid4
 
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import jwt
 from passlib.context import CryptContext
+from argon2 import PasswordHasher
+from argon2.exceptions import InvalidHashError, VerifyMismatchError
 from sqlalchemy.orm import Session
 
 from app.config.session import get_db
 from app.config.config import settings
 from app.models.user import User
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Legacy bcrypt context for backward compatibility with old hashes
+bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Argon2id hasher for all new hashes
+argon2_hasher = PasswordHasher()
+
 bearer_scheme = HTTPBearer(auto_error=False)
 
 def create_access_token(subject: Union[str, Any], expires_delta: Optional[timedelta] = None) -> str:
@@ -25,20 +32,80 @@ def create_access_token(subject: Union[str, Any], expires_delta: Optional[timede
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
     return encoded_jwt
 
-def create_refresh_token(subject: Union[str, Any]) -> str:
-    """Create JWT refresh token"""
+def create_refresh_token(subject: Union[str, Any]) -> Tuple[str, str]:
+    """Create JWT refresh token with a unique jti and return (token, jti)."""
+    jti = str(uuid4())
     expire = datetime.utcnow() + timedelta(minutes=settings.REFRESH_TOKEN_EXPIRE_MINUTES)
-    to_encode = {"exp": expire, "sub": str(subject), "type": "refresh"}
+    to_encode = {
+        "exp": expire,
+        "sub": str(subject),
+        "type": "refresh",
+        "jti": jti,
+    }
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
-    return encoded_jwt
+    return encoded_jwt, jti
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify password against hash"""
-    return pwd_context.verify(plain_password, hashed_password)
+
+def create_refresh_token_str(subject: Union[str, Any]) -> str:
+    """Convenience helper that returns only the refresh token string."""
+    token, _ = create_refresh_token(subject)
+    return token
+
+def decode_token(token: str, verify_type: Optional[str] = None) -> dict:
+    """Decode a JWT token and optionally verify its type claim.
+
+    Args:
+        token: The JWT string to decode.
+        verify_type: If provided, raise an error if the token's "type" claim
+                     does not match (e.g., "refresh").
+
+    Returns:
+        The decoded token payload.
+    """
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+    except jwt.JWTError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token signature or expired validation timeframe",
+        ) from e
+
+    if verify_type and payload.get("type") != verify_type:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid token type: expected {verify_type}",
+        )
+
+    return payload
 
 def get_password_hash(password: str) -> str:
-    """Hash password"""
-    return pwd_context.hash(password)
+    """Hash password using Argon2id."""
+    return argon2_hasher.hash(password)
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verify password against hash.
+
+    Supports Argon2id (new) and bcrypt (legacy) hashes.
+    """
+    if not hashed_password:
+        return False
+
+    # Argon2id hashes start with "$argon2"
+    if hashed_password.startswith("$argon2"):
+        try:
+            argon2_hasher.verify(hashed_password, plain_password)
+            return True
+        except (VerifyMismatchError, InvalidHashError):
+            return False
+
+    # Legacy bcrypt hashes start with "$2"
+    if hashed_password.startswith("$2"):
+        try:
+            return bcrypt_context.verify(plain_password, hashed_password)
+        except Exception:
+            return False
+
+    return False
 
 def get_current_user(
     request: Request,

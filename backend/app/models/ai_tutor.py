@@ -8,7 +8,8 @@ class AIConversation(Base):
     __tablename__ = "ai_conversations"
 
     id = Column(Integer, primary_key=True, index=True)
-    student_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    student_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    # student_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
     lesson_id = Column(Integer, ForeignKey("lessons.id"), nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

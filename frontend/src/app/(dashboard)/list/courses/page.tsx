@@ -10,7 +10,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { 
-  Globe, 
   GraduationCap, 
   Layers, 
   BookOpen, 
@@ -25,6 +24,9 @@ import {
 } from "lucide-react";
 import { normalizeRole } from "@/lib/auth";
 import EnrollButton from "@/components/EnrollButton";
+import PageHeader from "@/components/PageHeader";
+import EmptyState from "@/components/EmptyState";
+import StatusBadge from "@/components/StatusBadge";
 
 type CourseItem = {
   id: number;
@@ -76,57 +78,45 @@ const CourseListPage = async ({
   const categories = ["All", "Computer Science", "Data Science", "Information Technology", "Software Engineering", "Applied Mathematics & Statistics"];
 
   return (
-    <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left">
-      {/* MOODLE BREADCRUMB */}
-      <div className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase tracking-wider font-bold select-none">
-        <Link href="/" className="hover:text-foreground flex items-center gap-1">
-          <Globe className="h-3 w-3" />
-          Home
-        </Link>
-        <span>/</span>
-        <span className="text-foreground">My Courses</span>
-      </div>
-
-      {/* HEADER SECTION */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 select-none">
-        <div>
-          <span className="text-xs font-extrabold text-[#0038A8] uppercase tracking-wider font-mono">
-            Academic Classroom Catalog
-          </span>
-          <h1 className="text-xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight leading-tight mt-0.5">
-            {category ? `${category} Courses` : (isBrowsing ? "Browse All Courses" : (role === "student" ? "My Enrolled Courses" : "All Courses"))}
-          </h1>
-        </div>
-
-        {/* Administration Actions */}
-        <div className="flex items-center gap-2 shrink-0">
-          {role === "student" && (
-            isBrowsing ? (
-              <Link href="/list/courses">
-                <button className="px-4 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300 font-black text-xs rounded-xl transition-all flex items-center gap-1.5 active:scale-[0.98]">
+    <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left transition-all duration-300 animate-fade-in">
+      {/* PAGE HEADER */}
+      <PageHeader
+        eyebrow="Academic Classroom Catalog"
+        title={category ? `${category} Courses` : (isBrowsing ? "Browse All Courses" : (role === "student" ? "My Enrolled Courses" : "All Courses"))}
+        breadcrumbs={[{ label: "Courses" }]}
+        actions={
+          <>
+            {role === "student" && (
+              isBrowsing ? (
+                <Link
+                  href="/list/courses"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-350 text-slate-700 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 active:scale-[0.98] cursor-pointer"
+                >
                   <BookOpen className="h-4 w-4" />
                   <span>My Courses</span>
-                </button>
-              </Link>
-            ) : (
-              <Link href="/list/courses?browse=true">
-                <button className="px-4 py-2 bg-[#0038A8] text-white hover:bg-[#002D86] font-black text-xs rounded-xl transition-all shadow-md shadow-blue-500/10 flex items-center gap-1.5 active:scale-[0.98]">
+                </Link>
+              ) : (
+                <Link
+                  href="/list/courses?browse=true"
+                  className="px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center gap-1.5 active:scale-[0.98] cursor-pointer"
+                >
                   <Search className="h-4 w-4" />
                   <span>Find New Courses</span>
-                </button>
-              </Link>
-            )
-          )}
-          {(role === "admin" || role === "teacher") && (
-            <Link href={`/list/courses/create${category ? `?category=${encodeURIComponent(category)}` : ''}`}>
-              <button className="px-4 py-2 bg-[#0038A8] text-white hover:bg-[#002D86] font-black text-xs rounded-xl transition-all shadow-md shadow-blue-500/10 flex items-center gap-1.5 active:scale-[0.98]">
+                </Link>
+              )
+            )}
+            {(role === "admin" || role === "teacher") && (
+              <Link
+                href={`/list/courses/create${category ? `?category=${encodeURIComponent(category)}` : ''}`}
+                className="px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center gap-1.5 active:scale-[0.98] cursor-pointer"
+              >
                 <Plus className="h-4 w-4" />
-                <span>Create New Activity</span>
-              </button>
-            </Link>
-          )}
-        </div>
-      </div>
+                <span>Create Course</span>
+              </Link>
+            )}
+          </>
+        }
+      />
 
       {/* FILTER TABS & SEARCH UTILITY */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/60 pb-3 select-none">
@@ -254,15 +244,26 @@ const CourseListPage = async ({
           ))}
         </div>
       ) : (
-        <div className="bg-card border border-border/60 rounded-3xl p-12 text-center text-muted-foreground select-none">
-          <BookOpen className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-          <p className="text-sm font-bold">No academic courses found matching criteria.</p>
-          <p className="text-xs text-muted-foreground/60 mt-1">Please try modifying your keywords or selected catalog filter tabs.</p>
-        </div>
+        <EmptyState
+          icon={BookOpen}
+          title="No Courses Found"
+          description="We couldn't find any courses matching your criteria. Try adjusting your search query or category filters."
+          action={
+            (role === "admin" || role === "teacher") && (
+              <Link
+                href={`/list/courses/create${category ? `?category=${encodeURIComponent(category)}` : ''}`}
+                className="px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] text-white text-xs font-semibold rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Create Course</span>
+              </Link>
+            )
+          }
+        />
       )}
 
       {/* PAGINATION PANEL */}
-      <div className="bg-card border border-border/60 rounded-3xl p-4 shadow-sm flex justify-center select-none shrink-0">
+      <div className="flex justify-center select-none shrink-0 pt-2">
         <Pagination page={p} count={count} limit={9} />
       </div>
     </div>

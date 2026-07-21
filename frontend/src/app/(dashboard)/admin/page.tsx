@@ -6,8 +6,9 @@ import EventCalendarContainer from "@/components/EventCalendarContainer";
 import FinanceChart from "@/components/FinanceChart";
 import UserCard from "@/components/UserCard";
 import Link from "next/link";
-import { Globe, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { UserCardSkeleton, ChartSkeleton, CalendarSkeleton } from "@/components/student/WidgetSkeleton";
+import PageHeader from "@/components/PageHeader";
 
 const AdminPage = ({
   searchParams,
@@ -15,38 +16,22 @@ const AdminPage = ({
   searchParams: Record<string, string | string[] | undefined>;
 }) => {
   return (
-    <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left transition-all duration-300 animate-in fade-in">
-      {/* BREADCRUMB */}
-      <div className="flex items-center gap-1 text-[11px] font-extrabold text-muted-foreground uppercase tracking-wider mb-2 select-none">
-        <Link href="/" className="hover:text-foreground flex items-center gap-1">
-          <Globe className="h-3 w-3" />
-          Home
-        </Link>
-        <span>/</span>
-        <span className="text-foreground">Dashboard</span>
-      </div>
-
-      {/* HEADER SECTION */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 select-none mb-6">
-        <div>
-          <span className="text-xs font-extrabold text-[#0038A8] uppercase tracking-wider font-mono">
-            System Administration
-          </span>
-          <h1 className="text-xl md:text-3xl font-black text-slate-800 tracking-tight leading-tight mt-0.5">
-            Admin Overview Control
-          </h1>
-        </div>
-
-        {/* Administration Actions */}
-        <div className="flex items-center gap-2 shrink-0">
-          <Link href="/list/courses/create">
-            <button className="px-4 py-2 bg-[#0038A8] text-white hover:bg-[#002D86] font-black text-xs rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer">
-              <Plus className="h-4 w-4" />
-              <span>Create New Course</span>
-            </button>
+    <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left transition-all duration-300 animate-fade-in">
+      {/* PAGE HEADER */}
+      <PageHeader
+        eyebrow="System Administration"
+        title="Admin Overview"
+        breadcrumbs={[{ label: "Dashboard" }]}
+        actions={
+          <Link
+            href="/list/courses/create"
+            className="flex items-center gap-1.5 px-4 py-2 bg-brand hover:bg-brand-dark text-white text-xs font-semibold rounded-xl transition-all shadow-sm"
+          >
+            <Plus className="h-4 w-4" />
+            Create Course
           </Link>
-        </div>
-      </div>
+        }
+      />
 
       {/* BODY GRID */}
       <div className="flex gap-6 flex-col xl:flex-row">
@@ -67,22 +52,21 @@ const AdminPage = ({
               <UserCard type="parent" />
             </Suspense>
           </div>
-          
+
           {/* MIDDLE CHARTS */}
           <div className="flex gap-6 flex-col lg:flex-row">
-            {/* COUNT CHART */}
             <div className="w-full lg:w-1/3 h-[450px]">
               <Suspense fallback={<ChartSkeleton height="h-[450px]" />}>
                 <CountChartContainer />
               </Suspense>
             </div>
-            {/* ATTENDANCE CHART */}
             <div className="w-full lg:w-2/3 h-[450px]">
               <Suspense fallback={<ChartSkeleton height="h-[450px]" />}>
                 <AttendanceChartContainer />
               </Suspense>
             </div>
           </div>
+
           {/* BOTTOM CHART */}
           <div className="w-full h-[500px]">
             <Suspense fallback={<ChartSkeleton height="h-[500px]" />}>
@@ -90,13 +74,15 @@ const AdminPage = ({
             </Suspense>
           </div>
         </div>
-        
+
         {/* RIGHT PANEL */}
         <div className="w-full xl:w-1/3 flex flex-col gap-6">
           <Suspense fallback={<CalendarSkeleton />}>
             <EventCalendarContainer searchParams={searchParams} />
           </Suspense>
-          <Announcements />
+          <Suspense fallback={<div className="h-48 bg-card border border-border/60 rounded-2xl animate-pulse" />}>
+            <Announcements />
+          </Suspense>
         </div>
       </div>
     </div>

@@ -12,7 +12,6 @@ from app.models.course import Course
 from app.models.quiz import Quiz
 from app.models.assignment import Assignment
 from app.models.submission import Submission
-from app.models.student_profile import StudentProfile
 from app.models.user_profile import UserProfile
 from app.utils.gpa_calculator import calculate_gpa
 
@@ -32,7 +31,7 @@ def get_course_analytics(
 
     # Enrolled students count
     enrolled_count = db.query(func.count(Enrollment.id)).filter(
-        Enrollment.course_id == course_id, Enrollment.is_active == True
+        Enrollment.course_id == course_id, Enrollment.is_active
     ).scalar() or 0
 
     # Attendance stats
@@ -181,7 +180,7 @@ def get_student_analytics(
     enrolled_courses = []
     if profile:
         enrollments = db.query(Enrollment).filter(
-            Enrollment.student_profile_id == profile.id, Enrollment.is_active == True
+            Enrollment.student_profile_id == profile.id, Enrollment.is_active
         ).all()
         for e in enrollments:
             course_name = e.course.course_name if e.course else f"Course #{e.course_id}"
@@ -194,7 +193,7 @@ def get_student_analytics(
     pending_assignments = []
     if profile:
         course_ids = [e.course_id for e in db.query(Enrollment).filter(
-            Enrollment.student_profile_id == profile.id, Enrollment.is_active == True
+            Enrollment.student_profile_id == profile.id, Enrollment.is_active
         ).all()]
         if course_ids:
             assignments = db.query(Assignment).filter(Assignment.course_id.in_(course_ids)).all()
@@ -283,7 +282,7 @@ def get_admin_overview(
     current_user: User = Depends(PermissionGuard.admin_only),
 ):
     """System-wide overview for admins."""
-    total_students = db.query(func.count(User.id)).filter(User.role_id == db.query(
+    db.query(func.count(User.id)).filter(User.role_id == db.query(
         func.min(User.role_id)  # fallback
     )).scalar() or 0
 
@@ -296,7 +295,7 @@ def get_admin_overview(
         role_counts[r.name] = count
 
     total_courses = db.query(func.count(Course.id)).scalar() or 0
-    total_enrollments = db.query(func.count(Enrollment.id)).filter(Enrollment.is_active == True).scalar() or 0
+    total_enrollments = db.query(func.count(Enrollment.id)).filter(Enrollment.is_active).scalar() or 0
 
     # Overall attendance rate
     total_att = db.query(func.count(Attendance.id)).scalar() or 0

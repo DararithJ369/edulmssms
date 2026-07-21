@@ -2,9 +2,6 @@ from sqlalchemy.orm import Session
 from app.models.user_profile import UserProfile
 from app.models.enrollment import Enrollment
 from app.models.result import Result
-from app.models.assignment import Assignment
-from app.models.quiz import Quiz
-from app.models.course import Course, Lesson, Module
 
 def calculate_gpa(db: Session, student_id: str):
     # Find the student profile
@@ -23,7 +20,7 @@ def calculate_gpa(db: Session, student_id: str):
     # Fetch active enrollments
     enrollments = db.query(Enrollment).filter(
         Enrollment.student_profile_id == student_profile_id,
-        Enrollment.is_active == True
+        Enrollment.is_active
     ).all()
 
     # Fetch all results for the student

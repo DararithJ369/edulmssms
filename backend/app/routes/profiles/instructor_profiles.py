@@ -1,5 +1,5 @@
 from typing import Optional, List
-from fastapi import APIRouter, Depends, UploadFile, File, Form
+from fastapi import APIRouter, Depends, Form, HTTPException
 from sqlalchemy.orm import Session
 from app.middleware.guard.permission import PermissionGuard
 from app.config.session import get_db
@@ -27,8 +27,14 @@ instructor_router = APIRouter(prefix="/instructors", tags=["Instructor Profiles"
 def get_instructor_profile(
     user_id: str,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    is_owner = str(current_user.id) == user_id
+    is_staff = current_user.is_superuser or (
+        current_user.role and current_user.role.name in ["admin", "instructor", "teacher"]
+    )
+    if not (is_owner or is_staff):
+        raise HTTPException(status_code=403, detail="Forbidden")
     return InstructorProfileService.get_instructor_profile(db, user_id)
 
 
@@ -88,8 +94,14 @@ def delete_instructor_profile(user_id: str, db: Session = Depends(get_db)):
 def get_instructor_classes(
     user_id: str,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    is_owner = str(current_user.id) == user_id
+    is_staff = current_user.is_superuser or (
+        current_user.role and current_user.role.name in ["admin", "instructor", "teacher"]
+    )
+    if not (is_owner or is_staff):
+        raise HTTPException(status_code=403, detail="Forbidden")
     """Return all classes where this instructor is the supervisor."""
     classes = (
         db.query(Class)

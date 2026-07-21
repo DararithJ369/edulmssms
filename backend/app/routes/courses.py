@@ -5,6 +5,7 @@ from app.config.session import get_db
 from app.services.course_service import CourseService
 from app.schemas.course import CourseCreate, CourseUpdate, CourseResponse
 from app.schemas.enrollment import EnrollmentCreate
+from app.models.user import User
 
 course_router = APIRouter(prefix="/courses", tags=["Courses"])
 
@@ -17,6 +18,7 @@ def get_all_courses(
     category: str | None = None,
     published: bool | None = Query(None),
     db: Session = Depends(get_db),
+    _: User = Depends(PermissionGuard.get_current_user),
 ):
     return CourseService.get_courses(db, page, limit, search, category, published)
 
@@ -35,7 +37,11 @@ def get_my_enrolled_courses(
 
 
 @course_router.get("/{course_id}", response_model=CourseResponse)
-def get_course(course_id: int, db: Session = Depends(get_db)):
+def get_course(
+    course_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(PermissionGuard.get_current_user),
+):
     return CourseService.get_course_by_id(db, course_id)
 
 
@@ -57,12 +63,20 @@ def delete_course(course_id: int, db: Session = Depends(get_db)):
 # ── Lessons ───────────────────────────────────────────────────────────────────
 
 @course_router.get("/{course_id}/lessons")
-def get_course_lessons(course_id: int, db: Session = Depends(get_db)):
+def get_course_lessons(
+    course_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(PermissionGuard.get_current_user),
+):
     return CourseService.get_course_lessons(db, course_id)
 
 
 @course_router.get("/{course_id}/modules")
-def get_course_modules(course_id: int, db: Session = Depends(get_db)):
+def get_course_modules(
+    course_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(PermissionGuard.get_current_user),
+):
     from app.models.course import Module
     modules = db.query(Module).filter(Module.course_id == course_id).order_by(Module.order.asc()).all()
     return [
@@ -112,7 +126,11 @@ def unenroll_student(course_id: int, student_id: str, db: Session = Depends(get_
 
 
 @course_router.get("/{course_id}/students")
-def get_course_students(course_id: int, db: Session = Depends(get_db)):
+def get_course_students(
+    course_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(PermissionGuard.get_current_user),
+):
     return CourseService.get_course_students(db, course_id)
 
 

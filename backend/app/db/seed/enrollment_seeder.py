@@ -5,7 +5,6 @@ from datetime import date
 
 from app.db.seed.base import BaseSeeder
 from app.models.enrollment import Enrollment
-from app.models.student_profile import StudentProfile
 from app.models.course import Course
 from app.models.grade_level import GradeLevel
 from app.utils.colors import Colors
@@ -117,7 +116,7 @@ class EnrollmentSeeder(BaseSeeder):
         for cid in course_ids:
             count = self.db.query(sqla_func.count(Enrollment.id)).filter(
                 Enrollment.course_id == cid,
-                Enrollment.is_active == True,
+                Enrollment.is_active,
             ).scalar() or 0
             self.db.query(Course).filter(Course.id == cid).update({"student_enrolled": count})
         self.db.commit()

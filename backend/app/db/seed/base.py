@@ -1,7 +1,6 @@
 from sqlalchemy.orm import Session
 from app.utils.colors import Colors
 from typing import List, Type, Callable, Optional
-import random
 
 class BaseSeeder:
     """Base class for all model seeders"""

@@ -10,7 +10,7 @@ class ScheduleSlot(Base):
     id = Column(Integer, primary_key=True, index=True)
 
     class_id = Column(Integer, ForeignKey("classes.id"), nullable=False)
-    teacher_id = Column(String, ForeignKey("users.id"), nullable=False)
+    teacher_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=False)
 
     day_of_week = Column(String, nullable=False)  # e.g., "MONDAY", "TUESDAY", etc.

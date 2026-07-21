@@ -126,7 +126,7 @@ def get_course_ids_for_class(db: Session, class_id: int) -> list[int]:
 
     student_profile = db.query(UserProfile).filter(
         UserProfile.class_id == class_id,
-        UserProfile.student_profile != None
+        UserProfile.student_profile is not None
     ).first()
 
     if not student_profile or not student_profile.student_profile:
@@ -134,7 +134,7 @@ def get_course_ids_for_class(db: Session, class_id: int) -> list[int]:
 
     enrollments = db.query(Enrollment).filter(
         Enrollment.student_profile_id == student_profile.student_profile.id,
-        Enrollment.is_active == True
+        Enrollment.is_active
     ).all()
 
     return [e.course_id for e in enrollments]

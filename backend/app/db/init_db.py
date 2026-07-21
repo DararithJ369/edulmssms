@@ -1,5 +1,3 @@
-from app.db.base import Base
-from app.config.session import engine
 
 async def init_db():
     # async with engine.begin() as conn:

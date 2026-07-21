@@ -24,9 +24,12 @@ Requires-Dist: pyjwt>=2.11.0
 Requires-Dist: python-dotenv>=1.2.2
 Requires-Dist: python-jose[cryptography]>=3.5.0
 Requires-Dist: sqlalchemy>=2.0.48
+Requires-Dist: sqlalchemy-stubs>=0.4
 Requires-Dist: starlette>=0.52.1
 Requires-Dist: user-agents>=2.2.0
 Requires-Dist: uvicorn>=0.41.0
+Requires-Dist: boto3>=1.34.0
+Requires-Dist: cloudinary>=1.44.2
 Provides-Extra: dev
 Requires-Dist: pytest>=7.0; extra == "dev"
 Requires-Dist: pytest-asyncio>=0.25.0; extra == "dev"
@@ -34,3 +37,21 @@ Requires-Dist: black>=24.0.0; extra == "dev"
 Requires-Dist: ruff>=0.5.0; extra == "dev"
 Requires-Dist: mypy>=1.13.0; extra == "dev"
 Requires-Dist: httpx>=0.28.1; extra == "dev"
+
+# Backend (FastAPI)
+
+## Setup
+```zsh
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+## Run
+```zsh
+uvicorn app.main:app --reload
+```
+
+## Environment
+- Create a `.env` file based on `.env.example` if present.
+- Ensure `SECRET_KEY` and database settings are set before running.

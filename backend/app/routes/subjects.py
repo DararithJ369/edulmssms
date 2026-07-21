@@ -5,6 +5,7 @@ from app.middleware.guard.permission import PermissionGuard
 from app.config.session import get_db
 from app.services.subject_service import SubjectService
 from app.schemas.subject import SubjectCreate, SubjectUpdate, SubjectResponse
+from app.models.user import User
 
 subject_router = APIRouter(prefix="/subjects", tags=["Subjects"])
 
@@ -21,7 +22,12 @@ def setup_form(db: Session = Depends(get_db)):
 
 
 @subject_router.get("")
-def get_all_subjects(page: int = 1, limit: int = 10, db: Session = Depends(get_db)):
+def get_all_subjects(
+    page: int = 1,
+    limit: int = 10,
+    db: Session = Depends(get_db),
+    _: User = Depends(PermissionGuard.get_current_user),
+):
     return SubjectService.get_subjects(db, page, limit)
 
 
@@ -60,7 +66,11 @@ def create_subject(
 
 
 @subject_router.get("/{subject_id}", response_model=SubjectResponse)
-def get_subject(subject_id: int, db: Session = Depends(get_db)):
+def get_subject(
+    subject_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(PermissionGuard.get_current_user),
+):
     return SubjectService.get_subject_by_id(db, subject_id)
 
 
@@ -99,5 +109,9 @@ def delete_subject(subject_id: int, db: Session = Depends(get_db)):
 
 
 @subject_router.get("/{subject_id}/courses")
-def get_subject_courses(subject_id: int, db: Session = Depends(get_db)):
+def get_subject_courses(
+    subject_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(PermissionGuard.get_current_user),
+):
     return SubjectService.get_subject_courses(db, subject_id)

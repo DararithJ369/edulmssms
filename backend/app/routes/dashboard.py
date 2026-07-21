@@ -6,8 +6,6 @@ from app.models.enrollment import Enrollment
 from app.models.course import Course
 from app.models.result import Result
 from app.models.attendance import Attendance
-from app.models.assignment import Assignment
-from app.models.submission import Submission
 from app.middleware.guard.permission import PermissionGuard
 from app.utils.gpa_calculator import calculate_gpa
 

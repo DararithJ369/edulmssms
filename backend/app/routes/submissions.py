@@ -13,8 +13,8 @@ from app.models.assignment import Assignment
 from app.models.quiz import Quiz
 from app.models.exam import Exam
 from app.utils.upload_validator import validate_upload
-import cloudinary.uploader
-from app.schemas.submission import SubmissionResponse, SubmissionUpdate
+from app.utils.cloudinary_upload import upload_to_cloudinary
+from app.schemas.submission import SubmissionResponse
 
 submission_router = APIRouter(prefix="/submissions", tags=["Submissions"])
 
@@ -111,15 +111,14 @@ async def submit_homework(
             is_video = "video" in content_type
             resource_type_spec = "video" if is_video else "raw"
 
-            file.file.seek(0)
-            upload_result = cloudinary.uploader.unsigned_upload(
-                file.file,
-                upload_preset="lms_preset",
-                cloud_name="dlykcgjdh",
+            saved_file_url = upload_to_cloudinary(
+                file,
+                folder="lms_submissions",
                 resource_type=resource_type_spec,
-                folder="lms_submissions"
+                allowed_categories=["image", "document", "video"],
             )
-            saved_file_url = upload_result.get("secure_url")
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

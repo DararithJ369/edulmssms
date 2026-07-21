@@ -1,32 +1,31 @@
 "use client";
 
+import dynamic from "next/dynamic";
+import { JSX, useState } from "react";
+import { useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
+import { useFormState } from "react-dom";
+import { X, Plus, Pencil, Trash2 } from "lucide-react";
+import { toast } from "react-toastify";
 import {
-  deleteClass,
-  deleteExam,
-  deleteStudent,
   deleteSubject,
+  deleteClass,
   deleteTeacher,
+  deleteStudent,
+  deleteExam,
   deleteParent,
   deleteLesson,
   deleteAssignment,
   deleteResult,
-  deleteAnnouncement,
   deleteAttendance,
-  deleteCourse,
   deleteEvent,
+  deleteCourse,
+  deleteAnnouncement,
   deleteUser,
 } from "@/lib/actions";
-import dynamic from "next/dynamic";
-import Image from "next/image";
-import { useRouter } from "next/navigation";
-import { Globe, Plus, X } from "lucide-react";
-import { Dispatch, SetStateAction, useEffect, useState } from "react";
-import { useFormState } from "react-dom";
-import { createPortal } from "react-dom";
-import { useToast } from "@/hooks/ToastProvider";
-import { FormContainerProps } from "./FormContainer";
 
-const deleteActionMap = {
+// ─── Delete action registry ────────────────────────────────────────────────
+const deleteActionMap: Record<string, any> = {
   subject: deleteSubject,
   class: deleteClass,
   teacher: deleteTeacher,
@@ -43,141 +42,247 @@ const deleteActionMap = {
   user: deleteUser,
 };
 
-// USE LAZY LOADING
+// ─── Skeleton fallback for lazy-loaded forms ────────────────────────────────
+const FormSkeleton = () => (
+  <div className="space-y-4 p-2 animate-pulse">
+    <div className="h-5 bg-slate-100 rounded-lg w-48" />
+    <div className="h-3 bg-slate-100 rounded w-64" />
+    <div className="grid grid-cols-3 gap-4">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="space-y-2">
+          <div className="h-3 bg-slate-100 rounded w-20" />
+          <div className="h-9 bg-slate-100 rounded-xl" />
+        </div>
+      ))}
+    </div>
+    <div className="grid grid-cols-3 gap-4">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="space-y-2">
+          <div className="h-3 bg-slate-100 rounded w-20" />
+          <div className="h-9 bg-slate-100 rounded-xl" />
+        </div>
+      ))}
+    </div>
+  </div>
+);
 
+// ─── Lazy-loaded form components ───────────────────────────────────────────
 const TeacherForm = dynamic(() => import("./forms/TeacherForm"), {
-  loading: () => <h1>Loading...</h1>,
+  loading: () => <FormSkeleton />,
 });
 const StudentForm = dynamic(() => import("./forms/StudentForm"), {
-  loading: () => <h1>Loading...</h1>,
+  loading: () => <FormSkeleton />,
 });
 const SubjectForm = dynamic(() => import("./forms/SubjectForm"), {
-  loading: () => <h1>Loading...</h1>,
+  loading: () => <FormSkeleton />,
 });
 const ClassForm = dynamic(() => import("./forms/ClassForm"), {
-  loading: () => <h1>Loading...</h1>,
+  loading: () => <FormSkeleton />,
 });
 const ExamForm = dynamic(() => import("./forms/ExamForm"), {
-  loading: () => <h1>Loading...</h1>,
+  loading: () => <FormSkeleton />,
 });
 const ParentForm = dynamic(() => import("./forms/ParentForm"), {
-  loading: () => <h1>Loading...</h1>,
+  loading: () => <FormSkeleton />,
 });
 const LessonForm = dynamic(() => import("./forms/LessonForm"), {
-  loading: () => <h1>Loading...</h1>,
+  loading: () => <FormSkeleton />,
 });
 const AssignmentForm = dynamic(() => import("./forms/AssignmentForm"), {
-  loading: () => <h1>Loading...</h1>,
+  loading: () => <FormSkeleton />,
 });
 const ResultForm = dynamic(() => import("./forms/ResultForm"), {
-  loading: () => <h1>Loading...</h1>,
+  loading: () => <FormSkeleton />,
 });
 const AnnouncementForm = dynamic(() => import("./forms/AnnouncementForm"), {
-  loading: () => <h1>Loading...</h1>,
+  loading: () => <FormSkeleton />,
 });
 const AttendanceForm = dynamic(() => import("./forms/AttendanceForm"), {
-  loading: () => <h1>Loading...</h1>,
+  loading: () => <FormSkeleton />,
 });
 
-const forms: {
-  [key: string]: (
-    setOpen: Dispatch<SetStateAction<boolean>>,
-    type: "create" | "update",
-    data?: any,
-    relatedData?: any
-  ) => JSX.Element;
-} = {
-  subject: (setOpen, type, data, relatedData) => (
-    <SubjectForm
-      type={type}
-      data={data}
-      setOpen={setOpen}
-      relatedData={relatedData}
-    />
-  ),
-  class: (setOpen, type, data, relatedData) => (
-    <ClassForm
-      type={type}
-      data={data}
-      setOpen={setOpen}
-      relatedData={relatedData}
-    />
-  ),
+// ─── Form component registry ───────────────────────────────────────────────
+type FormRenderer = (
+  setOpen: any,
+  type: "create" | "update",
+  data?: any,
+  relatedData?: any
+) => JSX.Element;
+
+const forms: Record<string, FormRenderer> = {
   teacher: (setOpen, type, data, relatedData) => (
-    <TeacherForm
-      type={type}
-      data={data}
-      setOpen={setOpen}
-      relatedData={relatedData}
-    />
+    <TeacherForm setOpen={setOpen} type={type} data={data} relatedData={relatedData} />
   ),
   student: (setOpen, type, data, relatedData) => (
-    <StudentForm
-      type={type}
-      data={data}
-      setOpen={setOpen}
-      relatedData={relatedData}
-    />
+    <StudentForm setOpen={setOpen} type={type} data={data} relatedData={relatedData} />
+  ),
+  subject: (setOpen, type, data, relatedData) => (
+    <SubjectForm setOpen={setOpen} type={type} data={data} relatedData={relatedData} />
+  ),
+  class: (setOpen, type, data, relatedData) => (
+    <ClassForm setOpen={setOpen} type={type} data={data} relatedData={relatedData} />
   ),
   exam: (setOpen, type, data, relatedData) => (
-    <ExamForm
-      type={type}
-      data={data}
-      setOpen={setOpen}
-      relatedData={relatedData}
-    />
+    <ExamForm setOpen={setOpen} type={type} data={data} relatedData={relatedData} />
   ),
   parent: (setOpen, type, data, relatedData) => (
-    <ParentForm
-      type={type}
-      data={data}
-      setOpen={setOpen}
-      relatedData={relatedData}
-    />
+    <ParentForm setOpen={setOpen} type={type} data={data} relatedData={relatedData} />
   ),
   lesson: (setOpen, type, data, relatedData) => (
-    <LessonForm
-      type={type}
-      data={data}
-      setOpen={setOpen}
-      relatedData={relatedData}
-    />
+    <LessonForm setOpen={setOpen} type={type} data={data} relatedData={relatedData} />
   ),
   assignment: (setOpen, type, data, relatedData) => (
-    <AssignmentForm
-      type={type}
-      data={data}
-      setOpen={setOpen}
-      relatedData={relatedData}
-    />
+    <AssignmentForm setOpen={setOpen} type={type} data={data} relatedData={relatedData} />
   ),
   result: (setOpen, type, data, relatedData) => (
-    <ResultForm
-      type={type}
-      data={data}
-      setOpen={setOpen}
-      relatedData={relatedData}
-    />
+    <ResultForm setOpen={setOpen} type={type} data={data} relatedData={relatedData} />
   ),
   announcement: (setOpen, type, data, relatedData) => (
-    <AnnouncementForm
-      type={type}
-      data={data}
-      setOpen={setOpen}
-      relatedData={relatedData}
-    />
+    <AnnouncementForm setOpen={setOpen} type={type} data={data} relatedData={relatedData} />
   ),
   attendance: (setOpen, type, data, relatedData) => (
-    <AttendanceForm
-      type={type}
-      data={data}
-      setOpen={setOpen}
-      relatedData={relatedData}
-    />
+    <AttendanceForm setOpen={setOpen} type={type} data={data} relatedData={relatedData} />
   ),
 };
 
-const FormModal = ({
+// ─── Modal width config ────────────────────────────────────────────────────
+const wideFormTables = ["teacher", "student", "parent", "lesson"];
+
+// ─── Delete confirmation form (module-level, not inner component) ──────────
+function DeleteForm({
+  table,
+  id,
+  setOpen,
+}: {
+  table: string;
+  id: string | number;
+  setOpen: (v: boolean) => void;
+}) {
+  const router = useRouter();
+  const deleteAction = deleteActionMap[table];
+  const [state, formAction] = useFormState(deleteAction, {
+    success: false,
+    error: false,
+  });
+
+  // Handle result
+  if (state.success) {
+    toast.success(`Record deleted successfully.`);
+    setOpen(false);
+    router.refresh();
+  }
+  if (state.error) {
+    toast.error(`Failed to delete record. Please try again.`);
+  }
+
+  return (
+    <form action={formAction}>
+      <input type="hidden" name="id" value={id} />
+      <div className="text-center space-y-4">
+        <div className="h-14 w-14 rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center mx-auto">
+          <Trash2 className="h-6 w-6 text-red-500" />
+        </div>
+        <div>
+          <h3 className="text-base font-semibold text-foreground">Delete Record</h3>
+          <p className="text-sm text-muted-foreground mt-1">
+            Are you sure you want to delete this {table}? This action cannot be undone.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 justify-center pt-2">
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </form>
+  );
+}
+
+// ─── Modal overlay ─────────────────────────────────────────────────────────
+function ModalOverlay({
+  table,
+  type,
+  data,
+  id,
+  relatedData,
+  open,
+  setOpen,
+}: {
+  table: string;
+  type: "create" | "update" | "delete";
+  data?: any;
+  id?: string | number;
+  relatedData?: any;
+  open: boolean;
+  setOpen: any;
+}) {
+  if (!open) return null;
+
+  const isWide = wideFormTables.includes(table);
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200"
+      onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
+    >
+      <div
+        className={`relative bg-white rounded-3xl shadow-xl border border-border/60 w-full ${
+          isWide ? "max-w-2xl" : "max-w-md"
+        } max-h-[90vh] flex flex-col overflow-hidden animate-scale-in`}
+        role="dialog"
+        aria-modal="true"
+      >
+        {/* Close button */}
+        <button
+          onClick={() => setOpen(false)}
+          aria-label="Close modal"
+          className="absolute top-4 right-4 z-10 h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-slate-100 transition-colors"
+        >
+          <X className="h-4 w-4" />
+        </button>
+
+        {/* Scrollable content */}
+        <div className="overflow-y-auto flex-1 p-6 pr-5">
+          {type === "delete" ? (
+            <DeleteForm
+              table={table}
+              id={id!}
+              setOpen={setOpen}
+            />
+          ) : (
+            forms[table]?.(setOpen, type, data, relatedData)
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// ─── Main FormModal export ─────────────────────────────────────────────────
+interface FormModalProps {
+  table: string;
+  type: "create" | "update" | "delete";
+  data?: any;
+  id?: string | number;
+  relatedData?: any;
+  triggerText?: string;
+  open?: boolean;
+  setOpen?: any;
+  noTrigger?: boolean;
+}
+
+export default function FormModal({
   table,
   type,
   data,
@@ -187,187 +292,83 @@ const FormModal = ({
   open: externalOpen,
   setOpen: externalSetOpen,
   noTrigger = false,
-}: FormContainerProps & {
-  relatedData?: any;
-  open?: boolean;
-  setOpen?: Dispatch<SetStateAction<boolean>>;
-  noTrigger?: boolean;
-}) => {
-  const { success: toastSuccess, error: toastError } = useToast();
-  const size = type === "create" ? "w-8 h-8" : "w-7 h-7";
-  const bgColor =
-    type === "create"
-      ? "bg-[#0038A8] text-white hover:bg-[#002b80]"
-      : type === "update"
-      ? "bg-slate-100 hover:bg-slate-200 text-slate-600"
-      : "bg-red-50 text-red-600 hover:bg-red-100";
-
+}: FormModalProps) {
   const [internalOpen, setInternalOpen] = useState(false);
-  const open = externalOpen !== undefined ? externalOpen : internalOpen;
-  const setOpen = externalSetOpen !== undefined ? externalSetOpen : setInternalOpen;
-  const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const open = externalOpen ?? internalOpen;
+  const setOpen = externalSetOpen ?? setInternalOpen;
 
-  const Form = () => {
-    const [state, formAction] = useFormState(deleteActionMap[table], {
-      success: false,
-      error: false,
-    });
+  // Render trigger button
+  const renderTrigger = () => {
+    if (noTrigger) return null;
 
-    const router = useRouter();
+    if (triggerText === "dropdown-edit") {
+      return (
+        <button
+          onClick={() => setOpen(true)}
+          className="w-full flex items-center gap-2 px-2 py-1.5 text-xs font-medium text-foreground hover:bg-accent rounded-md cursor-pointer transition-colors text-left"
+        >
+          <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+          Edit Details
+        </button>
+      );
+    }
 
-    useEffect(() => {
-      if (state.success) {
-        toastSuccess(`${table.charAt(0).toUpperCase() + table.slice(1)} has been deleted successfully!`);
-        setOpen(false);
-        router.refresh();
-      }
-      if (state.error) {
-        toastError(`Failed to delete ${table}.`);
-      }
-    }, [state, router]);
+    if (triggerText === "dropdown-delete") {
+      return (
+        <button
+          onClick={() => setOpen(true)}
+          className="w-full flex items-center gap-2 px-2 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded-md cursor-pointer transition-colors text-left"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          Delete Record
+        </button>
+      );
+    }
 
-    return type === "delete" && id ? (
-      <form action={formAction} className="p-4 flex flex-col gap-4 text-left font-sans select-none">
-        <input type="text | number" name="id" value={id} hidden />
-        <h2 className="text-lg font-black text-gray-900 tracking-tight">Delete {table.charAt(0).toUpperCase() + table.slice(1)}</h2>
-        <span className="text-sm font-medium text-slate-500 leading-relaxed">
-          Are you sure you want to delete this record? All associated details will be permanently removed. This action cannot be undone.
-        </span>
-        <div className="flex justify-end gap-2 pt-2 border-t">
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl"
-          >
-            Cancel
-          </button>
-          <button type="submit" className="px-4 py-2 bg-red-650 hover:bg-red-750 text-white text-xs font-black rounded-xl">
-            Delete Record
-          </button>
-        </div>
-      </form>
-    ) : type === "create" || type === "update" ? (
-      forms[table] ? (
-        forms[table](setOpen, type, data, relatedData)
-      ) : (
-        <div className="p-4 text-center text-sm text-gray-500">
-          Form not found for {table}!
-        </div>
-      )
-    ) : (
-      "Form not found!"
+    if (triggerText) {
+      return (
+        <button
+          onClick={() => setOpen(true)}
+          className="flex items-center gap-1.5 px-4 py-2 bg-brand hover:bg-brand-dark text-white text-xs font-semibold rounded-xl transition-all shadow-sm cursor-pointer"
+        >
+          <Plus className="h-4 w-4" />
+          {triggerText}
+        </button>
+      );
+    }
+
+    // Icon-only round button
+    const isDelete = type === "delete";
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        aria-label={`${type} ${table}`}
+        className={`h-7 w-7 flex items-center justify-center rounded-lg border transition-colors cursor-pointer ${
+          isDelete
+            ? "border-red-100 bg-red-50 hover:bg-red-100 text-red-600"
+            : "border-border/80 bg-background hover:bg-accent text-muted-foreground"
+        }`}
+      >
+        {isDelete ? <Trash2 className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
+      </button>
     );
   };
 
-  const isWideForm = ["teacher", "student", "parent", "lesson"].includes(table) && type !== "delete";
-  const modalWidth = isWideForm
-    ? "w-[95%] md:w-[85%] lg:w-[75%] xl:w-[70%] max-w-4xl"
-    : "w-[90%] md:w-[60%] lg:w-[50%] xl:w-[40%] max-w-lg";
-
-  if (noTrigger) {
-    if (!open) return null;
-    return mounted && typeof document !== "undefined" ? (
-      createPortal(
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className={`bg-white border border-border p-6 rounded-3xl shadow-xl flex flex-col gap-4 relative overflow-hidden max-h-[95vh] ${modalWidth}`}>
-            <div className="flex-1 overflow-y-auto pr-1">
-              <Form />
-            </div>
-            <button
-              onClick={() => setOpen(false)}
-              className="absolute top-4 right-4 p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition-colors"
-            >
-              <X className="h-4.5 w-4.5" />
-            </button>
-          </div>
-        </div>,
-        document.body
-      )
-    ) : null;
-  }
-
   return (
     <>
-      {triggerText === "dropdown-edit" ? (
-        <button
-          type="button"
-          className="w-full text-left px-2.5 py-2 hover:bg-slate-50 hover:text-[#0038A8] text-sm font-medium transition-colors outline-none cursor-pointer flex items-center gap-2 rounded-lg text-slate-700"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setOpen(true);
-          }}
-        >
-          <Image src="/update.png" alt="" width={14} height={14} className="opacity-75" />
-          <span>Edit Details</span>
-        </button>
-      ) : triggerText === "dropdown-delete" ? (
-        <button
-          type="button"
-          className="w-full text-left px-2.5 py-2 hover:bg-red-50 hover:text-red-650 text-sm font-medium transition-colors outline-none cursor-pointer flex items-center gap-2 text-red-650 rounded-lg"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setOpen(true);
-          }}
-        >
-          <Image src="/delete.png" alt="" width={14} height={14} className="opacity-75" />
-          <span>Delete Record</span>
-        </button>
-      ) : triggerText ? (
-        <button
-          className="px-4 py-2 bg-[#0038A8] text-white hover:bg-[#002D86] font-black text-xs rounded-xl transition-all shadow-md shadow-blue-500/10 flex items-center gap-1.5 active:scale-[0.98] select-none"
-          onClick={() => setOpen(true)}
-        >
-          <Plus className="h-4 w-4" />
-          <span>{triggerText}</span>
-        </button>
-      ) : (
-        <button
-          className={`${size} flex items-center justify-center rounded-full ${bgColor} transition-colors`}
-          onClick={() => setOpen(true)}
-        >
-          <Image src={`/${type}.png`} alt="" width={14} height={14} />
-        </button>
+      {renderTrigger()}
+      {open && (
+        <ModalOverlay
+          table={table}
+          type={type}
+          data={data}
+          id={id}
+          relatedData={relatedData}
+          open={open}
+          setOpen={setOpen}
+        />
       )}
-      {open && (mounted && typeof document !== "undefined" ? (
-        createPortal(
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-            <div className={`bg-white border border-border p-6 rounded-3xl shadow-xl flex flex-col gap-4 relative overflow-hidden max-h-[95vh] ${modalWidth}`}>
-              <div className="flex-1 overflow-y-auto pr-1">
-                <Form />
-              </div>
-              <button
-                onClick={() => setOpen(false)}
-                className="absolute top-4 right-4 p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition-colors"
-              >
-                <X className="h-4.5 w-4.5" />
-              </button>
-            </div>
-          </div>,
-          document.body
-        )
-      ) : (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className={`bg-white border border-border p-6 rounded-3xl shadow-xl flex flex-col gap-4 relative overflow-hidden max-h-[95vh] ${modalWidth}`}>
-            <div className="flex-1 overflow-y-auto pr-1">
-              <Form />
-            </div>
-            <button
-              onClick={() => setOpen(false)}
-              className="absolute top-4 right-4 p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition-colors"
-            >
-              <X className="h-4.5 w-4.5" />
-            </button>
-          </div>
-        </div>
-      ))}
     </>
   );
-};
-
-export default FormModal;
+}

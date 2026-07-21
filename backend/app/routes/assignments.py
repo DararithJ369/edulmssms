@@ -22,13 +22,18 @@ def get_all_assignments(
     course_id: Optional[int] = None,
     sort_by: Optional[str] = None,
     sort_order: Optional[str] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: User = Depends(PermissionGuard.get_current_user),
 ):
     return AssignmentService.get_assignments(db, page, limit, search, class_id=class_id, course_id=course_id, sort_by=sort_by, sort_order=sort_order)
 
 
 @assignment_router.get("/{assignment_id}", response_model=AssignmentResponse)
-def get_assignment(assignment_id: int, db: Session = Depends(get_db)):
+def get_assignment(
+    assignment_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(PermissionGuard.get_current_user),
+):
     return AssignmentService.get_assignment_by_id(db, assignment_id)
 
 

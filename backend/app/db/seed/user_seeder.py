@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from app.db.seed.base import BaseSeeder
 from app.models.user import User
-from app.utils.argon2 import hash_password
+from app.config.security import get_password_hash
 from app.utils.colors import Colors
 
 
@@ -18,7 +18,7 @@ class UserSeeder(BaseSeeder):
         admin_data = {
             "username": "admin",
             "email": "admin@example.com",
-            "hashed_password": hash_password("admin123"),
+            "hashed_password": get_password_hash("admin123"),
             "role_id": role_id,
             "is_active": True,
             "is_superuser": True,
@@ -42,7 +42,7 @@ class UserSeeder(BaseSeeder):
         instructor_data = {
             "username": "instructor",
             "email": "instructor@example.com",
-            "hashed_password": hash_password("instructor123"),
+            "hashed_password": get_password_hash("instructor123"),
             "role_id": role_id,
             "is_active": True,
             "is_superuser": False,
@@ -95,7 +95,7 @@ class UserSeeder(BaseSeeder):
                 instructor_data = {
                     "username": username,
                     "email": email,
-                    "hashed_password": hash_password(f"{first.lower()}123"),
+                    "hashed_password": get_password_hash(f"{first.lower()}123"),
                     "role_id": role_id,
                     "is_active": True,
                     "is_superuser": False,
@@ -137,7 +137,7 @@ class UserSeeder(BaseSeeder):
                 student_data = {
                     "username": username,
                     "email": email,
-                    "hashed_password": hash_password(f"{first.lower()}123"),
+                    "hashed_password": get_password_hash(f"{first.lower()}123"),
                     "role_id": role_id,
                     "is_active": True,
                     "is_superuser": False,
@@ -177,7 +177,7 @@ class UserSeeder(BaseSeeder):
                 parent_data = {
                     "username": username,
                     "email": email,
-                    "hashed_password": hash_password(f"{first.lower()}123"),
+                    "hashed_password": get_password_hash(f"{first.lower()}123"),
                     "role_id": role_id,
                     "is_active": True,
                     "is_superuser": False,

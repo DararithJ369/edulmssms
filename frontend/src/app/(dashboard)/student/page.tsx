@@ -2,10 +2,9 @@ import { Suspense } from "react";
 import Announcements from "@/components/Announcements";
 import BigCalendarContainer from "@/components/BigCalendarContainer";
 import EventCalendar from "@/components/EventCalendar";
-
 import { cookies } from "next/headers";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import PageHeader from "@/components/PageHeader";
 
 // Widgets
 import StreakWidget from "@/components/student/StreakWidget";
@@ -59,26 +58,22 @@ const StudentPage = async ({ searchParams }: PageProps) => {
   });
 
   return (
-    <div className="flex-1 min-h-screen bg-[#F4F6FA] font-sans text-left">
-
+    <div className="flex-1 min-h-screen bg-[#F7F8FA] font-sans text-left transition-all duration-300 animate-fade-in">
 
       {/* ── Page content ─────────────────────────────────────────── */}
       <div className="p-6 space-y-6">
 
-        {/* ── TOP ROW: Greeting + Date + Streak ─────────────────── */}
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-              Student Dashboard
-            </p>
-            <h1 className="text-2xl font-black text-slate-800 tracking-tight leading-tight mt-0.5">
-              {monthYear}
-            </h1>
-          </div>
-          <Suspense fallback={<div className="h-10 w-36 bg-slate-100 rounded-2xl animate-pulse" />}>
-            <StreakWidget />
-          </Suspense>
-        </div>
+        {/* ── TOP ROW: Page Header with Streak Widget ── */}
+        <PageHeader
+          eyebrow="Student Dashboard"
+          title={monthYear}
+          breadcrumbs={[]}
+          actions={
+            <Suspense fallback={<div className="h-10 w-36 bg-slate-100 rounded-2xl animate-pulse" />}>
+              <StreakWidget />
+            </Suspense>
+          }
+        />
 
         {/* ── STATS ROW ─────────────────────────────────────────── */}
         <Suspense

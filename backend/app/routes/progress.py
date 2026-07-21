@@ -1,6 +1,7 @@
-from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import List
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from datetime import datetime
 
 from app.config.session import get_db
@@ -8,7 +9,7 @@ from app.config.security import get_current_user
 from app.models.user import User
 from app.models.course import Course, Module, Lesson
 from app.models.progress import StudentCourseProgress, StudentLessonProgress, StudentModuleProgress
-from app.schemas.progress import ToggleProgressRequest, CourseProgressAggregate, StudentCourseProgressResponse
+from app.schemas.progress import ToggleProgressRequest, CourseProgressAggregate
 from app.models.streak import StudentStreak
 from app.services.streak_service import StreakService
 
@@ -49,7 +50,7 @@ def recalculate_course_progress(db: Session, student_id: str, course_id: int):
         completed_lessons = db.query(StudentLessonProgress).filter(
             StudentLessonProgress.student_id == student_id,
             StudentLessonProgress.lesson_id.in_(lesson_ids),
-            StudentLessonProgress.completed == True
+            StudentLessonProgress.completed
         ).count()
         percentage = round((completed_lessons / total_lessons) * 100.0, 1)
 
@@ -65,7 +66,7 @@ def recalculate_course_progress(db: Session, student_id: str, course_id: int):
             m_completed_count = db.query(StudentLessonProgress).filter(
                 StudentLessonProgress.student_id == student_id,
                 StudentLessonProgress.lesson_id.in_(m_lesson_ids),
-                StudentLessonProgress.completed == True
+                StudentLessonProgress.completed
             ).count()
             is_module_completed = (m_completed_count == len(m_lessons))
 
@@ -125,14 +126,14 @@ def get_course_progress(
     completed_lessons = db.query(StudentLessonProgress).filter(
         StudentLessonProgress.student_id == student_id,
         StudentLessonProgress.lesson_id.in_(lesson_ids) if lesson_ids else False,
-        StudentLessonProgress.completed == True
+        StudentLessonProgress.completed
     ).all()
     completed_lesson_ids = [p.lesson_id for p in completed_lessons]
 
     completed_modules = db.query(StudentModuleProgress).filter(
         StudentModuleProgress.student_id == student_id,
         StudentModuleProgress.module_id.in_(module_ids) if module_ids else False,
-        StudentModuleProgress.completed == True
+        StudentModuleProgress.completed
     ).all()
     completed_module_ids = [p.module_id for p in completed_modules]
 
@@ -305,7 +306,7 @@ def get_resume_learning(
         is_completed = db.query(StudentLessonProgress).filter(
             StudentLessonProgress.student_id == current_user.id,
             StudentLessonProgress.lesson_id == view.lesson_id,
-            StudentLessonProgress.completed == True
+            StudentLessonProgress.completed
         ).first()
         if not is_completed:
             target_view = view
@@ -402,7 +403,7 @@ def get_continue_learning(
         
     enrollments = db.query(Enrollment).filter(
         Enrollment.student_profile_id == up.student_profile.id,
-        Enrollment.is_active == True
+        Enrollment.is_active
     ).all()
     
     from app.models.course import Lesson, Module
@@ -421,7 +422,7 @@ def get_continue_learning(
             ).join(Module, Module.id == Lesson.module_id).filter(
                 Module.course_id == course.id,
                 StudentLessonProgress.student_id == current_user.id,
-                StudentLessonProgress.completed == True
+                StudentLessonProgress.completed
             ).count()
             
             progress = (completed_lessons / total_lessons * 100) if total_lessons > 0 else 0.0
@@ -453,7 +454,7 @@ def get_recommended_courses(
         enrolled_course_ids = [
             e.course_id for e in db.query(Enrollment).filter(
                 Enrollment.student_profile_id == up.student_profile.id,
-                Enrollment.is_active == True
+                Enrollment.is_active
             ).all()
         ]
         

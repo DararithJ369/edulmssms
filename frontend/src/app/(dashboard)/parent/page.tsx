@@ -10,6 +10,7 @@ import BigCalendarContainer from "@/components/BigCalendarContainer";
 import Announcements from "@/components/Announcements";
 import { CalendarSkeleton } from "@/components/student/WidgetSkeleton";
 import { normalizeRole } from "@/lib/auth";
+import PageHeader from "@/components/PageHeader";
 
 type ParentDashboardProps = {
   searchParams: { studentId?: string };
@@ -61,48 +62,33 @@ export default async function ParentDashboardPage({ searchParams }: ParentDashbo
   const attendancePercentage = totalAtt > 0 ? Math.round((presentAtt / totalAtt) * 100) : 100;
 
   return (
-    <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left transition-all duration-300 animate-in fade-in">
-      {/* MOODLE BREADCRUMB */}
-      <div className="flex items-center gap-1 text-[11px] font-extrabold text-muted-foreground uppercase tracking-wider mb-2 select-none">
-        <Link href="/" className="hover:text-foreground flex items-center gap-1">
-          <Globe className="h-3 w-3" />
-          Home
-        </Link>
-        <span>/</span>
-        <span className="text-foreground">Parent Dashboard</span>
-      </div>
-
-      {/* HEADER SECTION */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 select-none mb-6">
-        <div>
-          <span className="text-xs font-extrabold text-[#0038A8] uppercase tracking-wider font-mono">
-            Parental Oversight Hub • {parentMetadata?.relationship || "GUARDIAN"}
-          </span>
-          <h1 className="text-xl md:text-3xl font-black text-slate-800 tracking-tight leading-tight mt-0.5">
-            Welcome back, {parentName}
-          </h1>
-        </div>
-
-        {/* Dynamic linked children tab selector */}
-        {students.length > 0 && (
-          <div className="flex flex-wrap gap-1 bg-slate-100/80 p-1 rounded-2xl shadow-inner border border-slate-200/40 shrink-0">
-            {students.map((std) => (
-              <Link
-                key={std.id}
-                href={`/parent?studentId=${std.user_id}`}
-                className={`px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all duration-200 flex items-center gap-1.5 cursor-pointer ${
-                  activeStudent?.user_id === std.user_id
-                    ? "bg-[#0038A8] text-white shadow-sm"
-                    : "text-slate-500 hover:text-slate-800"
-                }`}
-              >
-                <User className="h-3.5 w-3.5" />
-                <span>{std.name} {std.surname}</span>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
+    <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left transition-all duration-300 animate-fade-in">
+      {/* PAGE HEADER */}
+      <PageHeader
+        eyebrow={`Parental Oversight Hub • ${parentMetadata?.relationship || "GUARDIAN"}`}
+        title={`Welcome back, ${parentName}`}
+        breadcrumbs={[{ label: "Parent Dashboard" }]}
+        actions={
+          students.length > 0 && (
+            <div className="flex flex-wrap gap-1 bg-slate-100/85 p-1 rounded-xl shadow-inner border border-slate-200/40 shrink-0">
+              {students.map((std) => (
+                <Link
+                  key={std.id}
+                  href={`/parent?studentId=${std.user_id}`}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer ${
+                    activeStudent?.user_id === std.user_id
+                      ? "bg-brand text-white shadow-sm"
+                      : "text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  <User className="h-3.5 w-3.5" />
+                  <span>{std.name} {std.surname}</span>
+                </Link>
+              ))}
+            </div>
+          )
+        }
+      />
 
       {/* Risk Alert for low attendance */}
       {activeStudent && attendancePercentage < 75 && totalAtt > 0 && (

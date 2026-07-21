@@ -8,7 +8,6 @@ from sqlalchemy.engine import Engine
 from app.db.seed.base import BaseSeeder
 from app.models.attendance import Attendance
 from app.models.enrollment import Enrollment
-from app.models.course import Course
 from app.utils.colors import Colors
 
 

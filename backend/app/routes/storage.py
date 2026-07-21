@@ -1,8 +1,6 @@
-import os
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
-from pathlib import Path
 
 from app.config.session import get_db
 from app.config.security import get_current_user
@@ -113,7 +111,7 @@ def get_private_file(
             enrollment = db.query(Enrollment).filter(
                 Enrollment.student_profile_id == student_profile_id,
                 Enrollment.course_id == course_id,
-                Enrollment.is_active == True
+                Enrollment.is_active
             ).first()
             if enrollment:
                 return serve_local_file(file_path)
@@ -125,7 +123,7 @@ def get_private_file(
             enrollment = db.query(Enrollment).filter(
                 Enrollment.student_profile_id.in_(student_profile_ids),
                 Enrollment.course_id == course_id,
-                Enrollment.is_active == True
+                Enrollment.is_active
             ).first()
             if enrollment:
                 return serve_local_file(file_path)

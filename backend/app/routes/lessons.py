@@ -1,14 +1,14 @@
-from typing import Optional, Dict, Any
+from typing import Optional
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status
 from sqlalchemy.orm import Session
-import cloudinary.uploader
 
 from app.middleware.guard.permission import PermissionGuard
 from app.config.session import get_db
 from app.services.lesson_service import LessonService
 from app.schemas.lesson import LessonCreate, LessonUpdate, LessonResponse
 from app.schemas.lesson_material import LessonMaterialCreate, LessonMaterialResponse, LessonMaterialUpdate
-from app.utils.upload_validator import validate_upload
+from app.utils.cloudinary_upload import upload_to_cloudinary
+from app.models.user import User
 
 lesson_router = APIRouter(prefix="/lessons", tags=["Lessons"])
 
@@ -44,7 +44,8 @@ def get_all_lessons(
     limit: int = 10,
     class_id: Optional[int] = None,
     course_id: Optional[int] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(PermissionGuard.get_current_user),
 ):
     result = LessonService.get_lessons(db, page, limit, class_id=class_id, course_id=course_id)
     
@@ -77,7 +78,11 @@ def create_lesson(payload: LessonCreate, db: Session = Depends(get_db)):
 # ── Dynamic /{lesson_id} — MUST be last ──────────────────────────────────────
 
 @lesson_router.get("/{lesson_id}", response_model=LessonResponse)
-def get_lesson(lesson_id: int, db: Session = Depends(get_db)):
+def get_lesson(
+    lesson_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(PermissionGuard.get_current_user),
+):
     lesson_node = LessonService.get_lesson_by_id(db, lesson_id)
     
     if lesson_node and hasattr(lesson_node, "module") and lesson_node.module:
@@ -127,28 +132,24 @@ def add_material(
     final_file_size = None
 
     if file and not final_file_url:
-        validate_upload(file, allowed_categories=["image", "document", "video"])
         try:
             content_type = file.content_type or ""
             is_video_type = "video" in content_type or type.lower() == "video"
             resource_type_spec = "video" if is_video_type else "raw"
-            
-            # Send file object straight to Cloudinary bucket namespaces
-            file.file.seek(0)
-            upload_result = cloudinary.uploader.unsigned_upload(
-                file.file,
-                upload_preset="lms_preset",
-                cloud_name="dlykcgjdh",
+
+            final_file_url = upload_to_cloudinary(
+                file,
+                folder="lms_classroom_materials",
                 resource_type=resource_type_spec,
-                folder="lms_classroom_materials"
+                allowed_categories=["image", "document", "video"],
             )
-            
-            final_file_url = upload_result.get("secure_url")
-            
-            # Calculate file sizes accurately in bytes
-            file.file.seek(0, 2)  
+
+            # Calculate file size accurately in bytes
+            file.file.seek(0, 2)
             final_file_size = file.file.tell()
-            
+
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -174,6 +175,10 @@ def add_material(
     "/{lesson_id}/materials",
     response_model=list[LessonMaterialResponse]
 )
-def get_lesson_materials(lesson_id: int, db: Session = Depends(get_db)):
+def get_lesson_materials(
+    lesson_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(PermissionGuard.get_current_user),
+):
     return LessonService.get_lesson_materials(db, lesson_id)
 

@@ -32,7 +32,7 @@ class AcademicYearService:
 
     @staticmethod
     def get_current(db: Session) -> AcademicYearResponse:
-        obj = db.query(AcademicYear).filter(AcademicYear.is_current == True).first()
+        obj = db.query(AcademicYear).filter(AcademicYear.is_current).first()
         if not obj:
             raise HTTPException(status_code=404, detail="No current academic year set")
         return AcademicYearResponse.model_validate(obj)
@@ -43,7 +43,7 @@ class AcademicYearService:
             raise HTTPException(status_code=400, detail="Academic year name already exists")
 
         if year_in.is_current:
-            db.query(AcademicYear).filter(AcademicYear.is_current == True).update({"is_current": False})
+            db.query(AcademicYear).filter(AcademicYear.is_current).update({"is_current": False})
 
         obj = AcademicYear(**year_in.model_dump())
         db.add(obj)
@@ -59,7 +59,7 @@ class AcademicYearService:
 
         if year_in.is_current:
             db.query(AcademicYear).filter(
-                AcademicYear.is_current == True, AcademicYear.id != year_id
+                AcademicYear.is_current, AcademicYear.id != year_id
             ).update({"is_current": False})
 
         apply_update(obj, year_in)
@@ -98,7 +98,7 @@ class AcademicYearService:
 
         if term_in.is_current:
             db.query(Term).filter(
-                Term.academic_year_id == year_id, Term.is_current == True
+                Term.academic_year_id == year_id, Term.is_current
             ).update({"is_current": False})
 
         term = Term(academic_year_id=year_id, **term_in.model_dump(exclude={"academic_year_id"}))
@@ -114,7 +114,7 @@ class AcademicYearService:
         if term_in.is_current:
             db.query(Term).filter(
                 Term.academic_year_id == term.academic_year_id,
-                Term.is_current == True,
+                Term.is_current,
                 Term.id != term_id,
             ).update({"is_current": False})
 

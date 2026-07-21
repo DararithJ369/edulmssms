@@ -2,7 +2,7 @@ import os
 import secrets
 from typing import List, Optional, Union
 from pydantic_settings import BaseSettings
-from pydantic import Field, EmailStr, AnyHttpUrl, validator
+from pydantic import Field, EmailStr, validator
 
 
 class Settings(BaseSettings):
@@ -66,6 +66,15 @@ class Settings(BaseSettings):
     AWS_BUCKET_NAME: Optional[str] = None
     AWS_ENDPOINT_URL: Optional[str] = None
     CLOUDFRONT_URL: Optional[str] = None
+
+    # Cloudinary settings
+    CLOUDINARY_CLOUD_NAME: Optional[str] = None
+    CLOUDINARY_API_KEY: Optional[str] = None
+    CLOUDINARY_API_SECRET: Optional[str] = None
+    CLOUDINARY_UPLOAD_PRESET: Optional[str] = None
+
+    # Frontend URL (used for email links, CORS fallback)
+    FRONTEND_URL: str = "http://localhost:3000"
 
     class Config:
         env_file = ".env"

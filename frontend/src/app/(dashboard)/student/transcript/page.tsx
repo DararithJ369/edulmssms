@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Award, BookOpen, CheckCircle2, AlertCircle, Printer, Download, ExternalLink, ShieldCheck, HelpCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "react-toastify";
+import PageHeader from "@/components/PageHeader";
 
 type CourseGpa = {
   course_id: number;
@@ -147,14 +148,23 @@ export default function StudentTranscriptPage() {
   });
 
   return (
-    <div className="flex-1 p-6 space-y-6 bg-[#F4F6FA] min-h-screen font-sans text-left print:bg-white print:p-0">
+    <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen font-sans text-left print:bg-white print:p-0 transition-all duration-300 animate-fade-in">
       
       {/* Page Title */}
       <div className="print:hidden">
-        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Academic Records</p>
-        <h1 className="text-2xl font-black text-slate-800 tracking-tight leading-tight mt-0.5">
-          Academic Transcript & Certificates
-        </h1>
+        <PageHeader
+          eyebrow="Academic Records"
+          title="Academic Transcript & Certificates"
+          breadcrumbs={[{ label: "Transcript" }]}
+          actions={
+            <button
+              onClick={handlePrint}
+              className="px-4 py-2 bg-brand hover:bg-brand-dark text-white text-xs font-semibold rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+            >
+              <Printer className="h-4 w-4" /> Print Transcript
+            </button>
+          }
+        />
       </div>
 
       {/* Overview Cards Row */}

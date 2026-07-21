@@ -1,10 +1,10 @@
-from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from app.middleware.guard.permission import PermissionGuard
 from app.config.session import get_db
 from app.services.announcement_service import AnnouncementService
 from app.schemas.announcement import AnnouncementCreate, AnnouncementUpdate, AnnouncementResponse
+from app.models.user import User
 
 announcement_router = APIRouter(prefix="/announcements", tags=["Announcements"])
 
@@ -13,13 +13,18 @@ announcement_router = APIRouter(prefix="/announcements", tags=["Announcements"])
 def get_all_announcements(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: User = Depends(PermissionGuard.get_current_user),
 ):
     return AnnouncementService.get_announcements(db, page, limit)
 
 
 @announcement_router.get("/{announcement_id}", response_model=AnnouncementResponse)
-def get_announcement(announcement_id: int, db: Session = Depends(get_db)):
+def get_announcement(
+    announcement_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(PermissionGuard.get_current_user),
+):
     return AnnouncementService.get_announcement_by_id(db, announcement_id)
 
 

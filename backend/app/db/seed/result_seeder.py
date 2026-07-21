@@ -129,14 +129,14 @@ class ResultSeeder(BaseSeeder):
                 feedback_options = [
                     f"Passed, {first_name}. However, some parts are incomplete. Re-read instructions carefully.",
                     f"Acceptable attempt, {first_name}, but needs improvement in structure and optimization.",
-                    f"Just met the passing threshold. Seek tutor support if you have doubts."
+                    "Just met the passing threshold. Seek tutor support if you have doubts."
                 ]
             else:
                 score = rng.randint(30, 59)
                 feedback_options = [
                     f"Below passing score, {first_name}. Please re-submit or schedule a review with the instructor.",
-                    f"Incomplete submission. Core requirements were missed or did not compile.",
-                    f"Needs significant revision. Please consult module guidelines and retry."
+                    "Incomplete submission. Core requirements were missed or did not compile.",
+                    "Needs significant revision. Please consult module guidelines and retry."
                 ]
 
             percentage = float(score) / float(total_marks) * 100.0

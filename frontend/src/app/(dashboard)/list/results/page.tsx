@@ -7,7 +7,6 @@ import { ITEM_PER_PAGE } from "@/lib/settings";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { 
-  Globe, 
   TrendingUp, 
   Award, 
   BookOpen, 
@@ -18,6 +17,12 @@ import {
   UserCheck
 } from "lucide-react";
 import { normalizeRole } from "@/lib/auth";
+import PageHeader from "@/components/PageHeader";
+import ListFilterSort from "@/components/ListFilterSort";
+import prisma from "@/lib/prisma";
+
+import EmptyState from "@/components/EmptyState";
+import StatusBadge from "@/components/StatusBadge";
 
 type ResultList = {
   id: number;
@@ -43,13 +48,13 @@ const ResultListPage = async ({
   const cookieStore = cookies();
   const role = normalizeRole(cookieStore.get("user_role")?.value);
 
-  const { page, studentId } = searchParams;
+  const { page, studentId, sortBy, sortOrder } = searchParams;
   const p = page ? parseInt(page) : 1;
 
   const exactToken = cookieStore.get("access_token")?.value || cookieStore.get("token")?.value || "";
   const fetchOptions = { token: exactToken };
 
-  let data: ResultList[] = [];
+  let rawData: ResultList[] = [];
   let count = 0;
 
   const queryParams = new URLSearchParams();
@@ -66,39 +71,44 @@ const ResultListPage = async ({
     data: [],
     meta: { total: 0 }
   }));
-  data = resultsResponse.data || [];
-  count = resultsResponse.meta?.total ?? 0;
+  rawData = resultsResponse.data || [];
+
+  const studentsList = await prisma.student.findMany({
+    select: { id: true, name: true, surname: true }
+  });
+
+  let filteredData = rawData;
+  if (sortBy) {
+    const isAsc = sortOrder !== "desc";
+    filteredData = [...filteredData].sort((a, b) => {
+      if (sortBy === "score") {
+        return isAsc ? a.score - b.score : b.score - a.score;
+      }
+      if (sortBy === "student") {
+        const sa = a.student_name || "";
+        const sb = b.student_name || "";
+        return isAsc ? sa.localeCompare(sb) : sb.localeCompare(sa);
+      }
+      return 0;
+    });
+  }
+
+  count = filteredData.length;
+
 
   return (
-    <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left">
-      {/* MOODLE BREADCRUMB */}
-      <div className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase tracking-wider font-bold select-none">
-        <Link href="/" className="hover:text-foreground flex items-center gap-1">
-          <Globe className="h-3 w-3" />
-          Home
-        </Link>
-        <span>/</span>
-        <span className="text-foreground">Gradebook</span>
-      </div>
-
-      {/* HEADER SECTION */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 select-none">
-        <div>
-          <span className="text-xs font-extrabold text-[#0038A8] uppercase tracking-wider font-mono">
-            Academic Performance Index
-          </span>
-          <h1 className="text-xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight leading-tight mt-0.5">
-            Gradebook & Course Results
-          </h1>
-        </div>
-
-        {/* Administration Actions */}
-        <div className="flex items-center gap-2 shrink-0">
-          {(role === "admin" || role === "teacher") && (
+    <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left transition-all duration-300 animate-fade-in">
+      {/* PAGE HEADER */}
+      <PageHeader
+        eyebrow="Academic Performance Index"
+        title="Gradebook & Course Results"
+        breadcrumbs={[{ label: "Results" }]}
+        actions={
+          (role === "admin" || role === "teacher") && (
             <FormContainer table="result" type="create" triggerText="Grade Assessment" />
-          )}
-        </div>
-      </div>
+          )
+        }
+      />
 
       {/* FILTER & SEARCH UTILITY */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/60 pb-3 select-none">
@@ -110,19 +120,30 @@ const ResultListPage = async ({
 
         <div className="flex items-center gap-2 self-start md:self-auto">
           <TableSearch />
-          <button className="w-8 h-8 flex items-center justify-center rounded-xl bg-background border border-border/80 hover:bg-accent text-muted-foreground/80 transition-colors" title="Filters">
-            <ListFilter className="h-4 w-4" />
-          </button>
-          <button className="w-8 h-8 flex items-center justify-center rounded-xl bg-background border border-border/80 hover:bg-accent text-muted-foreground/80 transition-colors" title="Sort Options">
-            <ArrowUpDown className="h-4 w-4" />
-          </button>
+          <ListFilterSort
+            filters={[
+              {
+                key: "studentId",
+                label: "Student",
+                allLabel: "All Students",
+                options: studentsList.map((s) => ({ id: s.id, label: `${s.name} ${s.surname}` })),
+              },
+            ]}
+            sortOptions={[
+              { label: "Default Order", value: "" },
+              { label: "Score (Lowest First)", value: "score-asc" },
+              { label: "Score (Highest First)", value: "score-desc" },
+              { label: "Student Name (A-Z)", value: "student-asc" },
+              { label: "Student Name (Z-A)", value: "student-desc" },
+            ]}
+          />
         </div>
       </div>
 
       {/* GRADEBOOK OUTLINE LIST */}
-      {data.length > 0 ? (
+      {filteredData.length > 0 ? (
         <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.01)] space-y-3">
-          {data.map((item) => (
+          {filteredData.map((item) => (
             <div 
               key={item.id} 
               className="flex items-center justify-between p-4 bg-[#f8fcf9]/40 dark:bg-muted/5 border border-border/40 hover:border-emerald-300/50 dark:hover:border-emerald-950/30 rounded-2xl transition-all shadow-sm group"
@@ -159,13 +180,9 @@ const ResultListPage = async ({
 
                 {/* Pass or Fail tags */}
                 {item.is_passed ? (
-                  <span className="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 font-extrabold text-[9px] rounded-lg border border-emerald-100 dark:border-emerald-900/30 uppercase tracking-wider">
-                    Passed
-                  </span>
+                  <StatusBadge variant="passed" />
                 ) : (
-                  <span className="px-2.5 py-1 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 font-extrabold text-[9px] rounded-lg border border-red-100 dark:border-red-900/30 uppercase tracking-wider">
-                    Failed
-                  </span>
+                  <StatusBadge variant="failed" />
                 )}
 
                 <TableRowActions
@@ -180,14 +197,20 @@ const ResultListPage = async ({
           ))}
         </div>
       ) : (
-        <div className="bg-card border border-border/60 rounded-3xl p-12 text-center text-muted-foreground select-none">
-          <TrendingUp className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-          <p className="text-sm font-bold">No academic evaluation results registered in database.</p>
-        </div>
+        <EmptyState
+          icon={Award}
+          title="No Results Found"
+          description="Syllabus evaluations and exam scorecards will appear here."
+          action={
+            (role === "admin" || role === "teacher") && (
+              <FormContainer table="result" type="create" triggerText="Grade Assessment" />
+            )
+          }
+        />
       )}
 
       {/* PAGINATION PANEL */}
-      <div className="bg-card border border-border/60 rounded-3xl p-4 shadow-sm flex justify-center select-none shrink-0">
+      <div className="flex justify-center select-none shrink-0 pt-2">
         <Pagination page={p} count={count} />
       </div>
     </div>

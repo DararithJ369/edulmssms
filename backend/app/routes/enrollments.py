@@ -9,7 +9,7 @@ from app.schemas.enrollment import EnrollmentCreate, EnrollmentUpdate, Enrollmen
 from app.models.academic_year import AcademicYear
 from app.models.term import Term
 from app.models.course import Course
-from datetime import datetime
+from app.models.user import User
 
 enrollment_router = APIRouter(prefix="/enrollments", tags=["Enrollments"])
 
@@ -20,7 +20,11 @@ def get_all_enrollments(page: int = 1, limit: int = 10, db: Session = Depends(ge
 
 
 @enrollment_router.get("/{enrollment_id}", response_model=EnrollmentResponse)
-def get_enrollment(enrollment_id: int, db: Session = Depends(get_db)):
+def get_enrollment(
+    enrollment_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(PermissionGuard.get_current_user),
+):
     return EnrollmentService.get_enrollment_by_id(db, enrollment_id)
 
 
@@ -74,7 +78,7 @@ def checkout_enrollment(
 
     academic_year = (
         db.query(AcademicYear)
-        .filter(AcademicYear.is_current == True, AcademicYear.is_active == True)
+        .filter(AcademicYear.is_current, AcademicYear.is_active)
         .first()
     )
     if not academic_year:
@@ -90,8 +94,8 @@ def checkout_enrollment(
             db.query(Term)
             .filter(
                 Term.academic_year_id == academic_year.id,
-                Term.is_current == True,
-                Term.is_active == True,
+                Term.is_current,
+                Term.is_active,
             )
             .first()
         )

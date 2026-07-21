@@ -37,8 +37,6 @@ from app.db.seed.event_seeder import EventSeeder
 from app.utils.colors import Colors
 
 
-from alembic.config import Config
-from alembic import command
 
 def ensure_seed_tables(db):
     # Import all models to register them with SQLAlchemy
@@ -301,7 +299,7 @@ def main():
 
             # 11. Seed Course Enrollments
             enrollment_seeder = EnrollmentSeeder(db)
-            enrollments = enrollment_seeder.seed_enrollments(courses, student_profiles, academic_year_id)
+            enrollment_seeder.seed_enrollments(courses, student_profiles, academic_year_id)
 
             # 12. Seed Assignments
             assignment_seeder = AssignmentSeeder(db)
@@ -330,7 +328,7 @@ def main():
 
             # 16. Seed Coursework Submissions
             submission_seeder = SubmissionSeeder(db)
-            submissions = submission_seeder.seed_submissions(student_ids, assignments, quizzes, exams)
+            submission_seeder.seed_submissions(student_ids, assignments, quizzes, exams)
 
             # 17. Seed Graded Results on Bell Curve
             result_seeder = ResultSeeder(db)

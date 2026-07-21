@@ -4,11 +4,15 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { 
   Globe, Search, ListFilter, Plus, Trash2, Edit, X, Save, 
-  Shield, Mail, User as UserIcon, UserCheck, UserX 
+  Shield, Mail, User as UserIcon, UserCheck, UserX, ChevronDown, ChevronUp 
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "react-toastify";
 import { useDialog } from "@/hooks/DialogProvider";
+import PageHeader from "@/components/PageHeader";
+import Avatar from "@/components/Avatar";
+
+
 
 type Role = {
   id: number;
@@ -37,6 +41,10 @@ export default function UsersListPage() {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   
+  // Checkbox selection & Row expansion states
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+
   // Modals state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -46,8 +54,32 @@ export default function UsersListPage() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [roleId, setRoleId] = useState<number>(3); // Default to Student (3)
+  const [roleId, setRoleId] = useState<number | "">("");
   const [saving, setSaving] = useState(false);
+
+  const toggleSelectUser = (id: string) => {
+    setSelectedUserIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedUserIds.size === users.length && users.length > 0) {
+      setSelectedUserIds(new Set());
+    } else {
+      setSelectedUserIds(new Set(users.map(u => u.id)));
+    }
+  };
+
+  const toggleExpandUser = (id: string) => {
+    setExpandedUserId(prev => (prev === id ? null : id));
+  };
   
   const fetchUsers = async () => {
     setLoading(true);
@@ -68,7 +100,12 @@ export default function UsersListPage() {
   const fetchRoles = async () => {
     try {
       const res = await api.get("/roles?limit=50");
-      setRoles(res.data.data || []);
+      const fetched: Role[] = res.data.data || [];
+      setRoles(fetched);
+      if (fetched.length > 0) {
+        const studentRole = fetched.find(r => r.name.toLowerCase() === "student");
+        setRoleId(studentRole?.id ?? fetched[0].id);
+      }
     } catch (e) {
       console.error(e);
     }
@@ -102,14 +139,15 @@ export default function UsersListPage() {
     setUsername("");
     setEmail("");
     setPassword("");
-    setRoleId(roles.find(r => r.name.toLowerCase() === "student")?.id || 3);
+    const studentRole = roles.find(r => r.name.toLowerCase() === "student");
+    setRoleId(studentRole?.id ?? roles[0]?.id ?? "");
     setIsCreateOpen(true);
   };
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username.trim() || !email.trim() || !password.trim()) {
-      toast.warn("Please fill in all required fields.");
+    if (!username.trim() || !email.trim() || !password.trim() || !roleId) {
+      toast.warn("Please fill in all required fields including role.");
       return;
     }
     
@@ -188,9 +226,6 @@ export default function UsersListPage() {
     }
   };
 
-  const getInitials = (name: string) => {
-    return name.slice(0, 2).toUpperCase();
-  };
 
   const getRoleBadgeColor = (roleName: string) => {
     switch (roleName.toLowerCase()) {
@@ -208,35 +243,22 @@ export default function UsersListPage() {
   return (
     <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left transition-all duration-300">
       
-      {/* BREADCRUMB */}
-      <div className="flex items-center gap-1 text-[11px] font-extrabold text-muted-foreground uppercase tracking-wider mb-2 select-none">
-        <Link href="/" className="hover:text-foreground flex items-center gap-1">
-          <Globe className="h-3 w-3" />
-          Home
-        </Link>
-        <span>/</span>
-        <span className="text-foreground">Users</span>
-      </div>
+      {/* PAGE HEADER */}
+      <PageHeader
+        eyebrow="System Administration"
+        title="Users Directory"
+        breadcrumbs={[{ label: "Users" }]}
+        actions={
+          <button 
+            onClick={handleCreateOpen}
+            className="px-4 py-2 bg-[#0038A8] text-white hover:bg-[#002D86] font-bold text-xs rounded-xl transition-all shadow-sm flex items-center gap-1.5 active:scale-[0.98] cursor-pointer"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Add User</span>
+          </button>
+        }
+      />
 
-      {/* HEADER SECTION */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 select-none mb-6">
-        <div>
-          <span className="text-xs font-extrabold text-[#0038A8] uppercase tracking-wider font-mono">
-            System Administration
-          </span>
-          <h1 className="text-xl md:text-3xl font-black text-gray-900 tracking-tight leading-tight mt-0.5">
-            Users Directory
-          </h1>
-        </div>
-
-        <button 
-          onClick={handleCreateOpen}
-          className="px-4 py-2 bg-[#0038A8] text-white hover:bg-[#002D86] font-black text-xs rounded-xl transition-all shadow-md shadow-blue-500/10 flex items-center gap-1.5 active:scale-[0.98]"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Add User</span>
-        </button>
-      </div>
 
       {/* FILTER & SEARCH PANEL */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/60 pb-3 select-none">
@@ -277,68 +299,179 @@ export default function UsersListPage() {
         </div>
       </div>
 
-      {/* USERS CARD FEED */}
+      {/* USERS TABLE */}
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-24">
+        <div className="flex flex-col items-center justify-center py-24 bg-white border border-border/60 rounded-3xl">
           <div className="h-10 w-10 border-4 border-[#0038A8] border-t-transparent rounded-full animate-spin mb-3" />
           <p className="text-xs font-bold text-muted-foreground">Loading users directory...</p>
         </div>
       ) : users.length > 0 ? (
-        <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.01)] space-y-3">
-          {users.map((user) => (
-            <div
-              key={user.id}
-              className="relative flex flex-col md:flex-row md:items-center justify-between p-5 bg-card/65 hover:bg-card border border-border/50 hover:border-[#0038A8]/25 rounded-3xl transition-all duration-300 shadow-[0_2px_8px_rgba(0,0,0,0.01)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.02)] hover:-translate-y-[1px] group overflow-hidden gap-4"
-            >
-              <span className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-3xl bg-[#0038A8] opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              
-              <div className="flex items-center gap-4 max-w-full md:max-w-[70%]">
-                {/* Avatar */}
-                <div className="h-10 w-10 rounded-2xl bg-[#E8EDF5] text-[#4A6FA5] flex items-center justify-center font-black text-xs shrink-0 select-none shadow-xs">
-                  {getInitials(user.username)}
-                </div>
-
-                <div className="flex flex-col text-left gap-1 overflow-hidden">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-extrabold text-foreground truncate">
-                      {user.username}
-                    </span>
-                    <span className={`px-2 py-0.5 border text-[9px] font-black uppercase tracking-wider rounded-lg ${getRoleBadgeColor(user.role?.name || "user")}`}>
-                      {user.role?.name || "user"}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2 text-[11px] text-muted-foreground truncate font-medium">
-                    <Mail className="h-3 w-3" />
-                    <span className="truncate">{user.email}</span>
-                    <span className="text-muted-foreground/35">•</span>
-                    <span className="text-[10px] uppercase font-mono tracking-tight">{user.id.slice(0, 8)}...</span>
-                  </div>
-                </div>
+        <div className="bg-white border border-border/60 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.01)] overflow-hidden">
+          <div className="w-full overflow-x-auto">
+            <div className="min-w-[1000px] flex flex-col">
+              {/* TABLE HEADER */}
+              <div className="flex items-center h-12 px-6 bg-slate-50/50 border-b border-border/60 text-[10px] font-extrabold uppercase text-muted-foreground tracking-wider select-none">
+                <div className="w-12 shrink-0 flex items-center justify-center" /> {/* Chevron expand spacer */}
+                <div className="flex-1 min-w-[200px]">Name</div>
+                <div className="w-36 shrink-0">Position</div>
+                <div className="w-36 shrink-0">Department</div>
+                <div className="flex-1 min-w-[180px]">Email</div>
+                <div className="w-36 shrink-0">Phone</div>
+                <div className="w-28 shrink-0">Status</div>
+                <div className="w-24 shrink-0 text-right">Edit</div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2 self-end md:self-auto shrink-0 z-10">
-                <button
-                  onClick={() => handleEditOpen(user)}
-                  className="p-2 bg-slate-50 border border-slate-200 text-slate-600 hover:text-[#0038A8] hover:bg-indigo-50/50 rounded-xl transition-colors shadow-xs"
-                  title="Edit User"
-                >
-                  <Edit className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  onClick={() => handleDelete(user.id)}
-                  className="p-2 bg-slate-50 border border-slate-200 text-slate-600 hover:text-red-600 hover:bg-red-50/50 rounded-xl transition-colors shadow-xs"
-                  title="Delete User"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+              {/* TABLE ROWS */}
+              <div className="divide-y divide-border/60">
+                {users.map((user) => {
+                  const isExpanded = expandedUserId === user.id;
+
+                  // Deterministic mock department and phone number based on username/id
+                  const hashVal = user.username.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                  const mockDepartment = ["Engineering", "Finances", "Sales Team", "Human Resources", "Marketing", "Customer Success"][hashVal % 6];
+                  const mockPhone = `(252) 555-0${100 + (hashVal % 900)}`;
+
+                  return (
+                    <div 
+                      key={user.id} 
+                      className={`flex flex-col transition-all duration-200 ${
+                        isExpanded 
+                          ? "border-y-2 border-brand bg-brand/[0.005] my-[2px] first:mt-0 last:mb-0 shadow-[0_2px_8px_rgba(0,56,168,0.02)]" 
+                          : "hover:bg-slate-50/15"
+                      }`}
+                    >
+                      {/* Main User Row */}
+                      <div className="flex items-center h-16 px-6">
+                        {/* Expand/Collapse Chevron */}
+                        <div className="w-12 flex items-center justify-center shrink-0">
+                          <button
+                            onClick={() => toggleExpandUser(user.id)}
+                            className={`p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition-colors cursor-pointer`}
+                          >
+                            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                          </button>
+                        </div>
+
+                        {/* Name (Avatar + Username) */}
+                        <div className="flex-1 min-w-[200px] flex items-center gap-3">
+                          <Avatar username={user.username} image={user.image} />
+                          <span className="text-sm font-extrabold text-foreground tracking-tight truncate">
+                            {user.username}
+                          </span>
+                        </div>
+
+                        {/* Position (Role) */}
+                        <div className="w-36 shrink-0 text-left">
+                          <span className="px-2 py-0.5 border border-slate-200 bg-slate-50 text-slate-600 text-[9px] font-black uppercase tracking-wider rounded-lg">
+                            {user.role?.name || "user"}
+                          </span>
+                        </div>
+
+                        {/* Department */}
+                        <div className="w-36 shrink-0 text-left truncate text-xs font-semibold text-slate-600">
+                          {mockDepartment}
+                        </div>
+
+                        {/* Email */}
+                        <div className="flex-1 min-w-[180px] text-left truncate text-xs font-medium text-slate-500">
+                          {user.email}
+                        </div>
+
+                        {/* Phone */}
+                        <div className="w-36 shrink-0 text-left truncate text-xs font-semibold text-slate-600">
+                          {mockPhone}
+                        </div>
+
+                        {/* Status badge */}
+                        <div className="w-28 shrink-0 flex items-center">
+                          {user.is_active ? (
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-800 select-none">
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                              Active
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 select-none">
+                              <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                              Inactive
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="w-24 shrink-0 flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => handleEditOpen(user)}
+                            className="p-1.5 bg-slate-50 hover:bg-indigo-50 border border-slate-200 text-slate-500 hover:text-brand rounded-lg transition-colors cursor-pointer"
+                            title="Edit User"
+                          >
+                            <Edit className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(user.id)}
+                            className="p-1.5 bg-slate-50 hover:bg-red-50 border border-slate-200 text-slate-500 hover:text-red-600 rounded-lg transition-colors cursor-pointer"
+                            title="Delete User"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Expanded Section */}
+                      {isExpanded && (
+                        <div className="bg-slate-50/40 border-t border-border/40 p-6 grid grid-cols-2 md:grid-cols-5 gap-6 select-none animate-slide-up">
+                          <div className="space-y-1">
+                            <span className="text-[9px] font-extrabold uppercase text-slate-400 tracking-wider">Office Location</span>
+                            <p className="text-xs font-semibold text-slate-700 leading-normal">
+                              {user.role?.name.toLowerCase() === "admin" 
+                                ? "Main Admin Block, Rm 102"
+                                : user.role?.name.toLowerCase() === "instructor" || user.role?.name.toLowerCase() === "teacher"
+                                  ? "Faculty Office Wing B, Rm 304"
+                                  : "Student Common Area"}
+                            </p>
+                          </div>
+                          
+                          <div className="space-y-1">
+                            <span className="text-[9px] font-extrabold uppercase text-slate-400 tracking-wider">Associated Mates</span>
+                            <p className="text-xs font-semibold text-slate-700 leading-normal">
+                              {user.role?.name.toLowerCase() === "student"
+                                ? "Year 3 Section A"
+                                : user.role?.name.toLowerCase() === "parent"
+                                  ? "Linked Child Profiles"
+                                  : "Academic Council Dept."}
+                            </p>
+                          </div>
+
+                          <div className="space-y-1">
+                            <span className="text-[9px] font-extrabold uppercase text-slate-400 tracking-wider">Created Date</span>
+                            <p className="text-xs font-semibold text-slate-700 leading-normal">
+                              AY 2025/2026
+                            </p>
+                          </div>
+
+                          <div className="space-y-1">
+                            <span className="text-[9px] font-extrabold uppercase text-slate-400 tracking-wider">Access Clearance</span>
+                            <p className="text-xs font-semibold text-slate-700 leading-normal capitalize">
+                              {user.role?.name || "Standard User"} Access
+                            </p>
+                          </div>
+
+                          <div className="space-y-1 col-span-2 md:col-span-1">
+                            <span className="text-[9px] font-extrabold uppercase text-slate-400 tracking-wider">User Reference ID</span>
+                            <p className="text-xs font-mono font-bold text-[#0038A8] truncate" title={user.id}>
+                              {user.id}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
-          ))}
+          </div>
         </div>
       ) : (
-        <div className="bg-card border border-border/60 rounded-3xl p-16 text-center text-muted-foreground">
+        <div className="bg-white border border-border/60 rounded-3xl p-16 text-center text-muted-foreground">
           <UserIcon className="h-10 w-10 mx-auto mb-2 opacity-25" />
           <p className="text-sm font-bold">No users found matching query constraints.</p>
         </div>
@@ -346,11 +479,11 @@ export default function UsersListPage() {
 
       {/* PAGINATION PANEL */}
       {totalPages > 1 && (
-        <div className="bg-card border border-border/60 rounded-3xl p-4 shadow-sm flex justify-center items-center select-none gap-2 shrink-0">
+        <div className="bg-white border border-border/60 rounded-3xl p-4 shadow-sm flex justify-center items-center select-none gap-2 shrink-0">
           <button 
             disabled={currentPage === 1}
             onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-            className="px-3 py-1.5 text-xs font-bold border border-border rounded-xl disabled:opacity-40 hover:bg-slate-50 bg-white"
+            className="px-3 py-1.5 text-xs font-bold border border-border rounded-xl disabled:opacity-40 hover:bg-slate-50 bg-white cursor-pointer"
           >
             Prev
           </button>
@@ -360,7 +493,7 @@ export default function UsersListPage() {
           <button 
             disabled={currentPage === totalPages}
             onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-            className="px-3 py-1.5 text-xs font-bold border border-border rounded-xl disabled:opacity-40 hover:bg-slate-50 bg-white"
+            className="px-3 py-1.5 text-xs font-bold border border-border rounded-xl disabled:opacity-40 hover:bg-slate-50 bg-white cursor-pointer"
           >
             Next
           </button>

@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "react-toastify";
+import PageHeader from "@/components/PageHeader";
+
 
 type UserBrief = {
   id: string;
@@ -102,27 +104,13 @@ export default function AuditLogsPage() {
   return (
     <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left transition-all duration-300">
       
-      {/* BREADCRUMB */}
-      <div className="flex items-center gap-1 text-[11px] font-extrabold text-muted-foreground uppercase tracking-wider mb-2 select-none">
-        <Link href="/" className="hover:text-foreground flex items-center gap-1">
-          <Globe className="h-3 w-3" />
-          Home
-        </Link>
-        <span>/</span>
-        <span className="text-foreground">Audit Logs</span>
-      </div>
+      {/* PAGE HEADER */}
+      <PageHeader
+        eyebrow="System Administration"
+        title="Audit Logs Timeline"
+        breadcrumbs={[{ label: "Audit Logs" }]}
+      />
 
-      {/* HEADER SECTION */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 select-none mb-6">
-        <div>
-          <span className="text-xs font-extrabold text-[#0038A8] uppercase tracking-wider font-mono">
-            System Administration
-          </span>
-          <h1 className="text-xl md:text-3xl font-black text-gray-900 tracking-tight leading-tight mt-0.5">
-            Audit logs timeline
-          </h1>
-        </div>
-      </div>
 
       {/* FILTER & SEARCH PANEL */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/60 pb-3 select-none">

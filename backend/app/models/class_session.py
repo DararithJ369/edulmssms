@@ -11,7 +11,7 @@ class ClassSession(Base):
 
     class_id = Column(Integer, ForeignKey("classes.id"), nullable=False)
     subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=False)
-    teacher_id = Column(String, ForeignKey("users.id"), nullable=False)
+    teacher_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     schedule_slot_id = Column(Integer, ForeignKey("schedule_slots.id"), nullable=True)
 
     title = Column(String, nullable=False)

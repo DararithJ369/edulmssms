@@ -7,7 +7,6 @@ import { ITEM_PER_PAGE } from "@/lib/settings";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import {
-  Globe,
   Megaphone,
   Calendar,
   Layers,
@@ -16,6 +15,11 @@ import {
   ArrowUpDown
 } from "lucide-react";
 import { normalizeRole } from "@/lib/auth";
+import PageHeader from "@/components/PageHeader";
+import ListFilterSort from "@/components/ListFilterSort";
+
+import EmptyState from "@/components/EmptyState";
+import StatusBadge from "@/components/StatusBadge";
 
 type AnnouncementList = {
   id: number;
@@ -40,6 +44,8 @@ const AnnouncementListPage = async ({
 
   const p = pageValue ? parseInt(pageValue) : 1;
 
+  const classesList = await prisma.class.findMany({ select: { id: true, name: true } });
+
   // URL PARAMS CONDITION
   const query: any = {};
 
@@ -50,6 +56,9 @@ const AnnouncementListPage = async ({
         switch (key) {
           case "search":
             query.title = { contains: normalizedValue, mode: "insensitive" };
+            break;
+          case "classId":
+            query.classId = Number(normalizedValue);
             break;
           default:
             break;
@@ -72,6 +81,16 @@ const AnnouncementListPage = async ({
     },
   ];
 
+  let orderByObj: any = { date: "desc" };
+  if (queryParams.sortBy) {
+    const isAsc = queryParams.sortOrder !== "desc";
+    if (queryParams.sortBy === "title") {
+      orderByObj = { title: isAsc ? "asc" : "desc" };
+    } else if (queryParams.sortBy === "date") {
+      orderByObj = { date: isAsc ? "asc" : "desc" };
+    }
+  }
+
   const [data, count] = await prisma.$transaction([
     prisma.announcement.findMany({
       where: query,
@@ -80,43 +99,25 @@ const AnnouncementListPage = async ({
       },
       take: ITEM_PER_PAGE,
       skip: ITEM_PER_PAGE * (p - 1),
-      orderBy: {
-        date: "desc"
-      }
+      orderBy: orderByObj
     }),
     prisma.announcement.count({ where: query }),
   ]);
 
+
   return (
-    <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left">
-      {/* BREADCRUMB */}
-      <div className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase tracking-wider font-bold select-none">
-        <Link href="/" className="hover:text-foreground flex items-center gap-1">
-          <Globe className="h-3 w-3" />
-          Home
-        </Link>
-        <span>/</span>
-        <span className="text-foreground">Announcements</span>
-      </div>
-
-      {/* HEADER SECTION */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 select-none">
-        <div>
-          <span className="text-xs font-extrabold text-[#0038A8] uppercase tracking-wider font-mono">
-            System & Class Board
-          </span>
-          <h1 className="text-xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight leading-tight mt-0.5">
-            Academic Announcements
-          </h1>
-        </div>
-
-        {/* Administration Actions */}
-        <div className="flex items-center gap-2 shrink-0">
-          {role === "admin" && (
+    <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left transition-all duration-300 animate-fade-in">
+      {/* PAGE HEADER */}
+      <PageHeader
+        eyebrow="System & Class Board"
+        title="Academic Announcements"
+        breadcrumbs={[{ label: "Announcements" }]}
+        actions={
+          role === "admin" && (
             <FormContainer table="announcement" type="create" triggerText="Add Announcement" />
-          )}
-        </div>
-      </div>
+          )
+        }
+      />
 
       {/* FILTER & SEARCH UTILITY */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/60 pb-3 select-none">
@@ -128,12 +129,23 @@ const AnnouncementListPage = async ({
 
         <div className="flex items-center gap-2 self-start md:self-auto">
           <TableSearch />
-          <button className="w-8 h-8 flex items-center justify-center rounded-xl bg-background border border-border/80 hover:bg-accent text-muted-foreground/80 transition-colors" title="Filters">
-            <ListFilter className="h-4 w-4" />
-          </button>
-          <button className="w-8 h-8 flex items-center justify-center rounded-xl bg-background border border-border/80 hover:bg-accent text-muted-foreground/80 transition-colors" title="Sort Options">
-            <ArrowUpDown className="h-4 w-4" />
-          </button>
+          <ListFilterSort
+            filters={[
+              {
+                key: "classId",
+                label: "Class",
+                allLabel: "All Classes",
+                options: classesList.map((c) => ({ id: c.id, label: c.name })),
+              },
+            ]}
+            sortOptions={[
+              { label: "Default Order", value: "" },
+              { label: "Title (A-Z)", value: "title-asc" },
+              { label: "Title (Z-A)", value: "title-desc" },
+              { label: "Date (Earliest)", value: "date-asc" },
+              { label: "Date (Latest)", value: "date-desc" },
+            ]}
+          />
         </div>
       </div>
 
@@ -183,14 +195,20 @@ const AnnouncementListPage = async ({
           })}
         </div>
       ) : (
-        <div className="bg-card border border-border/60 rounded-3xl p-12 text-center text-muted-foreground select-none">
-          <Megaphone className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-          <p className="text-sm font-bold">No announcements posted yet.</p>
-        </div>
+        <EmptyState
+          icon={Megaphone}
+          title="No Announcements Posted"
+          description="School notices and class broadcasts will appear here. Start by creating an announcement."
+          action={
+            role === "admin" && (
+              <FormContainer table="announcement" type="create" triggerText="Add Announcement" />
+            )
+          }
+        />
       )}
 
       {/* PAGINATION PANEL */}
-      <div className="bg-card border border-border/60 rounded-3xl p-4 shadow-sm flex justify-center select-none shrink-0">
+      <div className="flex justify-center select-none shrink-0 pt-2">
         <Pagination page={p} count={count} />
       </div>
     </div>

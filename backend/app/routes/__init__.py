@@ -11,7 +11,7 @@ from .results import result_router
 from .enrollments import enrollment_router
 from .attendance import attendance_router
 from .submissions import submission_router
-from .grade_level import grade_level_router, grade_level_alias_router
+from .grade_level import grade_level_router
 from .academic_year import academic_year_router
 from .dashboard import dashboard_router
 from .finance import finance_router
@@ -46,7 +46,6 @@ all_routers = [
     attendance_router,
     submission_router,
     grade_level_router,
-    grade_level_alias_router,
     academic_year_router,
     courses_management_router,
     finance_router,

@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import FormContainer from "@/components/FormContainer";
 import TableRowActions from "@/components/TableRowActions";
 import Pagination from "@/components/Pagination";
@@ -7,7 +9,6 @@ import { ITEM_PER_PAGE } from "@/lib/settings";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { 
-  Globe, 
   BookOpen, 
   CheckCircle2, 
   ListFilter, 
@@ -18,6 +19,12 @@ import {
   UserCheck
 } from "lucide-react";
 import { normalizeRole } from "@/lib/auth";
+import PageHeader from "@/components/PageHeader";
+import EmptyState from "@/components/EmptyState";
+import StatusBadge from "@/components/StatusBadge";
+import ListFilterSort from "@/components/ListFilterSort";
+import prisma from "@/lib/prisma";
+
 
 type LessonList = {
   id: number;
@@ -50,13 +57,13 @@ const LessonListPage = async ({
   const cookieStore = cookies();
   const role = normalizeRole(cookieStore.get("user_role")?.value);
 
-  const { page, classId } = searchParams;
+  const { page, classId, courseId, sortBy, sortOrder } = searchParams;
   const p = page ? parseInt(page) : 1;
 
   const exactToken = cookieStore.get("access_token")?.value || cookieStore.get("token")?.value || "";
   const fetchOptions = { token: exactToken };
 
-  let data: LessonList[] = [];
+  let rawData: LessonList[] = [];
   let count = 0;
 
   const queryParams = new URLSearchParams();
@@ -74,8 +81,36 @@ const LessonListPage = async ({
     meta: { total: 0 }
   }));
 
-  data = lessonsResponse.data || [];
-  count = lessonsResponse.meta?.total ?? 0;
+  rawData = lessonsResponse.data || [];
+
+  const classesList = await prisma.class.findMany({ select: { id: true, name: true } });
+  const coursesRes = await serverFetch<{ data: any[] }>("/courses?limit=250", fetchOptions).catch(() => ({ data: [] }));
+  const coursesList = coursesRes.data || [];
+
+  let filteredData = rawData;
+  if (courseId) {
+    filteredData = filteredData.filter((item) => {
+      const cId = item.course_id || item.course?.id;
+      return String(cId) === courseId;
+    });
+  }
+  if (sortBy) {
+    const isAsc = sortOrder !== "desc";
+    filteredData = [...filteredData].sort((a, b) => {
+      if (sortBy === "name") {
+        return isAsc ? a.title.localeCompare(b.title) : b.title.localeCompare(a.title);
+      }
+      if (sortBy === "subject") {
+        const sa = a.subject || "";
+        const sb = b.subject || "";
+        return isAsc ? sa.localeCompare(sb) : sb.localeCompare(sa);
+      }
+      return 0;
+    });
+  }
+
+  count = filteredData.length;
+
 
   const formatTimeInterval = (start: string | null | undefined, end: string | null | undefined) => {
     if (!start) return null;
@@ -94,35 +129,18 @@ const LessonListPage = async ({
   };
 
   return (
-    <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left">
-      {/* MOODLE BREADCRUMB */}
-      <div className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase tracking-wider font-bold select-none">
-        <Link href="/" className="hover:text-foreground flex items-center gap-1">
-          <Globe className="h-3 w-3" />
-          Home
-        </Link>
-        <span>/</span>
-        <span className="text-foreground">My Lessons</span>
-      </div>
-
-      {/* HEADER SECTION */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 select-none">
-        <div>
-          <span className="text-xs font-extrabold text-[#0038A8] uppercase tracking-wider font-mono">
-            Syllabus Activity Database
-          </span>
-          <h1 className="text-xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight leading-tight mt-0.5">
-            Lectures & Page Activities
-          </h1>
-        </div>
-
-        {/* Administration Actions */}
-        <div className="flex items-center gap-2 shrink-0">
-          {(role === "admin" || role === "teacher") && (
+    <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left transition-all duration-300 animate-fade-in">
+      {/* PAGE HEADER */}
+      <PageHeader
+        eyebrow="Syllabus Activity Database"
+        title="Lectures & Page Activities"
+        breadcrumbs={[{ label: "Lessons" }]}
+        actions={
+          (role === "admin" || role === "teacher") && (
             <FormContainer table="lesson" type="create" triggerText="Add Lesson" />
-          )}
-        </div>
-      </div>
+          )
+        }
+      />
 
       {/* FILTER & SEARCH UTILITY */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/60 pb-3 select-none">
@@ -134,19 +152,36 @@ const LessonListPage = async ({
 
         <div className="flex items-center gap-2 self-start md:self-auto">
           <TableSearch />
-          <button className="w-8 h-8 flex items-center justify-center rounded-xl bg-background border border-border/80 hover:bg-accent text-muted-foreground/80 transition-colors" title="Filters">
-            <ListFilter className="h-4 w-4" />
-          </button>
-          <button className="w-8 h-8 flex items-center justify-center rounded-xl bg-background border border-border/80 hover:bg-accent text-muted-foreground/80 transition-colors" title="Sort Options">
-            <ArrowUpDown className="h-4 w-4" />
-          </button>
+          <ListFilterSort
+            filters={[
+              {
+                key: "classId",
+                label: "Class",
+                allLabel: "All Classes",
+                options: classesList.map((c) => ({ id: c.id, label: c.name })),
+              },
+              {
+                key: "courseId",
+                label: "Course",
+                allLabel: "All Courses",
+                options: coursesList.map((c) => ({ id: c.id, label: c.course_name })),
+              },
+            ]}
+            sortOptions={[
+              { label: "Default Order", value: "" },
+              { label: "Lesson Name (A-Z)", value: "name-asc" },
+              { label: "Lesson Name (Z-A)", value: "name-desc" },
+              { label: "Subject (A-Z)", value: "subject-asc" },
+              { label: "Subject (Z-A)", value: "subject-desc" },
+            ]}
+          />
         </div>
       </div>
 
       {/* LESSON ACTIVITIES LIST */}
-      {data.length > 0 ? (
-        <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.01)] space-y-3">
-          {data.map((item) => {
+      {filteredData.length > 0 ? (
+        <div className="space-y-3 w-full">
+          {filteredData.map((item) => {
             const isDone = item.id % 2 === 0;
             const isFileResource = item.type === "file" || !!item.meta_value;
             const timeRange = formatTimeInterval(item.startTime, item.endTime);
@@ -160,10 +195,10 @@ const LessonListPage = async ({
             return (
               <div 
                 key={item.id} 
-                className="relative flex flex-col sm:flex-row sm:items-center justify-between p-5 gap-4 bg-card/65 hover:bg-card border border-border/50 hover:border-sky-500/25 rounded-3xl transition-all duration-300 shadow-[0_2px_8px_rgba(0,0,0,0.01)] group overflow-hidden"
+                className="relative flex flex-col sm:flex-row sm:items-center justify-between p-5 gap-4 bg-card hover:bg-card border border-border/60 hover:border-brand/45 rounded-3xl transition-all duration-300 shadow-[0_2px_8px_rgba(0,0,0,0.02)] group overflow-hidden"
               >
                 {/* Left Accent indicator strip */}
-                <span className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-l-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${isFileResource ? "bg-emerald-500" : "bg-sky-500"}`} />
+                <span className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-3xl bg-brand opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 
                 <div className="flex items-start gap-4 max-w-full sm:max-w-[75%] z-10">
                   <div className="flex flex-col text-left gap-1 min-w-0">
@@ -257,14 +292,20 @@ const LessonListPage = async ({
           })}
         </div>
       ) : (
-        <div className="bg-card border border-border/60 rounded-3xl p-12 text-center text-muted-foreground select-none">
-          <BookOpen className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-          <p className="text-sm font-bold">No syllabus lessons registered in database.</p>
-        </div>
+        <EmptyState
+          icon={BookOpen}
+          title="No Lessons Found"
+          description="Syllabus lectures and learning activities will appear here. Start by creating a lesson node."
+          action={
+            (role === "admin" || role === "teacher") && (
+              <FormContainer table="lesson" type="create" triggerText="Add Lesson" />
+            )
+          }
+        />
       )}
 
       {/* PAGINATION PANEL */}
-      <div className="bg-card border border-border/60 rounded-3xl p-4 shadow-sm flex justify-center select-none shrink-0">
+      <div className="flex justify-center select-none shrink-0 pt-2">
         <Pagination page={p} count={count} />
       </div>
     </div>

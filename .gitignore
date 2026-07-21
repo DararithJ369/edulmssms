@@ -12,7 +12,10 @@ __pycache__/
 *.pyo
 *.pyd
 .env
-.env.*
+.env.local
+.env.production
+.env.staging
+# .env.example is intentionally kept for onboarding
 
 # Node
 node_modules/

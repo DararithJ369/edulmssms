@@ -32,8 +32,10 @@ def get_all_profiles(page: int = 1, limit: int = 10, db: Session = Depends(get_d
 def get_user_profile(
     user_id: str,
     db: Session = Depends(get_db),
-    _: User = Depends(PermissionGuard.get_current_user),
+    current_user: User = Depends(PermissionGuard.get_current_user),
 ):
+    if current_user.role.name.lower() != "admin" and str(current_user.id) != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
     return UserProfileService.get_profile_by_user_id(db, user_id)
 
 

@@ -6,9 +6,6 @@ from sqlalchemy.engine import Engine
 from app.db.seed.base import BaseSeeder
 from app.models.submission import Submission
 from app.models.enrollment import Enrollment
-from app.models.assignment import Assignment
-from app.models.quiz import Quiz
-from app.models.exam import Exam
 from app.utils.colors import Colors
 
 

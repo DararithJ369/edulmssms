@@ -10,7 +10,6 @@ from app.models.user_profile import UserProfile
 from app.schemas.course import CourseCreate, CourseUpdate, CourseResponse
 from app.schemas.lesson import LessonResponse
 from app.schemas.enrollment import EnrollmentCreate, EnrollmentResponse
-from app.schemas.user import UserResponse
 
 
 class CourseService:
@@ -69,7 +68,7 @@ class CourseService:
         enrolled_ids = [
             row[0] for row in db.query(Enrollment.course_id).filter(
                 Enrollment.student_profile_id == sp.id,
-                Enrollment.is_active == True,
+                Enrollment.is_active,
             ).all()
         ]
 
@@ -293,7 +292,7 @@ class CourseService:
     def _sync_enrolled_count(db: Session, course_id: int):
         count = db.query(func.count(Enrollment.id)).filter(
             Enrollment.course_id == course_id,
-            Enrollment.is_active == True,
+            Enrollment.is_active,
         ).scalar() or 0
         db.query(Course).filter(Course.id == course_id).update({"student_enrolled": count})
         db.commit()
@@ -342,7 +341,7 @@ class CourseService:
             .filter(
                 Enrollment.course_id == course_id,
                 Enrollment.student_id == student_id,
-                Enrollment.is_active == True,
+                Enrollment.is_active,
             )
             .first()
         )
@@ -391,7 +390,7 @@ class CourseService:
             return {"detail": "Re-enrolled successfully", "enrollment_id": existing.id}
 
         # Get current academic year
-        ay = db.query(AcademicYear).filter(AcademicYear.is_current == True).first()
+        ay = db.query(AcademicYear).filter(AcademicYear.is_current).first()
         if not ay:
             ay = db.query(AcademicYear).order_by(AcademicYear.id.desc()).first()
         if not ay:
@@ -427,7 +426,7 @@ class CourseService:
             .filter(
                 Enrollment.course_id == course_id,
                 Enrollment.student_profile_id == sp.id,
-                Enrollment.is_active == True,
+                Enrollment.is_active,
             )
             .first()
         )
@@ -439,7 +438,7 @@ class CourseService:
             raise HTTPException(status_code=404, detail="Course not found")
         enrollments = (
             db.query(Enrollment)
-            .filter(Enrollment.course_id == course_id, Enrollment.is_active == True)
+            .filter(Enrollment.course_id == course_id, Enrollment.is_active)
             .all()
         )
         result = []

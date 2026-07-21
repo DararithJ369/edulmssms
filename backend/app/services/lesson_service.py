@@ -180,7 +180,6 @@ class LessonService:
         material_in: any
     ) -> LessonMaterialResponse:
         from app.models.lesson_material import LessonMaterial
-        from app.schemas.lesson_material import LessonMaterialUpdate
         material = db.query(LessonMaterial).filter(LessonMaterial.id == material_id).first()
         if not material:
             raise HTTPException(status_code=404, detail="Material not found")

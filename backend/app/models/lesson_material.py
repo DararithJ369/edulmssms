@@ -10,7 +10,7 @@ class LessonMaterial(Base):
     id = Column(Integer, primary_key=True, index=True)
 
     lesson_id = Column(Integer, ForeignKey("lessons.id"), nullable=False)
-    uploaded_by = Column(String, ForeignKey("users.id"), nullable=False)
+    uploaded_by = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
     # Relationships
     lesson = relationship("Lesson", back_populates="materials")

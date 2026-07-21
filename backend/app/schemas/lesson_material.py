@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_serializer
+from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
 

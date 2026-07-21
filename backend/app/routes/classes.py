@@ -4,18 +4,28 @@ from app.middleware.guard.permission import PermissionGuard
 from app.config.session import get_db
 from app.services.class_service import ClassService
 from app.schemas.class_ import ClassCreate, ClassUpdate, ClassResponse
-from app.schemas.class_session import ClassSessionCreate, ClassSessionResponse 
+from app.schemas.class_session import ClassSessionCreate, ClassSessionResponse
+from app.models.user import User 
 
 class_router = APIRouter(prefix="/classes", tags=["Classes"])
 
 
 @class_router.get("")
-def get_all_classes(page: int = 1, limit: int = 10, db: Session = Depends(get_db)):
+def get_all_classes(
+    page: int = 1,
+    limit: int = 10,
+    db: Session = Depends(get_db),
+    _: User = Depends(PermissionGuard.get_current_user),
+):
     return ClassService.get_classes(db, page, limit)
 
 
 @class_router.get("/{class_id}", response_model=ClassResponse)
-def get_class(class_id: int, db: Session = Depends(get_db)):
+def get_class(
+    class_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(PermissionGuard.get_current_user),
+):
     return ClassService.get_class_by_id(db, class_id)
 
 
@@ -37,7 +47,11 @@ def delete_class(class_id: int, db: Session = Depends(get_db)):
 # ── Students ──────────────────────────────────────────────────────────────────
 
 @class_router.get("/{class_id}/students")
-def get_class_students(class_id: int, db: Session = Depends(get_db)):
+def get_class_students(
+    class_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(PermissionGuard.get_current_user),
+):
     return ClassService.get_class_students(db, class_id)
 
 
@@ -56,7 +70,11 @@ def remove_student(class_id: int, student_id: str, db: Session = Depends(get_db)
 # ── Sessions ──────────────────────────────────────────────────────────────────
 
 @class_router.get("/{class_id}/sessions")
-def get_class_sessions(class_id: int, db: Session = Depends(get_db)):
+def get_class_sessions(
+    class_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(PermissionGuard.get_current_user),
+):
     return ClassService.get_class_sessions(db, class_id)
 
 

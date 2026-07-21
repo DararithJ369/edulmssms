@@ -1,20 +1,19 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { 
-  ArrowLeft, Video, AlertCircle, Globe, Clock, FileText, 
-  CheckCircle, Play, Download, ExternalLink, Sparkles, X, Edit, Trash2, Plus, Loader,
-  Image as ImageIcon, Award, BookOpen
+  Video, AlertCircle, Clock, FileText, CheckCircle, Download, ExternalLink, X, Edit, Trash2, Plus,
+  Award, BookOpen, FileArchive, Presentation, FileCode, Link2, PlayCircle, File, Eye, ChevronRight
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "react-toastify";
 
-// Import your standardized modal form component
 import LessonForm from "@/components/forms/LessonForm";
 import BackButton from "@/components/BackButton";
 import { CldUploadWidget } from "next-cloudinary";
+import PageHeader from "@/components/PageHeader";
 
 type MaterialItem = {
   id: number;
@@ -70,7 +69,6 @@ export default function LessonDetailsWorkspacePage() {
   const [role, setRole] = useState<string>("");
   const [activeMaterial, setActiveMaterial] = useState<any | null>(null);
 
-  // Modal visibility control state
   const [isEditing, setIsEditing] = useState(false);
 
   // Add Material form states
@@ -185,6 +183,32 @@ export default function LessonDetailsWorkspacePage() {
     return match ? match[0] : "";
   };
 
+  const getFileIcon = (type: string, title: string, url: string) => {
+    const t = type.toLowerCase();
+    const u = url.toLowerCase();
+    const titleLower = title.toLowerCase();
+
+    if (t === "video" || u.includes("youtube.com") || u.includes("youtu.be")) {
+      return PlayCircle;
+    }
+    if (t === "pdf" || u.endsWith(".pdf")) {
+      return FileText;
+    }
+    if (titleLower.includes("slide") || titleLower.includes("powerpoint") || u.endsWith(".ppt") || u.endsWith(".pptx")) {
+      return Presentation;
+    }
+    if (u.endsWith(".zip") || u.endsWith(".rar") || u.endsWith(".7z") || titleLower.includes("download")) {
+      return FileArchive;
+    }
+    if (u.endsWith(".js") || u.endsWith(".ts") || u.endsWith(".py") || u.endsWith(".json") || u.endsWith(".sql")) {
+      return FileCode;
+    }
+    if (t === "link" || t === "external") {
+      return Link2;
+    }
+    return File;
+  };
+
   const rawTarget = activeMaterial?.file_url || activeMaterial?.external_url || "";
   const activeTarget = rawTarget || extractUrl(currentLesson?.content || currentLesson?.description || "");
   const isYouTubeMedia = activeTarget.includes("youtube.com") || activeTarget.includes("youtu.be");
@@ -218,38 +242,73 @@ export default function LessonDetailsWorkspacePage() {
 
   const renderMaterialRow = (m: MaterialItem) => {
     const isActive = activeMaterial?.id === m.id;
+    const Icon = getFileIcon(m.type, m.title, m.file_url || m.external_url || "");
+    const targetUrl = m.file_url || m.external_url || "#";
+
     return (
       <div
         key={m.id}
-        className={`flex items-center justify-between p-2.5 border rounded-2xl transition-all duration-200 ${
+        className={`flex items-center justify-between p-3 border rounded-xl transition-all duration-200 ${
           isActive
-            ? "bg-blue-50/50 dark:bg-zinc-800 border-[#0038A8]/30 dark:border-zinc-700 shadow-sm"
-            : "border-slate-100 dark:border-zinc-800 bg-slate-50/20 dark:bg-zinc-900/30"
+            ? "bg-brand/5 border-brand/35 text-brand shadow-xs"
+            : "border-border/40 bg-slate-50/20 hover:bg-slate-50/60"
         }`}
       >
         <button
           onClick={() => setActiveMaterial(m)}
-          className="flex items-start gap-2 text-left min-w-0 flex-1"
+          className="flex items-center gap-3 text-left min-w-0 flex-1 cursor-pointer"
         >
+          <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${isActive ? "bg-brand/10 text-brand" : "bg-slate-100 text-slate-500"}`}>
+            <Icon className="h-4 w-4" />
+          </div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{m.title}</p>
-            <span className="text-[8px] text-slate-400 font-bold uppercase">{m.type}</span>
+            <p className="text-xs font-bold text-slate-700 truncate">{m.title}</p>
+            <div className="flex items-center gap-1.5 mt-0.5 select-none">
+              <span className="text-[8.5px] text-muted-foreground/60 font-semibold uppercase">{m.type}</span>
+              <span className="text-[8.5px] text-muted-foreground/30">•</span>
+              <span className="text-[8.5px] text-muted-foreground/60 font-medium">Resource</span>
+            </div>
           </div>
         </button>
-        <button
-          onClick={() => handleDeleteMaterial(m.id)}
-          className="p-1 hover:bg-rose-50 rounded-lg text-slate-400 hover:text-rose-500 transition-colors shrink-0"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
+        
+        <div className="flex items-center gap-1 shrink-0 ml-2">
+          {targetUrl !== "#" && (
+            <>
+              <a
+                href={targetUrl}
+                target="_blank"
+                rel="noreferrer"
+                title="Open in new tab"
+                className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition-colors"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+              <a
+                href={targetUrl}
+                download
+                title="Download resource"
+                className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition-colors"
+              >
+                <Download className="w-3.5 h-3.5" />
+              </a>
+            </>
+          )}
+          {hasAccessToEdit && (
+            <button
+              onClick={() => handleDeleteMaterial(m.id)}
+              className="p-1.5 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-500 transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
     );
   };
 
-
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-[#F7F8FA] dark:bg-[#121212]">
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#F7F8FA]">
         <div className="h-9 w-9 border-4 border-[#0038A8] border-t-transparent rounded-full animate-spin mb-2" />
         <p className="text-xs font-bold text-muted-foreground select-none">Syncing Database Workspace...</p>
       </div>
@@ -257,73 +316,61 @@ export default function LessonDetailsWorkspacePage() {
   }
 
   return (
-    <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] dark:bg-[#121212] min-h-screen font-sans text-left">
+    <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen font-sans text-left transition-all duration-300 animate-fade-in">
       
-      {/* BREADCRUMB */}
-      <div className="flex items-center gap-1 text-[11px] font-extrabold text-muted-foreground uppercase tracking-wider select-none">
-        <Link href={hasAccessToEdit ? "/teacher" : "/student"} className="hover:text-foreground flex items-center gap-1">
-          <Globe className="h-3 w-3" /> Home
-        </Link>
-        <span>/</span>
-        <span className="text-foreground">Course Playback Hub</span>
-      </div>
+      {/* PAGE HEADER */}
+      <PageHeader
+        eyebrow={`MODULE: ${moduleTitle || "Syllabus Track"}`}
+        title={currentLesson?.title || "Lesson Overview"}
+        breadcrumbs={[
+          { label: "Lessons", href: "/list/lessons" },
+          { label: currentLesson?.title || "Detail" }
+        ]}
+        actions={
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 bg-white border border-border/60 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700">
+              <Clock className="w-4 h-4 text-brand" />
+              <span>{currentLesson?.duration ? `${currentLesson.duration}` : "45min"}</span>
+            </div>
 
-      {/* HEADER SECTION PANEL */}
-      <div className="bg-white dark:bg-[#1c1c1c] p-5 rounded-3xl border border-slate-100 dark:border-zinc-800 shadow-sm flex items-center justify-between select-none">
-        <div className="flex items-center gap-3">
-          <BackButton href={courseId ? `/list/courses/${courseId}?expandedModuleId=${moduleId}` : (hasAccessToEdit ? "/teacher" : "/student")} />
-          <div>
-            <span className="text-[10px] font-black text-[#0038A8] dark:text-sky-400 uppercase tracking-widest font-mono">
-              MODULE: {moduleTitle || "Syllabus Track"}
-            </span>
-            <h1 className="text-lg font-black text-slate-800 dark:text-white tracking-tight leading-tight mt-0.5">
-              {currentLesson?.title}
-            </h1>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2.5 shrink-0">
-          <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800/60 border border-slate-200/40 px-3.5 py-2 rounded-full text-xs font-bold text-gray-700 dark:text-gray-300">
-            <Clock className="w-4 h-4 text-[#0038A8]" />
-            <span>{currentLesson?.duration ? `${currentLesson.duration}` : "45min"}</span>
-          </div>
-
-          {hasAccessToEdit && (
-            isEditing ? (
-              <div className="flex items-center gap-2">
+            {hasAccessToEdit && (
+              isEditing ? (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="submit"
+                    form="lesson-form-element"
+                    className="px-4 py-2 bg-brand hover:bg-brand-dark text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center gap-1.5 active:scale-[0.98] cursor-pointer"
+                  >
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    <span>Save Changes</span>
+                  </button>
+                  <button
+                    onClick={() => setIsEditing(false)}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 active:scale-[0.98] cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span>Cancel</span>
+                  </button>
+                </div>
+              ) : (
                 <button
-                  type="submit"
-                  form="lesson-form-element"
-                  className="px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] text-white font-black text-xs rounded-xl transition-all shadow-md flex items-center gap-1.5 active:scale-[0.98]"
+                  onClick={() => setIsEditing(true)}
+                  className="px-4 py-2 bg-brand hover:bg-brand-dark text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center gap-1.5 active:scale-[0.98] cursor-pointer"
                 >
-                  <CheckCircle className="w-3.5 h-3.5" />
-                  <span>Save Changes</span>
+                  <Edit className="w-3.5 h-3.5" />
+                  <span>Edit Details</span>
                 </button>
-                <button
-                  onClick={() => setIsEditing(false)}
-                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-slate-700 dark:text-slate-200 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 active:scale-[0.98]"
-                >
-                  <X className="w-3.5 h-3.5" />
-                  <span>Cancel</span>
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setIsEditing(true)}
-                className="px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] text-white font-black text-xs rounded-xl transition-all shadow-md flex items-center gap-1.5 active:scale-[0.98]"
-              >
-                <Edit className="w-3.5 h-3.5" />
-                <span>Edit Details</span>
-              </button>
-            )
-          )}
-        </div>
-      </div>
+              )
+            )}
+          </div>
+        }
+      />
 
       {/* DUAL COLUMN CONTAINER GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
+        {/* LEFT COLUMN: Main viewport and notes */}
         <div className="lg:col-span-7 space-y-6">
-          <div className={`relative w-full rounded-3xl overflow-hidden bg-slate-950 border border-slate-900 shadow-md flex items-center justify-center ${
+          <div className={`relative w-full rounded-2xl overflow-hidden bg-slate-950 border border-slate-900/60 shadow-xs flex items-center justify-center ${
             activeMaterial?.type === "pdf" || activeMaterial?.type === "document" || activeMaterial?.type === "doc" || activeTarget.toLowerCase().split('?')[0].endsWith(".pdf")
               ? "h-[650px]"
               : "aspect-video"
@@ -331,7 +378,7 @@ export default function LessonDetailsWorkspacePage() {
             {activeMaterial?.type === "pdf" || activeMaterial?.type === "document" || activeMaterial?.type === "doc" || activeTarget.toLowerCase().split('?')[0].endsWith(".pdf") ? (
               <iframe
                 src={activeTarget}
-                className="w-full h-full border-none bg-white rounded-3xl"
+                className="w-full h-full border-none bg-white"
                 title={activeMaterial.title}
               />
             ) : isYouTubeMedia ? (
@@ -363,7 +410,7 @@ export default function LessonDetailsWorkspacePage() {
                   href={activeTarget} 
                   target="_blank" 
                   rel="noreferrer"
-                  className="inline-flex px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] text-white text-xs font-black rounded-xl shadow-md transition-all"
+                  className="inline-flex px-4 py-2 bg-brand hover:bg-brand-dark text-white text-xs font-bold rounded-xl shadow-sm transition-all"
                 >
                   <ExternalLink className="w-4 h-4 mr-1.5" /> Visit External Link
                 </a>
@@ -378,71 +425,71 @@ export default function LessonDetailsWorkspacePage() {
               </div>
             ) : (
               <div className="p-6 text-center text-white flex flex-col items-center gap-2">
-                <AlertCircle className="h-8 w-8 text-amber-500" />
+                <AlertCircle className="h-8 w-8 text-brand-light" />
                 <p className="text-xs font-bold">Media Stream Uninitialized</p>
               </div>
             )}
           </div>
 
           {/* LECTURE NOTES BOX */}
-          <div className="bg-white p-6 dark:bg-[#1c1c1c] rounded-3xl border border-slate-100 dark:border-zinc-800 shadow-sm space-y-3">
-            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest select-none">
+          <div className="bg-card p-6 rounded-2xl border border-border/60 shadow-xs space-y-3">
+            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest select-none">
               Lecture Notes & Curriculum
             </h3>
-            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-semibold whitespace-pre-line">
+            <div className="text-xs text-slate-600 leading-relaxed font-semibold whitespace-pre-line">
               {currentLesson?.content || currentLesson?.description || "No description details provided for this lecture track."}
-            </p>
+            </div>
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Workspace controls */}
+        {/* RIGHT COLUMN: Workspace sidebar controls */}
         <div className="lg:col-span-3 space-y-6">
           
-          {/* LESSON MATERIALS MANAGER & LIST */}
-          <div className="bg-white dark:bg-[#1c1c1c] p-5 rounded-3xl border border-slate-100 dark:border-zinc-800 shadow-sm space-y-4">
-            <div className="select-none pb-2 border-b border-slate-100 dark:border-zinc-800">
-              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                Lesson Materials List
+          {/* LESSON MATERIALS ACCORDIONS */}
+          <div className="bg-card p-5 rounded-2xl border border-border/60 shadow-xs space-y-4">
+            <div className="select-none pb-2 border-b border-border/60">
+              <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                Curriculum Materials
               </h3>
             </div>
 
-            <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1">
+            <div className="space-y-4 max-h-[360px] overflow-y-auto pr-1">
               {videos.length > 0 && (
-                <div className="space-y-1">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Video Section</p>
-                  <div className="space-y-1">
+                <div className="space-y-1.5">
+                  <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Lesson Videos</p>
+                  <div className="space-y-1.5">
                     {videos.map(m => renderMaterialRow(m))}
                   </div>
                 </div>
               )}
               {documents.length > 0 && (
-                <div className="space-y-1">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Documents Section</p>
-                  <div className="space-y-1">
+                <div className="space-y-1.5">
+                  <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Reading Materials</p>
+                  <div className="space-y-1.5">
                     {documents.map(m => renderMaterialRow(m))}
                   </div>
                 </div>
               )}
               {slides.length > 0 && (
-                <div className="space-y-1">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Slides Section</p>
-                  <div className="space-y-1">
+                <div className="space-y-1.5">
+                  <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Presentations</p>
+                  <div className="space-y-1.5">
                     {slides.map(m => renderMaterialRow(m))}
                   </div>
                 </div>
               )}
               {resources.length > 0 && (
-                <div className="space-y-1">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Resources Section</p>
-                  <div className="space-y-1">
+                <div className="space-y-1.5">
+                  <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Additional Resources</p>
+                  <div className="space-y-1.5">
                     {resources.map(m => renderMaterialRow(m))}
                   </div>
                 </div>
               )}
               {downloads.length > 0 && (
-                <div className="space-y-1">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Downloads Section</p>
-                  <div className="space-y-1">
+                <div className="space-y-1.5">
+                  <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Downloads</p>
+                  <div className="space-y-1.5">
                     {downloads.map(m => renderMaterialRow(m))}
                   </div>
                 </div>
@@ -455,30 +502,30 @@ export default function LessonDetailsWorkspacePage() {
 
           {/* ADD MATERIAL PANEL */}
           {hasAccessToEdit && (
-            <div className="bg-white dark:bg-[#1c1c1c] p-5 rounded-3xl border border-slate-100 dark:border-zinc-800 shadow-sm space-y-4">
-              <div className="select-none pb-2 border-b border-slate-100 dark:border-zinc-800">
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            <div className="bg-card p-5 rounded-2xl border border-border/60 shadow-xs space-y-4">
+              <div className="select-none pb-2 border-b border-border/60">
+                <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
                   + Add Learning Resource
                 </h3>
               </div>
               <form onSubmit={handleAddMaterial} className="space-y-3 text-xs">
                 <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Title</label>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Title</label>
                   <input
                     type="text"
                     value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
                     placeholder="e.g. Slide Deck"
-                    className="w-full border p-2 rounded-xl focus:outline-none focus:border-[#0038A8]"
+                    className="w-full border p-2 bg-slate-50 border-border/60 rounded-xl focus:outline-none focus:border-brand"
                     required
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Resource Type</label>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Resource Type</label>
                   <select
                     value={newType}
                     onChange={(e) => setNewType(e.target.value)}
-                    className="w-full border p-2 rounded-xl bg-slate-50 focus:outline-none"
+                    className="w-full border p-2 rounded-xl bg-slate-50 border-border/60 focus:outline-none cursor-pointer"
                   >
                     <option value="video">Video Lecture</option>
                     <option value="pdf">Document (PDF)</option>
@@ -488,7 +535,7 @@ export default function LessonDetailsWorkspacePage() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
                     {newType === "link" ? "URL" : "External URL (optional)"}
                   </label>
                   <input
@@ -496,20 +543,20 @@ export default function LessonDetailsWorkspacePage() {
                     value={newUrl}
                     onChange={(e) => setNewUrl(e.target.value)}
                     placeholder={newType === "video" ? "https://youtube.com/watch?v=..." : newType === "pdf" ? "https://example.com/file.pdf" : "https://..."}
-                    className="w-full border p-2 rounded-xl focus:outline-none focus:border-[#0038A8]"
+                    className="w-full border p-2 bg-slate-50 border-border/60 rounded-xl focus:outline-none focus:border-brand"
                     required={newType === "link"}
                   />
                 </div>
                 {newType !== "link" && (
                   <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
                       Upload File {newUrl ? "(optional if URL provided)" : ""}
                     </label>
                     {newFileUrl ? (
-                      <div className="flex items-center gap-2 p-2 bg-slate-50 border rounded-xl">
-                        <CheckCircle className="h-3.5 w-3.5 text-slate-600 shrink-0" />
-                        <span className="text-[10px] font-medium text-slate-600 truncate flex-1">File uploaded</span>
-                        <button type="button" onClick={() => setNewFileUrl("")} className="text-slate-400 hover:text-slate-600">
+                      <div className="flex items-center gap-2 p-2 bg-slate-50 border border-border rounded-xl">
+                        <CheckCircle className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                        <span className="text-[10px] font-semibold text-slate-600 truncate flex-1">File uploaded</span>
+                        <button type="button" onClick={() => setNewFileUrl("")} className="text-slate-400 hover:text-slate-600 cursor-pointer">
                           <X className="h-3.5 w-3.5" />
                         </button>
                       </div>
@@ -531,7 +578,7 @@ export default function LessonDetailsWorkspacePage() {
                           <button
                             type="button"
                             onClick={() => open()}
-                            className="w-full py-2 border-2 border-dashed border-slate-300 hover:border-slate-400 rounded-xl text-[10px] font-bold text-slate-500 hover:text-slate-700 transition-colors flex items-center justify-center gap-1.5"
+                            className="w-full py-2.5 border border-dashed border-border/80 bg-slate-50 hover:bg-slate-100 hover:border-brand/40 rounded-xl text-[10px] font-semibold text-slate-500 hover:text-slate-700 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                           >
                             <Plus className="h-3.5 w-3.5" />
                             Choose File from Cloudinary
@@ -544,7 +591,7 @@ export default function LessonDetailsWorkspacePage() {
                 <button
                   type="submit"
                   disabled={uploading}
-                  className="w-full py-2 bg-[#0038A8] hover:bg-[#002D86] text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
+                  className="w-full py-2 bg-brand hover:bg-brand-dark text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   {uploading ? <span>Uploading...</span> : <span>+ Add Resource</span>}
                 </button>
@@ -554,10 +601,10 @@ export default function LessonDetailsWorkspacePage() {
 
           {/* ASSESSMENTS PANEL */}
           {((currentLesson?.quizzes && currentLesson.quizzes.length > 0) || (currentLesson?.assignments && currentLesson.assignments.length > 0)) && (
-            <div className="bg-white dark:bg-[#1c1c1c] p-5 rounded-3xl border border-slate-100 dark:border-zinc-800 shadow-sm space-y-4">
-              <div className="flex items-center gap-2 select-none pb-2 border-b border-slate-100 dark:border-zinc-800">
-                <Award className="h-4 w-4 text-amber-600" />
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            <div className="bg-card p-5 rounded-2xl border border-border/60 shadow-xs space-y-4">
+              <div className="flex items-center gap-2 select-none pb-2 border-b border-border/60">
+                <Award className="h-4 w-4 text-brand" />
+                <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
                   Assessments
                 </h3>
               </div>
@@ -566,34 +613,36 @@ export default function LessonDetailsWorkspacePage() {
                   <Link
                     key={q.id}
                     href={`/list/quizzes/${q.id}`}
-                    className="flex items-center justify-between p-3 rounded-2xl border border-slate-100 dark:border-zinc-800 bg-slate-50/20 dark:bg-zinc-900/30 hover:bg-white dark:hover:bg-zinc-800 hover:border-slate-200 transition-all text-left"
+                    className="flex items-center justify-between p-3 rounded-xl border border-border/40 bg-slate-50/20 hover:bg-white hover:border-border/60 transition-all text-left"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate flex items-center gap-1.5">
+                      <p className="text-xs font-bold text-slate-700 truncate flex items-center gap-1.5">
                         <CheckCircle className="h-4 w-4 text-emerald-600 shrink-0" />
                         {q.title}
                       </p>
-                      <span className="text-[9px] text-slate-400 font-bold uppercase block mt-0.5 tracking-wider font-mono">
+                      <span className="text-[8.5px] text-muted-foreground/60 font-semibold uppercase block mt-0.5 tracking-wider font-mono">
                         Interactive Quiz
                       </span>
                     </div>
+                    <ChevronRight className="h-3.5 w-3.5 text-slate-400 shrink-0 ml-1" />
                   </Link>
                 ))}
                 {currentLesson.assignments?.map((a: any) => (
                   <Link
                     key={a.id}
                     href={`/list/assignments/${a.id}/submit`}
-                    className="flex items-center justify-between p-3 rounded-2xl border border-slate-100 dark:border-zinc-800 bg-slate-50/20 dark:bg-zinc-900/30 hover:bg-white dark:hover:bg-zinc-800 hover:border-slate-200 transition-all text-left"
+                    className="flex items-center justify-between p-3 rounded-xl border border-border/40 bg-slate-50/20 hover:bg-white hover:border-border/60 transition-all text-left"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate flex items-center gap-1.5">
-                        <FileText className="h-4 w-4 text-blue-600 shrink-0" />
+                      <p className="text-xs font-bold text-slate-700 truncate flex items-center gap-1.5">
+                        <FileText className="h-4 w-4 text-brand shrink-0" />
                         {a.title}
                       </p>
-                      <span className="text-[9px] text-slate-400 font-bold uppercase block mt-0.5 tracking-wider font-mono">
+                      <span className="text-[8.5px] text-muted-foreground/60 font-semibold uppercase block mt-0.5 tracking-wider font-mono">
                         Assignment Submission
                       </span>
                     </div>
+                    <ChevronRight className="h-3.5 w-3.5 text-slate-400 shrink-0 ml-1" />
                   </Link>
                 ))}
               </div>

@@ -1,5 +1,4 @@
 from typing import Optional
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, UploadFile
 from app.models.assignment import Assignment

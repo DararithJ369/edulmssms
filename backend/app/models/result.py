@@ -63,7 +63,7 @@ class Result(Base):
             return self.assignment.title
         elif self.quiz:
             return self.quiz.title
-        return f"Assessment"
+        return "Assessment"
 
     @property
     def assessment_type(self) -> str:

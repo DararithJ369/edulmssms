@@ -1,6 +1,6 @@
 "use client";
 
-import { MoreVertical, Eye, Settings, Archive, Trash2 } from "lucide-react";
+import { MoreVertical, Eye, Settings, Archive, Trash2, Pencil } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -13,6 +13,9 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import FormModal from "./FormModal";
+import StudentEditModal from "./StudentEditModal";
+import TeacherEditModal from "./TeacherEditModal";
+import ParentEditModal from "./ParentEditModal";
 import { useToast } from "@/hooks/ToastProvider";
 import { useDialog } from "@/hooks/DialogProvider";
 import {
@@ -73,6 +76,87 @@ export default function TableRowActions({
   const { success, error } = useToast();
 
   const [editOpen, setEditOpen] = useState(false);
+
+  // Construct StudentEditData object
+  const studentEditData = table === "student" && editData ? {
+    userId: editData.id || id,
+    username: editData.username || "",
+    email: editData.email || "",
+    full_name: editData.student_profile?.full_name || editData.full_name || "",
+    phone: editData.student_profile?.phone || editData.phone || "",
+    address: editData.student_profile?.address || editData.address || "",
+    bio: editData.student_profile?.bio || editData.bio || "",
+    date_of_birth: editData.student_profile?.date_of_birth || editData.date_of_birth || "",
+    gender: editData.student_profile?.gender || editData.gender || "",
+    nationality: editData.student_profile?.nationality || editData.nationality || "",
+    pfp: editData.student_profile?.pfp || editData.pfp || "",
+    blood_type: editData.student_profile?.blood_type || editData.blood_type || "",
+    medical_conditions: editData.student_profile?.medical_conditions || editData.medical_conditions || "",
+    emergency_contact_name: editData.student_profile?.emergency_contact_name || editData.emergency_contact_name || "",
+    emergency_contact_phone: editData.student_profile?.emergency_contact_phone || editData.emergency_contact_phone || "",
+    emergency_contact_relationship: editData.student_profile?.emergency_contact_relationship || editData.emergency_contact_relationship || "",
+    student_id: editData.student_metadata?.student_id || editData.student_id || "",
+    department: editData.student_metadata?.department || editData.department || "",
+    enrolment_date: editData.student_metadata?.enrolment_date ? String(editData.student_metadata.enrolment_date) : (editData.enrolment_date || ""),
+    previous_school: editData.student_metadata?.previous_school || editData.previous_school || "",
+    scholarship_status: editData.student_metadata?.scholarship_status || editData.scholarship_status || "",
+    special_needs: editData.student_metadata?.special_needs || editData.special_needs || "",
+    cloudinaryCloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || "dlykcgjdh",
+    cloudinaryUploadPreset: process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "lms_preset"
+  } : null;
+
+  // Construct TeacherEditData object
+  const teacherEditData = table === "teacher" && editData ? {
+    userId: editData.id || id,
+    username: editData.username || "",
+    email: editData.email || "",
+    full_name: editData.teacher_profile?.full_name || editData.full_name || "",
+    phone: editData.teacher_profile?.phone || editData.phone || "",
+    address: editData.teacher_profile?.address || editData.address || "",
+    bio: editData.teacher_profile?.bio || editData.bio || "",
+    date_of_birth: editData.teacher_profile?.date_of_birth || editData.date_of_birth || "",
+    gender: editData.teacher_profile?.gender || editData.gender || "",
+    nationality: editData.teacher_profile?.nationality || editData.nationality || "",
+    pfp: editData.teacher_profile?.pfp || editData.pfp || "",
+    blood_type: editData.teacher_profile?.blood_type || editData.blood_type || "",
+    medical_conditions: editData.teacher_profile?.medical_conditions || editData.medical_conditions || "",
+    emergency_contact_name: editData.teacher_profile?.emergency_contact_name || editData.emergency_contact_name || "",
+    emergency_contact_phone: editData.teacher_profile?.emergency_contact_phone || editData.emergency_contact_phone || "",
+    emergency_contact_relationship: editData.teacher_profile?.emergency_contact_relationship || editData.emergency_contact_relationship || "",
+    department: editData.teacher_metadata?.department || editData.department || "",
+    position: editData.teacher_metadata?.position || editData.position || "",
+    office: editData.teacher_metadata?.office || editData.office || "",
+    hire_date: editData.teacher_metadata?.hire_date ? String(editData.teacher_metadata.hire_date) : (editData.hire_date || ""),
+    cloudinaryCloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || "dlykcgjdh",
+    cloudinaryUploadPreset: process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "lms_preset"
+  } : null;
+
+  // Construct ParentEditData object
+  const parentEditData = table === "parent" && editData ? {
+    userId: editData.id || id,
+    username: editData.username || "",
+    email: editData.email || "",
+    full_name: editData.parent_profile?.full_name || editData.full_name || "",
+    phone: editData.parent_profile?.phone || editData.phone || "",
+    address: editData.parent_profile?.address || editData.address || "",
+    bio: editData.parent_profile?.bio || editData.bio || "",
+    date_of_birth: editData.parent_profile?.date_of_birth || editData.date_of_birth || "",
+    gender: editData.parent_profile?.gender || editData.gender || "",
+    nationality: editData.parent_profile?.nationality || editData.nationality || "",
+    pfp: editData.parent_profile?.pfp || editData.pfp || "",
+    blood_type: editData.parent_profile?.blood_type || editData.blood_type || "",
+    medical_conditions: editData.parent_profile?.medical_conditions || editData.medical_conditions || "",
+    emergency_contact_name: editData.parent_profile?.emergency_contact_name || editData.emergency_contact_name || "",
+    emergency_contact_phone: editData.parent_profile?.emergency_contact_phone || editData.emergency_contact_phone || "",
+    emergency_contact_relationship: editData.parent_profile?.emergency_contact_relationship || editData.emergency_contact_relationship || "",
+    occupation: editData.parent_metadata?.occupation || editData.occupation || "",
+    relationship: editData.parent_metadata?.relationship || editData.relationship || "",
+    emergency_phone: editData.parent_metadata?.emergency_phone || editData.emergency_phone || "",
+    website: editData.parent_metadata?.website || editData.website || "",
+    linkedin: editData.parent_metadata?.linkedin || editData.linkedin || "",
+    cloudinaryCloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || "dlykcgjdh",
+    cloudinaryUploadPreset: process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "lms_preset"
+  } : null;
 
   const handleArchive = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -146,17 +230,53 @@ export default function TableRowActions({
           )}
           
           {(role === "admin" || (role === "teacher" && ["lesson", "assignment", "exam", "result", "quiz"].includes(table))) && editData && (
-            table === "quiz" ? (
+            table === "student" ? (
+              <DropdownMenuItem onSelect={(e) => e.preventDefault()} asChild>
+                <StudentEditModal
+                  data={studentEditData!}
+                  trigger={
+                    <div className="flex items-center gap-2 w-full text-left cursor-pointer px-2 py-1.5 hover:bg-slate-50 text-sm rounded-lg font-medium select-none outline-none">
+                      <Pencil className="h-4 w-4 text-slate-400" />
+                      <span>Edit Details</span>
+                    </div>
+                  }
+                />
+              </DropdownMenuItem>
+            ) : table === "teacher" ? (
+              <DropdownMenuItem onSelect={(e) => e.preventDefault()} asChild>
+                <TeacherEditModal
+                  data={teacherEditData!}
+                  trigger={
+                    <div className="flex items-center gap-2 w-full text-left cursor-pointer px-2 py-1.5 hover:bg-slate-50 text-sm rounded-lg font-medium select-none outline-none">
+                      <Pencil className="h-4 w-4 text-slate-400" />
+                      <span>Edit Details</span>
+                    </div>
+                  }
+                />
+              </DropdownMenuItem>
+            ) : table === "parent" ? (
+              <DropdownMenuItem onSelect={(e) => e.preventDefault()} asChild>
+                <ParentEditModal
+                  data={parentEditData!}
+                  trigger={
+                    <div className="flex items-center gap-2 w-full text-left cursor-pointer px-2 py-1.5 hover:bg-slate-50 text-sm rounded-lg font-medium select-none outline-none">
+                      <Pencil className="h-4 w-4 text-slate-400" />
+                      <span>Edit Details</span>
+                    </div>
+                  }
+                />
+              </DropdownMenuItem>
+            ) : table === "quiz" ? (
               <DropdownMenuItem asChild>
                 <Link href={`/list/quizzes/${id}/edit`} className="flex items-center gap-2">
-                  <Image src="/update.png" alt="" width={14} height={14} className="opacity-75" />
+                  <Pencil className="h-4 w-4 text-slate-400" />
                   <span>Edit Details</span>
                 </Link>
               </DropdownMenuItem>
             ) : (
               <DropdownMenuItem onSelect={() => setEditOpen(true)}>
                 <div className="flex items-center gap-2 w-full text-left cursor-pointer">
-                  <Image src="/update.png" alt="" width={14} height={14} className="opacity-75" />
+                  <Pencil className="h-4 w-4 text-slate-400" />
                   <span>Edit Details</span>
                 </div>
               </DropdownMenuItem>

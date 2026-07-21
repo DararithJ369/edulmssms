@@ -72,7 +72,7 @@ async def generate_certificate(
         draw.text((600, 350), student_name, fill=(0, 0, 0), font=name_font, anchor="mm")
         
         # Add course name
-        draw.text((600, 450), f"has successfully completed the course", fill=(0, 0, 0), font=course_font, anchor="mm")
+        draw.text((600, 450), "has successfully completed the course", fill=(0, 0, 0), font=course_font, anchor="mm")
         draw.text((600, 500), course_name, fill=(0, 0, 0), font=course_font, anchor="mm")
         
         # Add date and instructor

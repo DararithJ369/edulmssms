@@ -3,14 +3,12 @@ import TableSearch from "@/components/TableSearch";
 import { serverFetch } from "@/lib/server-api";
 import Link from "next/link";
 import { cookies } from "next/headers";
-import {
-  Globe,
-  Calendar,
-  ListFilter,
-  ArrowUpDown,
-  CalendarDays,
-} from "lucide-react";
+import { CalendarDays } from "lucide-react";
 import { normalizeRole } from "@/lib/auth";
+import PageHeader from "@/components/PageHeader";
+import ListFilterSort from "@/components/ListFilterSort";
+import prisma from "@/lib/prisma";
+
 
 
 type EventItem = {
@@ -36,7 +34,7 @@ const EventListPage = async ({
   const cookieStore = cookies();
   const role = normalizeRole(cookieStore.get("user_role")?.value);
 
-  const { page, search } = searchParams;
+  const { page, search, classId, sortBy, sortOrder } = searchParams;
   const p = page ? parseInt(page) : 1;
   const limit = 10;
 
@@ -50,32 +48,41 @@ const EventListPage = async ({
     `/events?${params.toString()}`
   ).catch(() => null);
 
-  const data: EventItem[] = response?.data ?? [];
-  const count = response?.meta?.total ?? 0;
+  const rawData: EventItem[] = response?.data ?? [];
+
+  const classesList = await prisma.class.findMany({
+    select: { id: true, name: true },
+  });
+
+  let filteredData = rawData;
+  if (classId) {
+    filteredData = filteredData.filter((item) => String(item.class_id) === classId);
+  }
+  if (sortBy) {
+    const isAsc = sortOrder !== "desc";
+    filteredData = [...filteredData].sort((a, b) => {
+      if (sortBy === "title") {
+        return isAsc ? a.title.localeCompare(b.title) : b.title.localeCompare(a.title);
+      }
+      if (sortBy === "start_time") {
+        const da = new Date(a.start_time).getTime();
+        const db = new Date(b.start_time).getTime();
+        return isAsc ? da - db : db - da;
+      }
+      return 0;
+    });
+  }
+
+  const count = filteredData.length;
 
   return (
     <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left">
-      {/* BREADCRUMB */}
-      <div className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase tracking-wider font-bold select-none">
-        <Link href="/" className="hover:text-foreground flex items-center gap-1">
-          <Globe className="h-3 w-3" />
-          Home
-        </Link>
-        <span>/</span>
-        <span className="text-foreground">Events Calendar</span>
-      </div>
-
-      {/* HEADER SECTION */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 select-none">
-        <div>
-          <span className="text-xs font-extrabold text-[#0038A8] uppercase tracking-wider font-mono">
-            Social &amp; Academic Calendar
-          </span>
-          <h1 className="text-xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight leading-tight mt-0.5">
-            School &amp; Campus Events
-          </h1>
-        </div>
-      </div>
+      {/* PAGE HEADER */}
+      <PageHeader
+        eyebrow="Social & Academic Calendar"
+        title="School & Campus Events"
+        breadcrumbs={[{ label: "Events" }]}
+      />
 
       {/* FILTER & SEARCH UTILITY */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/60 pb-3 select-none">
@@ -87,25 +94,30 @@ const EventListPage = async ({
 
         <div className="flex items-center gap-2 self-start md:self-auto">
           <TableSearch />
-          <button
-            className="w-8 h-8 flex items-center justify-center rounded-xl bg-background border border-border/80 hover:bg-accent text-muted-foreground/80 transition-colors"
-            title="Filters"
-          >
-            <ListFilter className="h-4 w-4" />
-          </button>
-          <button
-            className="w-8 h-8 flex items-center justify-center rounded-xl bg-background border border-border/80 hover:bg-accent text-muted-foreground/80 transition-colors"
-            title="Sort Options"
-          >
-            <ArrowUpDown className="h-4 w-4" />
-          </button>
+          <ListFilterSort
+            filters={[
+              {
+                key: "classId",
+                label: "Class",
+                allLabel: "All Classes",
+                options: classesList.map((c) => ({ id: c.id, label: c.name })),
+              },
+            ]}
+            sortOptions={[
+              { label: "Default Order", value: "" },
+              { label: "Event Title (A-Z)", value: "title-asc" },
+              { label: "Event Title (Z-A)", value: "title-desc" },
+              { label: "Start Date (Earliest)", value: "start_time-asc" },
+              { label: "Start Date (Latest)", value: "start_time-desc" },
+            ]}
+          />
         </div>
       </div>
 
       {/* EVENTS LIST */}
-      {data.length > 0 ? (
+      {filteredData.length > 0 ? (
         <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.01)] space-y-3">
-          {data.map((item) => {
+          {filteredData.map((item) => {
             const start = item.start_time ? new Date(item.start_time) : null;
             const end = item.end_time ? new Date(item.end_time) : null;
 

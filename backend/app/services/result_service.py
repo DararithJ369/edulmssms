@@ -1,10 +1,9 @@
 from typing import Optional
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from app.models.result import Result
 from app.schemas.result import ResultCreate, ResultUpdate, ResultResponse
-from app.services.base_service import get_or_404, paginate, apply_update, create_and_commit, delete_and_commit
+from app.services.base_service import get_or_404, paginate, create_and_commit, delete_and_commit
 from app.services.role_filter import apply_student_role_filter
 
 
@@ -125,11 +124,16 @@ class ResultService:
             obj.is_passed = obj.percentage >= pass_threshold
 
             # Apply letter grade normalization boundaries dynamically
-            if obj.percentage >= 90: obj.grade = "A"
-            elif obj.percentage >= 80: obj.grade = "B"
-            elif obj.percentage >= 70: obj.grade = "C"
-            elif obj.percentage >= 60: obj.grade = "D"
-            else: obj.grade = "F"
+            if obj.percentage >= 90:
+                obj.grade = "A"
+            elif obj.percentage >= 80:
+                obj.grade = "B"
+            elif obj.percentage >= 70:
+                obj.grade = "C"
+            elif obj.percentage >= 60:
+                obj.grade = "D"
+            else:
+                obj.grade = "F"
 
         # ──✅ FIXED: CASCADE SYNC DATA DIRECTLY TO THE SUBMISSIONS RELATION TABLE 
         if obj.assignment_id and obj.student_id:

@@ -1,5 +1,5 @@
 from typing import Optional
-from fastapi import APIRouter, Depends, Form
+from fastapi import APIRouter, Depends, Form, HTTPException
 from sqlalchemy.orm import Session
 from app.middleware.guard.permission import PermissionGuard
 from app.config.session import get_db
@@ -9,7 +9,6 @@ from app.services.parent_profile_service import ParentProfileService
 from app.schemas.user import (
     ParentProfileCreate,
     ParentProfileUpdate,
-    ParentProfileResponse,
     ParentFullResponse,
 )
 
@@ -36,8 +35,14 @@ def get_all_parents(page: int = 1, limit: int = 10, db: Session = Depends(get_db
 def get_parent_profile(
     user_id: str,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    is_owner = str(current_user.id) == user_id
+    is_staff = current_user.is_superuser or (
+        current_user.role and current_user.role.name in ["admin", "instructor", "teacher"]
+    )
+    if not (is_owner or is_staff):
+        raise HTTPException(status_code=403, detail="Forbidden")
     return ParentProfileService.get_parent_profile(db, user_id)
 
 
@@ -101,8 +106,14 @@ def delete_parent_profile(user_id: str, db: Session = Depends(get_db)):
 def get_linked_students(
     user_id: str,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    is_owner = str(current_user.id) == user_id
+    is_staff = current_user.is_superuser or (
+        current_user.role and current_user.role.name in ["admin", "instructor", "teacher"]
+    )
+    if not (is_owner or is_staff):
+        raise HTTPException(status_code=403, detail="Forbidden")
     return ParentProfileService.get_students(db, user_id)
 
 

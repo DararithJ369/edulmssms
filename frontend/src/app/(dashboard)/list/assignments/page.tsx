@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import FormContainer from "@/components/FormContainer";
 import FormModal from "@/components/FormModal";
 import TableRowActions from "@/components/TableRowActions";
@@ -9,10 +11,13 @@ import { ITEM_PER_PAGE } from "@/lib/settings";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { 
-  Globe, 
-  CheckCircle2
+  CheckCircle2,
+  ClipboardList
 } from "lucide-react";
 import { normalizeRole } from "@/lib/auth";
+import PageHeader from "@/components/PageHeader";
+import EmptyState from "@/components/EmptyState";
+import StatusBadge from "@/components/StatusBadge";
 
 type AssignmentList = {
   id: number;
@@ -80,35 +85,18 @@ const AssignmentListPage = async ({
   count = assignmentsResponse.meta?.total ?? 0;
 
   return (
-    <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left">
-      {/* MOODLE BREADCRUMB */}
-      <div className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase tracking-wider font-bold select-none">
-        <Link href="/" className="hover:text-foreground flex items-center gap-1">
-          <Globe className="h-3 w-3" />
-          Home
-        </Link>
-        <span>/</span>
-        <span className="text-foreground">My Assignments</span>
-      </div>
-
-      {/* HEADER SECTION */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 select-none">
-        <div>
-          <span className="text-xs font-extrabold text-[#0038A8] uppercase tracking-wider font-mono">
-            Homework Submission Portals
-          </span>
-          <h1 className="text-xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight leading-tight mt-0.5">
-            Assignments & Tasks
-          </h1>
-        </div>
-
-        {/* Administration Actions */}
-        <div className="flex items-center gap-2 shrink-0">
-          {(role === "admin" || role === "teacher") && (
+    <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left transition-all duration-300 animate-fade-in">
+      {/* PAGE HEADER */}
+      <PageHeader
+        eyebrow="Homework Submission Portals"
+        title="Assignments & Tasks"
+        breadcrumbs={[{ label: "Assignments" }]}
+        actions={
+          (role === "admin" || role === "teacher") && (
             <FormContainer table="assignment" type="create" triggerText="Add Assignment" />
-          )}
-        </div>
-      </div>
+          )
+        }
+      />
 
       {/* FILTER & SEARCH UTILITY */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/60 pb-3 select-none">
@@ -142,14 +130,16 @@ const AssignmentListPage = async ({
 
       {/* ASSIGNMENT ACTIVITIES LIST */}
       {data.length > 0 ? (
-        <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.01)] space-y-3">
+        <div className="space-y-3 w-full">
           {data.map((item) => {
             const isDone = role === "student" ? submittedAssignmentIds.has(item.id) : false;
             return (
               <div 
                 key={item.id} 
-                className="flex items-center justify-between p-4 bg-[#fbf5fc]/40 dark:bg-muted/5 border border-border/40 hover:border-violet-300/50 dark:hover:border-violet-950/30 rounded-2xl transition-all shadow-sm group animate-fade-in"
+                className="relative flex items-center justify-between p-5 bg-card hover:bg-card border border-border/60 hover:border-brand/45 rounded-3xl transition-all duration-300 shadow-[0_2px_8px_rgba(0,0,0,0.02)] hover:shadow-sm hover:-translate-y-[1px] group overflow-hidden"
               >
+                {/* Left Active/Hover Indicator Bar */}
+                <span className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-3xl bg-brand opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <div className="flex items-center gap-4 max-w-[70%] w-full">
                   <div className="flex flex-col text-left gap-0.5 w-full">
                     <span className="text-sm font-extrabold text-foreground tracking-tight leading-snug group-hover:text-[#0038A8] transition-colors">
@@ -226,13 +216,20 @@ const AssignmentListPage = async ({
           })}
         </div>
       ) : (
-        <div className="bg-card border border-border/60 rounded-3xl p-12 text-center text-muted-foreground select-none">
-          <p className="text-sm font-bold">No assignments registered in database.</p>
-        </div>
+        <EmptyState
+          icon={ClipboardList}
+          title="No Assignments Found"
+          description="Assigned tasks and homework portals will appear here. Start by creating an assignment."
+          action={
+            (role === "admin" || role === "teacher") && (
+              <FormContainer table="assignment" type="create" triggerText="Add Assignment" />
+            )
+          }
+        />
       )}
 
       {/* PAGINATION PANEL */}
-      <div className="bg-card border border-border/60 rounded-3xl p-4 shadow-sm flex justify-center select-none shrink-0">
+      <div className="flex justify-center select-none shrink-0 pt-2">
         <Pagination page={p} count={count} />
       </div>
     </div>

@@ -5,13 +5,12 @@ from app.middleware.guard.permission import PermissionGuard
 from app.config.session import get_db
 from app.services.grade_level_service import GradeLevelService
 from app.schemas.grade_level import GradeLevelCreate, GradeLevelUpdate, GradeLevelResponse
+from app.models.user import User
 
 grade_level_router = APIRouter(prefix="/grade-levels", tags=["Grade Levels"])
-grade_level_alias_router = APIRouter(prefix="/grade_level", tags=["Grade Levels"])
 
-@grade_level_alias_router.get("")
-def get_all_grade_levels_alias(page: int = 1, limit: int = 10, db: Session = Depends(get_db)):
-    return GradeLevelService.get_grade_levels(db, page, limit)
+# NOTE: The deprecated /grade_level alias router has been removed to avoid duplicate
+# public endpoints. Clients should use /grade-levels.
 
 
 # ── Static paths ──────────────────────────────────────────────────────────────
@@ -26,7 +25,12 @@ def setup_form(db: Session = Depends(get_db)):
 
 
 @grade_level_router.get("")
-def get_all_grade_levels(page: int = 1, limit: int = 10, db: Session = Depends(get_db)):
+def get_all_grade_levels(
+    page: int = 1,
+    limit: int = 10,
+    db: Session = Depends(get_db),
+    _: User = Depends(PermissionGuard.get_current_user),
+):
     return GradeLevelService.get_grade_levels(db, page, limit)
 
 
@@ -50,7 +54,11 @@ def create_grade_level(
 
 
 @grade_level_router.get("/{level_id}", response_model=GradeLevelResponse)
-def get_grade_level(level_id: int, db: Session = Depends(get_db)):
+def get_grade_level(
+    level_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(PermissionGuard.get_current_user),
+):
     return GradeLevelService.get_grade_level_by_id(db, level_id)
 
 
@@ -81,5 +89,9 @@ def delete_grade_level(level_id: int, db: Session = Depends(get_db)):
 
 
 @grade_level_router.get("/{level_id}/classes")
-def get_grade_level_classes(level_id: int, db: Session = Depends(get_db)):
+def get_grade_level_classes(
+    level_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(PermissionGuard.get_current_user),
+):
     return GradeLevelService.get_grade_level_classes(db, level_id)

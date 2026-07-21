@@ -4,11 +4,14 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { 
-  Globe, Calendar, Clock, BookOpen, FileText, CheckCircle2, 
+  Calendar, Clock, BookOpen, FileText, CheckCircle2, 
   AlertTriangle, Search, ChevronDown, ChevronUp, User, Activity, ArrowUpDown, Check, ListFilter 
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "react-toastify";
+import PageHeader from "@/components/PageHeader";
+import EmptyState from "@/components/EmptyState";
+import StatusBadge from "@/components/StatusBadge";
 
 type AttendanceList = {
   id: number;
@@ -114,20 +117,15 @@ export default function AttendanceListPage() {
   };
 
   const getStatusBadge = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "present":
-        return <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-100 font-extrabold text-[9px] rounded-lg uppercase tracking-wider select-none">Present</span>;
-      case "late":
-        return <span className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-100 font-extrabold text-[9px] rounded-lg uppercase tracking-wider select-none">Late</span>;
-      case "absent":
-        return <span className="px-2 py-0.5 bg-rose-50 text-rose-700 border border-rose-100 font-extrabold text-[9px] rounded-lg uppercase tracking-wider select-none">Absent</span>;
-      case "excused":
-        return <span className="px-2 py-0.5 bg-purple-50 text-purple-700 border border-purple-100 font-extrabold text-[9px] rounded-lg uppercase tracking-wider select-none">Excused</span>;
-      case "online":
-        return <span className="px-2 py-0.5 bg-sky-50 text-sky-700 border border-sky-100 font-extrabold text-[9px] rounded-lg uppercase tracking-wider select-none">Online</span>;
-      default:
-        return <span className="px-2 py-0.5 bg-slate-50 text-slate-700 border border-slate-100 font-extrabold text-[9px] rounded-lg uppercase tracking-wider select-none">{status}</span>;
-    }
+    const s = status.toLowerCase();
+    const variantMap: Record<string, any> = {
+      present: "present",
+      late: "late",
+      absent: "absent",
+      excused: "excused",
+      online: "online"
+    };
+    return <StatusBadge variant={variantMap[s] || "default"} label={status} />;
   };
 
   const toggleCourse = (courseKey: string) => {
@@ -710,36 +708,20 @@ export default function AttendanceListPage() {
   };
 
   return (
-    <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left transition-colors duration-300">
-      
-      {/* BREADCRUMB */}
-      <div className="flex items-center gap-1 text-[11px] font-extrabold text-muted-foreground uppercase tracking-wider mb-2 select-none">
-        <Link href="/" className="hover:text-foreground flex items-center gap-1">
-          <Globe className="h-3 w-3" />
-          Home
-        </Link>
-        <span>/</span>
-        <span className="text-foreground">Attendance</span>
-      </div>
-
-      {/* HEADER SECTION */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 select-none mb-6">
-        <div>
-          <span className="text-xs font-extrabold text-[#0038A8] uppercase tracking-wider font-mono">
-            {role === "student" ? "My Learning Progress" : role === "parent" ? "Student Learning Logs" : "Classroom Logbook Logs"}
-          </span>
-          <h1 className="text-xl md:text-3xl font-black text-slate-800 tracking-tight leading-tight mt-0.5">
-            {role === "student" ? "My Attendance" : role === "parent" ? "Student Attendance" : "Attendance Records"}
-          </h1>
-        </div>
-
-        {/* Instructor workflow routing suggestion */}
-        {(role === "admin" || role === "teacher") && (
-          <span className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-3 py-2 rounded-xl">
-            Go to any Class Detail page to schedule sessions and mark roster sheets.
-          </span>
-        )}
-      </div>
+    <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left transition-all duration-300 animate-fade-in">
+      {/* PAGE HEADER */}
+      <PageHeader
+        eyebrow={role === "student" ? "My Learning Progress" : role === "parent" ? "Student Learning Logs" : "Classroom Logbook Logs"}
+        title={role === "student" ? "My Attendance" : role === "parent" ? "Student Attendance" : "Attendance Records"}
+        breadcrumbs={[{ label: "Attendance" }]}
+        actions={
+          (role === "admin" || role === "teacher") && (
+            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-3 py-2 rounded-xl">
+              Go to any Class Detail page to schedule sessions and mark roster sheets.
+            </span>
+          )
+        }
+      />
 
       {/* CONTENT PANELS BASED ON ROLE */}
       {loading ? (

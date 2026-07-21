@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date
 from typing import Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -89,7 +89,7 @@ class ScheduleSlotService:
         query_teacher = db.query(ScheduleSlot).filter(
             ScheduleSlot.teacher_id == teacher_id,
             ScheduleSlot.day_of_week == day,
-            ScheduleSlot.is_active == True,
+            ScheduleSlot.is_active,
             ScheduleSlot.start_time < end_time,
             ScheduleSlot.end_time > start_time,
         )
@@ -112,7 +112,7 @@ class ScheduleSlotService:
             query_room = db.query(ScheduleSlot).filter(
                 ScheduleSlot.room == room,
                 ScheduleSlot.day_of_week == day,
-                ScheduleSlot.is_active == True,
+                ScheduleSlot.is_active,
                 ScheduleSlot.start_time < end_time,
                 ScheduleSlot.end_time > start_time,
             )
@@ -129,7 +129,7 @@ class ScheduleSlotService:
         query_class = db.query(ScheduleSlot).filter(
             ScheduleSlot.class_id == class_id,
             ScheduleSlot.day_of_week == day,
-            ScheduleSlot.is_active == True,
+            ScheduleSlot.is_active,
             ScheduleSlot.start_time < end_time,
             ScheduleSlot.end_time > start_time,
         )
@@ -228,7 +228,7 @@ class ScheduleSlotService:
         class_id: Optional[int] = None,
     ) -> dict:
         # Load active schedule slots
-        query = db.query(ScheduleSlot).filter(ScheduleSlot.is_active == True)
+        query = db.query(ScheduleSlot).filter(ScheduleSlot.is_active)
         if class_id is not None:
             query = query.filter(ScheduleSlot.class_id == class_id)
         slots = query.all()
@@ -263,7 +263,7 @@ class ScheduleSlotService:
                         teacher_id=s.teacher_id,
                         schedule_slot_id=s.id,
                         title=f"{subj_name} Lecture",
-                        description=f"Weekly scheduled session generated automatically.",
+                        description="Weekly scheduled session generated automatically.",
                         date=current_day,
                         start_time=s.start_time,
                         end_time=s.end_time,

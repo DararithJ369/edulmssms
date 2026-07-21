@@ -1,18 +1,20 @@
-from fastapi import APIRouter, Depends, HTTPException, Header, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Header
 from fastapi.responses import StreamingResponse, FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from typing import Optional, List
-from pathlib import Path
+from typing import Optional
 from pydantic import BaseModel
 
 from app.config.session import get_db
 from app.config.security import get_current_user
 from app.models.user import User
 from app.models.course import Lesson
+from app.models.enrollment import Enrollment
+from app.models.user_profile import UserProfile
 from app.models.video_progress import StudentVideoProgress
 from app.models.lesson_note import StudentLessonNote
 from app.models.progress import StudentLessonProgress
+from app.services.storage import StorageService
 from app.routes.progress import recalculate_course_progress
 
 router = APIRouter(prefix="/lessons", tags=["Video Learning"])
@@ -39,6 +41,22 @@ def range_stream(file_path: str, start: int, end: int, chunk_size: int = 1024 * 
             yield chunk
 
 
+def _is_enrolled_for_lesson(db: Session, user: User, lesson: Lesson) -> bool:
+    """Return True if the user is the instructor, admin, or an enrolled student for the lesson's course."""
+    if user.is_superuser:
+        return True
+    if lesson.module and lesson.module.course and str(lesson.module.course.instructor_id) == str(user.id):
+        return True
+    profile = db.query(UserProfile).filter(UserProfile.user_id == str(user.id)).first()
+    if not profile or not profile.student_profile:
+        return False
+    return db.query(Enrollment).filter(
+        Enrollment.student_profile_id == profile.student_profile.id,
+        Enrollment.course_id == lesson.module.course_id,
+        Enrollment.is_active
+    ).first() is not None
+
+
 @router.get("/{lesson_id}/video/stream")
 def stream_lesson_video(
     lesson_id: int,
@@ -53,18 +71,25 @@ def stream_lesson_video(
     if not lesson:
         raise HTTPException(status_code=404, detail="Lesson not found")
 
+    if not _is_enrolled_for_lesson(db, current_user, lesson):
+        raise HTTPException(status_code=403, detail="You are not enrolled in this course")
+
     file_url = lesson.material_file
     if not file_url:
         raise HTTPException(status_code=404, detail="No video file uploaded for this lesson")
 
-    # Resolve URL path on disk
+    # Resolve URL path on disk using the configured upload folder
     if file_url.startswith("http"):
-        parts = file_url.split("/uploads/")
-        relative_path = "uploads/" + parts[-1] if len(parts) > 1 else file_url
-    else:
-        relative_path = file_url
+        # For Cloudinary URLs, redirect to the CDN rather than proxying locally
+        raise HTTPException(status_code=302, headers={"Location": file_url})
 
-    file_path = Path("/Users/mac/Documents/School ITC/Year3/wdim/lms-fastapi/backend") / relative_path
+    relative_path = file_url
+    if relative_path.startswith("/"):
+        relative_path = relative_path[1:]
+    if ".." in relative_path:
+        raise HTTPException(status_code=400, detail="Invalid file path")
+
+    file_path = StorageService.get_local_path(relative_path)
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="Video file not found on disk")
 

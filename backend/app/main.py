@@ -1,16 +1,17 @@
-from fastapi import FastAPI, Depends, APIRouter, HTTPException, status
+from fastapi import FastAPI, Depends, APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config import get_db, settings
+from app.config.logger import app_logger
 from app.middleware.guard.permission import PermissionGuard
+from sqlalchemy import text
 from app.routes import (
     auth_router,
     user_router,
     grade_level_router,
-    grade_level_alias_router,
     academic_year_router,
     class_router,
     subject_router,
@@ -47,8 +48,6 @@ from app.routes.profiles import profiles_router
 
 public_routes = [auth_router]
 
-from app.config.session import engine
-from app.config.base import Base
 
 from app.models import *  # ensures all tables are known
 
@@ -60,6 +59,20 @@ app = FastAPI(
     title="SMS + LMS API",
     version="1.0.0"
 )
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+        return response
+
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 
 def migrate_lessons_to_materials(db):
@@ -109,7 +122,7 @@ def migrate_lessons_to_materials(db):
             db.add(material)
         db.commit()
     except Exception as e:
-        print(f"Error migrating lessons to materials: {e}")
+        app_logger.warning(f"Lesson-to-material migration skipped: {e}")
 
 
 @app.on_event("startup")
@@ -123,9 +136,11 @@ def startup_event():
 
 
 # CORS (needed for frontend)
+# Use the configured allow-list. In production, never use "*" with allow_credentials=True.
+cors_origins = settings.BACKEND_CORS_ORIGINS or ["http://localhost:3000", "http://127.0.0.1:3000"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # change later in production
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -133,7 +148,7 @@ app.add_middleware(
 
 
 permission = PermissionGuard.admin_only
-print("Admin-only routes will be protected with PermissionGuard")
+app_logger.info("Admin-only routes will be protected with PermissionGuard")
 
 # Routes already have their own per-endpoint protection via @route_decorator(..., dependencies=[Depends(...)]),
 # so we don't apply global protection here.
@@ -144,7 +159,6 @@ router.include_router(router=user_router)
 router.include_router(router=profiles_router)
 router.include_router(router=dashboard_router)
 router.include_router(router=grade_level_router)
-router.include_router(router=grade_level_alias_router)
 router.include_router(router=academic_year_router)
 router.include_router(router=class_router)
 router.include_router(router=course_router)
@@ -176,13 +190,12 @@ router.include_router(router=certificates_router)
 
 
 
-# Serve static files from the "uploads" directory
+# Serve static files from the "public" directory only (frontend assets)
 from pathlib import Path
-backend_root = Path(__file__).parent.parent
-uploads_path = str(backend_root / "uploads")
 public_path = str(Path(__file__).parent / "public")
 
-app.mount("/uploads", StaticFiles(directory=uploads_path), name="uploads")
+# NOTE: The /uploads mount has been removed. Private files must be accessed
+# through the authenticated /api/v1/storage/private endpoint.
 app.mount("/public", StaticFiles(directory=public_path), name="public")
 
 app.include_router(router)
@@ -197,3 +210,17 @@ def home():
 @app.get(router.prefix + "/")
 def read_root(db=Depends(get_db)):
     return {"Hello": "World"}
+
+
+@app.get("/health")
+def health_check():
+    return {"status": "healthy"}
+
+
+@app.get("/health/db")
+def health_check_db(db=Depends(get_db)):
+    try:
+        db.execute(text("SELECT 1"))
+        return {"status": "healthy", "database": "connected"}
+    except Exception as e:
+        raise HTTPException(status_code=503, detail={"status": "unhealthy", "database": str(e)})

@@ -38,7 +38,8 @@ def get_all_exams(
     course_id: Optional[int] = None,
     sort_by: Optional[str] = None,
     sort_order: Optional[str] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: User = Depends(PermissionGuard.get_current_user),
 ):
     return ExamService.get_exams(db, page, limit, class_id=class_id, course_id=course_id, sort_by=sort_by, sort_order=sort_order)
 
@@ -56,7 +57,11 @@ def create_exam(payload: ExamCreate, db: Session = Depends(get_db)):
 
 
 @exam_router.get("/{exam_id}", response_model=ExamResponse)
-def get_exam(exam_id: int, db: Session = Depends(get_db)):
+def get_exam(
+    exam_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(PermissionGuard.get_current_user),
+):
     return ExamService.get_exam_by_id(db, exam_id)
 
 

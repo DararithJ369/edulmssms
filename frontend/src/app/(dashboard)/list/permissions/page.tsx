@@ -9,6 +9,8 @@ import {
 import { api } from "@/lib/api";
 import { toast } from "react-toastify";
 import { useDialog } from "@/hooks/DialogProvider";
+import PageHeader from "@/components/PageHeader";
+
 
 type PermissionItem = {
   id: number;
@@ -156,35 +158,22 @@ export default function PermissionsListPage() {
   return (
     <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left transition-all duration-300">
       
-      {/* BREADCRUMB */}
-      <div className="flex items-center gap-1 text-[11px] font-extrabold text-muted-foreground uppercase tracking-wider mb-2 select-none">
-        <Link href="/" className="hover:text-foreground flex items-center gap-1">
-          <Globe className="h-3 w-3" />
-          Home
-        </Link>
-        <span>/</span>
-        <span className="text-foreground">Permissions</span>
-      </div>
+      {/* PAGE HEADER */}
+      <PageHeader
+        eyebrow="System Administration"
+        title="Permissions Catalog"
+        breadcrumbs={[{ label: "Permissions" }]}
+        actions={
+          <button 
+            onClick={handleCreateOpen}
+            className="px-4 py-2 bg-[#0038A8] text-white hover:bg-[#002D86] font-bold text-xs rounded-xl transition-all shadow-sm flex items-center gap-1.5 active:scale-[0.98] cursor-pointer"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Add Permission</span>
+          </button>
+        }
+      />
 
-      {/* HEADER SECTION */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 select-none mb-6">
-        <div>
-          <span className="text-xs font-extrabold text-[#0038A8] uppercase tracking-wider font-mono">
-            System Administration
-          </span>
-          <h1 className="text-xl md:text-3xl font-black text-gray-900 tracking-tight leading-tight mt-0.5">
-            Permissions Catalog
-          </h1>
-        </div>
-
-        <button 
-          onClick={handleCreateOpen}
-          className="px-4 py-2 bg-[#0038A8] text-white hover:bg-[#002D86] font-black text-xs rounded-xl transition-all shadow-md shadow-blue-500/10 flex items-center gap-1.5 active:scale-[0.98]"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Add Permission</span>
-        </button>
-      </div>
 
       {/* FILTER & SEARCH PANEL */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/60 pb-3 select-none">

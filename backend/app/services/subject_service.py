@@ -12,7 +12,7 @@ class SubjectService:
     @staticmethod
     def setup_form(db: Session) -> dict:
         from app.models.role import Role
-        teachers = db.query(User).join(Role).filter(Role.name.in_(["teacher", "instructor"]), User.is_active == True).all()
+        teachers = db.query(User).join(Role).filter(Role.name.in_(["teacher", "instructor"]), User.is_active).all()
         teacher_options = [{"value": t.id, "label": f"{t.username} ({t.email})"} for t in teachers]
         return {
             "fields": {

@@ -34,6 +34,7 @@ from .video_progress import StudentVideoProgress
 from .lesson_note import StudentLessonNote
 from .audit_log import AuditLog
 from .event import Event
+from .refresh_token import RefreshToken
 
 
 

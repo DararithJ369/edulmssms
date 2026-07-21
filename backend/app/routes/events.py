@@ -1,10 +1,10 @@
-from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from app.middleware.guard.permission import PermissionGuard
 from app.config.session import get_db
 from app.services.event_service import EventService
 from app.schemas.event import EventCreate, EventUpdate, EventResponse
+from app.models.user import User
 
 event_router = APIRouter(prefix="/events", tags=["Events"])
 
@@ -13,13 +13,18 @@ event_router = APIRouter(prefix="/events", tags=["Events"])
 def get_all_events(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: User = Depends(PermissionGuard.get_current_user),
 ):
     return EventService.get_events(db, page, limit)
 
 
 @event_router.get("/{event_id}", response_model=EventResponse)
-def get_event(event_id: int, db: Session = Depends(get_db)):
+def get_event(
+    event_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(PermissionGuard.get_current_user),
+):
     return EventService.get_event_by_id(db, event_id)
 
 

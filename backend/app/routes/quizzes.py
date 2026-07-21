@@ -20,13 +20,18 @@ def get_all_quizzes(
     course_id: Optional[int] = None,
     sort_by: Optional[str] = None,
     sort_order: Optional[str] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: User = Depends(PermissionGuard.get_current_user),
 ):
     return QuizService.get_quizzes(db, page, limit, search, class_id=class_id, course_id=course_id, sort_by=sort_by, sort_order=sort_order)
 
 
 @quiz_router.get("/{quiz_id}", response_model=QuizResponse)
-def get_quiz(quiz_id: int, db: Session = Depends(get_db)):
+def get_quiz(
+    quiz_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(PermissionGuard.get_current_user),
+):
     return QuizService.get_quiz_by_id(db, quiz_id)
 
 

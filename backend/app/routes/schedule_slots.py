@@ -6,6 +6,7 @@ from app.middleware.guard.permission import PermissionGuard
 from app.config.session import get_db
 from app.services.schedule_slot_service import ScheduleSlotService
 from app.schemas.schedule_slot import ScheduleSlotCreate, ScheduleSlotUpdate, ScheduleSlotResponse
+from app.models.user import User
 
 schedule_slot_router = APIRouter(prefix="/schedule-slots", tags=["Schedule Slots"])
 
@@ -17,7 +18,8 @@ def get_slots(
     class_id: Optional[int] = Query(None),
     teacher_id: Optional[str] = Query(None),
     room: Optional[str] = Query(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: User = Depends(PermissionGuard.get_current_user),
 ):
     return ScheduleSlotService.get_slots(db, page, limit, class_id, teacher_id, room)
 
@@ -35,7 +37,11 @@ def generate_sessions(
 
 
 @schedule_slot_router.get("/{slot_id}", response_model=ScheduleSlotResponse)
-def get_slot(slot_id: int, db: Session = Depends(get_db)):
+def get_slot(
+    slot_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(PermissionGuard.get_current_user),
+):
     return ScheduleSlotService.get_slot_by_id(db, slot_id)
 
 

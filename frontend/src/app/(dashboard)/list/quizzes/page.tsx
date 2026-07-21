@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import Pagination from "@/components/Pagination";
 import TableSearch from "@/components/TableSearch";
 import TableRowActions from "@/components/TableRowActions";
@@ -7,10 +9,13 @@ import { ITEM_PER_PAGE } from "@/lib/settings";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { 
-  Globe, 
   CheckCircle2,
-  Plus
+  Plus,
+  HelpCircle
 } from "lucide-react";
+import PageHeader from "@/components/PageHeader";
+import EmptyState from "@/components/EmptyState";
+import StatusBadge from "@/components/StatusBadge";
 
 const normalizeRole = (role: string | null | undefined) => {
   if (role === "instructor") return "teacher";
@@ -88,37 +93,23 @@ const QuizListPage = async ({
   count = quizzesResponse.meta?.total ?? 0;
 
   return (
-    <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left">
-      {/* MOODLE BREADCRUMB */}
-      <div className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase tracking-wider font-bold select-none">
-        <Link href="/" className="hover:text-foreground flex items-center gap-1">
-          <Globe className="h-3 w-3" />
-          Home
-        </Link>
-        <span>/</span>
-        <span className="text-foreground">My Quizzes</span>
-      </div>
-
-      {/* HEADER SECTION */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 select-none">
-        <div>
-          <span className="text-xs font-extrabold text-[#0038A8] uppercase tracking-wider font-mono">
-            Interactive Evaluations
-          </span>
-          <h1 className="text-xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight leading-tight mt-0.5">
-            Quizzes & Automated Feedback
-          </h1>
-        </div>
-
-        {/* Action Button for Lecturers/Admins */}
-        {(role === "admin" || role === "teacher") && (
-          <Link href="/list/quizzes/create">
-            <button className="px-4 py-2 bg-[#0038A8] hover:bg-[#002D86] text-white text-xs font-black rounded-xl transition-all shadow-md shadow-blue-500/10 flex items-center gap-1.5 active:scale-[0.98]">
+    <div className="flex-1 p-6 space-y-6 bg-[#F7F8FA] min-h-screen relative font-sans text-left transition-all duration-300 animate-fade-in">
+      {/* PAGE HEADER */}
+      <PageHeader
+        eyebrow="Interactive Evaluations"
+        title="Quizzes & Automated Feedback"
+        breadcrumbs={[{ label: "Quizzes" }]}
+        actions={
+          (role === "admin" || role === "teacher") && (
+            <Link
+              href="/list/quizzes/create"
+              className="px-4 py-2 bg-brand hover:bg-brand-dark text-white text-xs font-semibold rounded-xl transition-all shadow-sm flex items-center gap-1.5 active:scale-[0.98] cursor-pointer"
+            >
               <Plus className="h-4 w-4" /> Create Quiz
-            </button>
-          </Link>
-        )}
-      </div>
+            </Link>
+          )
+        }
+      />
 
       {/* FILTER & SEARCH UTILITY */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/60 pb-3 select-none">
@@ -152,14 +143,16 @@ const QuizListPage = async ({
 
       {/* QUIZ ACTIVITIES LIST */}
       {data.length > 0 ? (
-        <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.01)] space-y-3">
+        <div className="space-y-3 w-full">
           {data.map((item) => {
             const isDone = completedQuizIds.has(item.id);
             return (
               <div 
                 key={item.id} 
-                className="flex items-center justify-between p-4 bg-[#fbf5fc]/40 dark:bg-muted/5 border border-border/40 hover:border-violet-300/50 dark:hover:border-violet-950/30 rounded-2xl transition-all shadow-sm group animate-fade-in"
+                className="relative flex items-center justify-between p-5 bg-card hover:bg-card border border-border/60 hover:border-brand/45 rounded-3xl transition-all duration-300 shadow-[0_2px_8px_rgba(0,0,0,0.02)] hover:shadow-sm hover:-translate-y-[1px] group overflow-hidden"
               >
+                {/* Left Active/Hover Indicator Bar */}
+                <span className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-3xl bg-brand opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <div className="flex items-center gap-4 max-w-[70%] w-full">
                   <div className="flex flex-col text-left gap-0.5 w-full">
                     <span className="text-sm font-extrabold text-foreground tracking-tight leading-snug group-hover:text-[#0038A8] transition-colors">
@@ -234,12 +227,25 @@ const QuizListPage = async ({
           })}
         </div>
       ) : (
-        <div className="bg-card border border-border/60 rounded-3xl p-12 text-center text-muted-foreground select-none">
-          <p className="text-sm font-bold">No academic quizzes registered in database.</p>
-        </div>
+        <EmptyState
+          icon={HelpCircle}
+          title="No Quizzes Found"
+          description="Interactive evaluations and quizzes will appear here. Start by creating a quiz."
+          action={
+            (role === "admin" || role === "teacher") && (
+              <Link
+                href="/list/quizzes/create"
+                className="px-4 py-2 bg-brand hover:bg-brand-dark text-white text-xs font-semibold rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="h-4 w-4" /> Create Quiz
+              </Link>
+            )
+          }
+        />
       )}
 
-      <div className="bg-card border border-border/60 rounded-3xl p-4 shadow-sm flex justify-center select-none shrink-0">
+      {/* PAGINATION PANEL */}
+      <div className="flex justify-center select-none shrink-0 pt-2">
         <Pagination page={p} count={count} />
       </div>
     </div>

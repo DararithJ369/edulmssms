@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.engine import Engine
 
 from app.db.seed.base import BaseSeeder
-from app.models.course import Lesson, Course, Module
+from app.models.course import Lesson, Course
 from app.models.lesson_material import LessonMaterial
 from app.utils.colors import Colors
 

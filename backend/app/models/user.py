@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from sqlalchemy import Column, String, Boolean, DateTime, Integer, ForeignKey, Table
+from sqlalchemy import Column, String, Boolean, DateTime, Integer, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.config.base import Base
@@ -25,6 +25,7 @@ class User(Base):
     profile = relationship("UserProfile", back_populates="user", uselist=False, lazy="selectin")
     subjects = relationship("Subject", back_populates="instructor", lazy="select")
     courses = relationship("Course", foreign_keys="Course.instructor_id", lazy="select", overlaps="instructor")
+    refresh_tokens = relationship("RefreshToken", back_populates="user", lazy="select", cascade="all, delete-orphan")
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

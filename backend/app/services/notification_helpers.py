@@ -27,7 +27,7 @@ def notify_enrolled_students(
 
         enrollments = (
             db.query(Enrollment)
-            .filter(Enrollment.course_id == course_id, Enrollment.is_active == True)
+            .filter(Enrollment.course_id == course_id, Enrollment.is_active)
             .all()
         )
 

@@ -6,6 +6,7 @@ from app.config.session import get_db
 from app.services.academic_year_service import AcademicYearService
 from app.schemas.academic_year import AcademicYearCreate, AcademicYearUpdate, AcademicYearResponse
 from app.schemas.term import TermCreate, TermUpdate, TermResponse
+from app.models.user import User
 from datetime import date
 
 academic_year_router = APIRouter(prefix="/academic-years", tags=["Academic Years"])
@@ -13,7 +14,10 @@ academic_year_router = APIRouter(prefix="/academic-years", tags=["Academic Years
 
 # ── Static paths — MUST be before /{year_id} ─────────────────────────────────
 @academic_year_router.get("/current", response_model=AcademicYearResponse)
-def get_current_year(db: Session = Depends(get_db)):
+def get_current_year(
+    db: Session = Depends(get_db),
+    _: User = Depends(PermissionGuard.get_current_user),
+):
     return AcademicYearService.get_current(db)
 
 
@@ -86,7 +90,11 @@ def create_academic_year(
 # ── Dynamic /{year_id} — MUST be last ────────────────────────────────────────
 
 @academic_year_router.get("/{year_id}", response_model=AcademicYearResponse)
-def get_academic_year(year_id: int, db: Session = Depends(get_db)):
+def get_academic_year(
+    year_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(PermissionGuard.get_current_user),
+):
     return AcademicYearService.get_academic_year_by_id(db, year_id)
 
 
@@ -121,7 +129,11 @@ def delete_academic_year(year_id: int, db: Session = Depends(get_db)):
 # ── Terms (sub-resource) ──────────────────────────────────────────────────────
 
 @academic_year_router.get("/{year_id}/terms")
-def get_terms(year_id: int, db: Session = Depends(get_db)):
+def get_terms(
+    year_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(PermissionGuard.get_current_user),
+):
     return AcademicYearService.get_terms(db, year_id)
 
 
